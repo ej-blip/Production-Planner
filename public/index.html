@@ -142,6 +142,61 @@
       font-weight: 700;
     }
 
+    /* ============================================================
+       DAILY PLAN STATUS (saved online in Firebase)
+       ============================================================ */
+    .plan-status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: -8px 0 18px;
+      padding: 10px 12px;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.72);
+    }
+
+    .plan-status-pill {
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: #334155;
+      color: #e2e8f0;
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .plan-status-pill.draft { background: #78350f; color: #fef3c7; }
+    .plan-status-pill.released { background: #14532d; color: #dcfce7; }
+    .plan-status-pill.error { background: #7f1d1d; color: #fee2e2; }
+
+    .plan-status-text {
+      color: #cbd5e1;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .plan-status-text .unsaved {
+      color: #fde68a;
+    }
+
+    .plan-status-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .plan-status-actions button {
+      margin: 0;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
     body.mixed-work-active .single-work-only {
       display: none !important;
     }
@@ -1208,6 +1263,7 @@
          ========================================================== -->
     <div class="tabs">
       <button class="tab-button" onclick="openWorkerAdmin()">Worker Admin</button>
+      <button class="tab-button" onclick="lockPlannerScreen()">Lock screen</button>
       <div id="activeUnitBadge" class="active-unit-badge">Active Unit: Gen4</div>
     </div>
 
@@ -1219,6 +1275,19 @@
       <button id="singleWorkModeButton" type="button" class="work-mode-button active" onclick="setWorkDayMode('single')">Single Build</button>
       <button id="mixedWorkModeButton" type="button" class="work-mode-button" onclick="setWorkDayMode('mixed')">Mixed Work Day</button>
       <span id="workModeSummary" class="work-mode-summary">One product / network setup</span>
+    </div>
+
+    <!-- ==========================================================
+         DAILY PLAN STATUS: SAVE DRAFT / RELEASE TO THE BENCHES
+         ========================================================== -->
+    <div id="planStatusBar" class="plan-status-bar" aria-live="polite">
+      <span class="work-mode-label">Plan</span>
+      <span id="planStatusPill" class="plan-status-pill">Loading…</span>
+      <span id="planStatusText" class="plan-status-text"></span>
+      <span class="plan-status-actions">
+        <button type="button" id="saveDraftButton" class="secondary" onclick="savePlanDraft()">Save draft</button>
+        <button type="button" id="releasePlanButton" onclick="releaseCurrentPlan()">Release plan</button>
+      </span>
     </div>
 
     <!-- ==========================================================
@@ -1440,7 +1509,7 @@
       <div class="modal-header">
         <div>
           <h2 id="workerAdminTitle" style="margin-bottom:6px;">Worker Admin</h2>
-          <div class="small">Changes are saved in this browser using localStorage and are used by the calculator when assigning workers.</div>
+          <div class="small">Changes are saved online and shared with every Production Planner screen.</div>
         </div>
         <button class="secondary" onclick="closeWorkerAdmin()">Close</button>
       </div>
@@ -1477,6 +1546,8 @@
   </div>
 
   <!-- External dependencies: Tesseract.js for roster-header date OCR, html2canvas for JPEG workflow export. -->
+  <!-- Firebase: management PIN, staff, colours and daily plans. -->
+  <script type="module" src="js/planner-data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
@@ -1620,7 +1691,41 @@
     /* ============================================================
        07. INITIALIZATION / EVENT WIRING
        ============================================================ */
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", boot);
+
+    /* Startup: unlock with the management PIN, load staff and colours from
+       Firebase, start the calculator, then open the plan for the selected date.
+       If Firebase can't be reached the calculator still works, but nothing is
+       saved online and the status bar says so. */
+    async function boot() {
+      const data = await waitForPlannerData(20000);
+      if (data) {
+        try {
+          const reference = await data.start();
+          applyRemoteStaff(reference.staff);
+          applyRemotePresets(reference.presets);
+        } catch (error) {
+          currentPlanState = { date: "", status: "error", error: data.friendlyError(error) };
+        }
+      } else {
+        currentPlanState = { date: "", status: "error", error: "Firebase can't be reached, so nothing is being saved online." };
+      }
+
+      init();
+      renderPlanStatus();
+      if (data && currentPlanState.status !== "error") await loadPlanForSelectedDate();
+    }
+
+    function waitForPlannerData(timeoutMs) {
+      if (window.plannerData) return Promise.resolve(window.plannerData);
+      return new Promise(resolve => {
+        const timer = setTimeout(() => resolve(window.plannerData || null), timeoutMs);
+        window.addEventListener("plannerdata-ready", () => {
+          clearTimeout(timer);
+          resolve(window.plannerData);
+        }, { once: true });
+      });
+    }
 
     function init() {
       populateWorkerControls();
@@ -1636,10 +1741,13 @@
 
       document.getElementById("rosterImage").addEventListener("change", handleImageUpload);
       document.getElementById("daySelect").addEventListener("change", () => {
-        syncPlanDateToDetectedRoster();
-        calculateFromRoster();
+        shiftPlanDateToSelectedDay();
+        loadPlanForSelectedDate();
       });
-      document.getElementById("planDate").addEventListener("input", calculateFromRoster);
+      document.getElementById("planDate").addEventListener("change", () => {
+        syncDaySelectToPlanDate();
+        loadPlanForSelectedDate();
+      });
 
       document.getElementById("unitType").addEventListener("change", () => {
         syncSingleControlsToWorkMix();
@@ -1775,12 +1883,69 @@
       return `${base}-${String(index).replace(/\D/g, "").slice(-6) || Date.now()}`;
     }
 
+    /* Worker Admin is saved online (shared by every screen) and cached in
+       this browser so the page can draw straight away next time. */
     function persistWorkerConfig() {
+      cacheWorkerConfig();
+      if (!window.plannerData) {
+        window.alert("Worker Admin was saved on this computer only: Firebase can't be reached.");
+        return;
+      }
+      window.plannerData.saveStaff(workerMap).catch(error => {
+        window.alert(`Worker Admin couldn't be saved online: ${window.plannerData.friendlyError(error)}`);
+      });
+    }
+
+    function cacheWorkerConfig() {
       try {
         localStorage.setItem(WORKER_STORAGE_KEY, JSON.stringify(workerMap));
       } catch (error) {
-        console.warn("Worker config could not be saved to localStorage.", error);
+        // Optional cache only.
       }
+    }
+
+    function applyRemoteStaff(staff) {
+      if (!Array.isArray(staff) || staff.length === 0) return;
+      workerMap = staff
+        .map((person, index) => normalizeWorkerConfig({
+          key: person.key,
+          name: person.name,
+          first: person.firstName,
+          team: person.team,
+          priorityRank: person.priorityRank,
+          preferredBenches: person.preferredBenches,
+          restrictedBenches: person.restrictedBenches,
+          rosterIndex: Number.isInteger(person.rosterRow) ? person.rosterRow : null
+        }, index))
+        .sort(compareByRosterThenPriority);
+      cacheWorkerConfig();
+    }
+
+    /* Configuration colours come from Firebase (configPresets). */
+    function applyRemotePresets(presets) {
+      const active = (presets || [])
+        .filter(preset => preset && preset.active !== false)
+        .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+      if (active.length === 0) return;
+
+      Object.keys(sensorConfigurations).forEach(key => delete sensorConfigurations[key]);
+      active.forEach(preset => {
+        sensorConfigurations[preset.key] = {
+          label: preset.label || preset.key,
+          connector: preset.connector || "",
+          middlePhaseSensor: preset.sensors || "",
+          powerCable: preset.powerCable || "",
+          coaxCableLength: preset.sensorCable || "",
+          colourHex: preset.colourHex || ""
+        };
+      });
+
+      const select = document.getElementById("sensorConfig");
+      const previous = select.value;
+      select.innerHTML = active
+        .map(preset => `<option value="${safeAttr(preset.key)}">${escapeHtml(preset.label || preset.key)}</option>`)
+        .join("");
+      select.value = sensorConfigurations[previous] ? previous : (sensorConfigurations.blue ? "blue" : active[0].key);
     }
 
     function openWorkerAdmin() {
@@ -1924,12 +2089,14 @@
       const planDate = document.getElementById("planDate");
       const daySelect = document.getElementById("daySelect");
       if (planDate && !planDate.value) {
-        const today = new Date();
-        planDate.value = dateToInputValue(today);
-        const weekday = today.getDay();
-        if (weekday >= 1 && weekday <= 5 && daySelect) {
-          daySelect.value = DAYS[weekday - 1];
-        }
+        // Plans are made the day before, so start on the next working day.
+        const next = new Date();
+        next.setHours(12, 0, 0, 0);
+        do {
+          next.setDate(next.getDate() + 1);
+        } while (next.getDay() === 0 || next.getDay() === 6);
+        planDate.value = dateToInputValue(next);
+        if (daySelect) daySelect.value = DAYS[next.getDay() - 1];
       }
     }
 
@@ -5254,6 +5421,346 @@
       renderWorkflowChart(result, day, commsType, unitType);
       enhanceCollapsibleSections();
       updateStationAssignmentHint();
+
+      if (!loadingPlan) {
+        planDirty = true;
+        renderPlanStatus();
+      }
+    }
+
+    /* ============================================================
+       DAILY PLANS IN FIREBASE: LOAD / SAVE DRAFT / RELEASE
+       One plan per date. Drafts are only seen by management; a
+       released plan, its bench assignments and its log are what the
+       bench screens read.
+       ============================================================ */
+    let currentPlanState = { date: "", status: "loading" };
+    let planDirty = false;
+    let loadingPlan = false;
+    let planBusy = false;
+    let planLoadSequence = 0;
+
+    function planDateValue() {
+      return document.getElementById("planDate").value;
+    }
+
+    function syncDaySelectToPlanDate() {
+      const value = planDateValue();
+      if (!value) return;
+      const weekday = parseInputDateLocal(value).getDay();
+      if (weekday >= 1 && weekday <= 5) document.getElementById("daySelect").value = DAYS[weekday - 1];
+    }
+
+    // Picking a day moves the date to that weekday in the same week.
+    function shiftPlanDateToSelectedDay() {
+      if (syncPlanDateToDetectedRoster()) return;
+      const value = planDateValue();
+      if (!value) return;
+      const date = parseInputDateLocal(value);
+      const monday = new Date(date);
+      monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+      const target = new Date(monday);
+      target.setDate(monday.getDate() + Math.max(0, DAYS.indexOf(document.getElementById("daySelect").value)));
+      document.getElementById("planDate").value = dateToInputValue(target);
+    }
+
+    async function loadPlanForSelectedDate() {
+      const date = planDateValue();
+      if (!date || !window.plannerData || currentPlanState.status === "error" && !currentPlanState.date) {
+        calculateFromRoster();
+        return;
+      }
+
+      const requestId = ++planLoadSequence;
+      currentPlanState = { date, status: "loading" };
+      renderPlanStatus();
+
+      let loaded = null;
+      let loadError = null;
+      try {
+        loaded = await window.plannerData.loadDay(date);
+      } catch (error) {
+        loadError = error;
+      }
+      if (requestId !== planLoadSequence) return;   // a newer date was picked meanwhile
+
+      loadingPlan = true;
+      try {
+        if (loaded?.plan) applySavedPlan(loaded.plan);
+        if (loaded?.roster) applySavedRoster(loaded.roster);
+        currentPlanState = loadError
+          ? { date, status: "error", error: window.plannerData.friendlyError(loadError) }
+          : {
+              date,
+              status: loaded?.plan?.status || "none",
+              plannedTarget: loaded?.plan?.plannedTarget ?? null,
+              currentTarget: loaded?.plan?.currentTarget ?? null
+            };
+        calculateFromRoster();
+      } finally {
+        loadingPlan = false;
+        planDirty = false;
+        renderPlanStatus();
+      }
+    }
+
+    function applySavedPlan(plan) {
+      workDayMode = plan.workMode === "mixed" ? "mixed" : "single";
+      workBatches = Array.isArray(plan.batches) && plan.batches.length
+        ? plan.batches.map((batch, index) => normalizeWorkBatch(batch, index))
+        : [batchFromSingleControls()];
+      applyPrimaryBatchToSingleControls();
+      applyWorkDayModeUi();
+      renderWorkMixTable();
+      saveWorkMixState();
+
+      stationAdjustments = Array.isArray(plan.adjustments)
+        ? plan.adjustments.filter(adjustment => adjustment && adjustment.workerKey)
+        : [];
+      lastStationIssues = [];
+      document.getElementById("notesInstructions").value = plan.notes || "";
+      renderStationAdjustmentList();
+    }
+
+    // The saved roster for this date becomes the day's starting availability.
+    // Uploading a new roster image afterwards replaces it, as before.
+    function applySavedRoster(roster) {
+      const day = document.getElementById("daySelect").value;
+      rawRosterStatusByDay[day] = {};
+      Object.entries(roster.entries || {}).forEach(([workerKey, entry]) => {
+        rawRosterStatusByDay[day][workerKey] = {
+          state: entry?.available ? "available" : "absent",
+          greenRatio: 0,
+          blankRatio: 0
+        };
+      });
+      rosterCorrections = rosterCorrections.filter(correction => correction.day !== day);
+      rebuildCorrectedRoster();
+    }
+
+    function currentPlanTarget() {
+      if (!lastResult) return null;
+      if (workDayMode === "mixed") {
+        return lastResult.mixedCapacity?.possible ? lastResult.mixedCapacity.realisticOutput : null;
+      }
+      return lastResult.possible ? (lastResult.workflowCapacity?.finalOutput ?? lastResult.finalOutput) : null;
+    }
+
+    function buildPlanPayload() {
+      const target = currentPlanTarget();
+      const batches = workDayMode === "single"
+        ? [{ ...batchFromSingleControls(), quantity: target ?? 0 }]
+        : workBatches.map(batch => ({ ...batch }));
+
+      return {
+        day: document.getElementById("daySelect").value,
+        workMode: workDayMode,
+        batches,
+        adjustments: stationAdjustments.map(adjustment => ({
+          workerKey: adjustment.workerKey,
+          phase: adjustment.phase || "start",
+          station: adjustment.station || "",
+          action: adjustment.action === "remove" ? "remove" : "move",
+          customJobName: adjustment.customJobName || ""
+        })),
+        notes: document.getElementById("notesInstructions").value || "",
+        snapshot: buildPlanSnapshot()
+      };
+    }
+
+    // What the bench screens will show: each phase's jobs, people and batch
+    // details, plus the capacity summary at release time.
+    function buildPlanSnapshot() {
+      const model = lastWorkflowModel;
+      const result = lastResult;
+      if (!model || !result) return {};
+
+      const mixed = result.mixedCapacity;
+      const phases = {};
+      WORKFLOW_PHASES.forEach(phase => {
+        phases[phase] = buildWorkflowTasksForPhase(model, mixed, phase).map(task => ({
+          title: task.title,
+          station: task.station,
+          workers: (task.workers || []).map(worker => worker.key),
+          detail: task.detail || "",
+          manual: Boolean(task.manual)
+        }));
+      });
+
+      let capacity = {};
+      if (workDayMode === "mixed" && mixed?.possible) {
+        capacity = {
+          requested: mixed.totalRequested,
+          realistic: mixed.realisticOutput,
+          bottleneck: mixed.bottleneckName || "",
+          stages: { ...mixed.stageCapacityUnits }
+        };
+      } else if (result.workflowCapacity) {
+        capacity = {
+          requested: null,
+          realistic: result.workflowCapacity.finalOutput,
+          bottleneck: result.workflowCapacity.bottleneck?.name || "",
+          stages: { ...result.workflowCapacity.stageCapacityUnits }
+        };
+      }
+
+      return { phases, capacity };
+    }
+
+    function buildPlanAssignments() {
+      const model = lastWorkflowModel;
+      if (!model) return [];
+      const assignments = [];
+      WORKFLOW_PHASES.forEach(phase => {
+        model.phases[phase].forEach((assignment, staffKey) => {
+          assignments.push({
+            phase,
+            station: assignment.station,
+            jobLabel: workflowAssignmentTitle(assignment),
+            staffKey,
+            source: assignment.manual ? "management" : "plan"
+          });
+        });
+      });
+      return assignments;
+    }
+
+    function buildRosterPayload() {
+      const day = document.getElementById("daySelect").value;
+      const entries = {};
+      workerMap
+        .filter(worker => worker.team !== "IGNORE")
+        .forEach(worker => {
+          const status = getEffectiveRosterStatus(worker.key, day);
+          entries[worker.key] = {
+            available: status.state === "available",
+            source: status.manual ? "manual" : "scan"
+          };
+        });
+      return { day, entries };
+    }
+
+    function setPlanBusy(busy) {
+      planBusy = busy;
+      renderPlanStatus();
+    }
+
+    async function savePlanDraft() {
+      const date = planDateValue();
+      if (!date) {
+        window.alert("Choose the Selected Day Date first.");
+        return;
+      }
+      if (currentPlanState.status === "released" && currentPlanState.date === date &&
+          !window.confirm("This plan has been released. Saving it as a draft takes it off the bench screens until you release it again.\n\nSave as a draft?")) {
+        return;
+      }
+
+      setPlanBusy(true);
+      try {
+        await window.plannerData.saveDraft(date, buildPlanPayload(), buildRosterPayload());
+        currentPlanState = { date, status: "draft" };
+        planDirty = false;
+      } catch (error) {
+        window.alert(`The draft couldn't be saved: ${window.plannerData.friendlyError(error)}`);
+      } finally {
+        setPlanBusy(false);
+      }
+    }
+
+    async function releaseCurrentPlan() {
+      const date = planDateValue();
+      const target = currentPlanTarget();
+      if (!date) {
+        window.alert("Choose the Selected Day Date first.");
+        return;
+      }
+      if (target === null || !lastWorkflowModel) {
+        window.alert("There's no valid plan to release yet. Check the roster and the work mix first.");
+        return;
+      }
+
+      const requested = workDayMode === "mixed" ? getWorkMixTotalQuantity() : target;
+      const dayLabel = formatDateForHeader(date, document.getElementById("daySelect").value);
+      const lines = [
+        `Release the plan for ${dayLabel} to the bench screens?`,
+        requested > target
+          ? `Target: ${target} units. ${requested} were requested, which is above capacity.`
+          : `Target: ${target} units.`
+      ];
+      if (currentPlanState.status === "released" && currentPlanState.date === date) {
+        lines.push("This plan was already released. Releasing again replaces the bench assignments, including any changes made at the benches.");
+      }
+      if (!window.confirm(lines.join("\n\n"))) return;
+
+      setPlanBusy(true);
+      try {
+        await window.plannerData.releasePlan(date, buildPlanPayload(), buildRosterPayload(), buildPlanAssignments(), target);
+        currentPlanState = { date, status: "released", plannedTarget: target, currentTarget: target };
+        planDirty = false;
+      } catch (error) {
+        window.alert(`The plan couldn't be released: ${window.plannerData.friendlyError(error)}`);
+      } finally {
+        setPlanBusy(false);
+      }
+    }
+
+    function renderPlanStatus() {
+      const pill = document.getElementById("planStatusPill");
+      const text = document.getElementById("planStatusText");
+      const saveButton = document.getElementById("saveDraftButton");
+      const releaseButton = document.getElementById("releasePlanButton");
+      if (!pill || !text) return;
+
+      const state = currentPlanState;
+      const date = planDateValue();
+      const dayLabel = date ? formatDateForHeader(date, document.getElementById("daySelect").value) : "No date chosen";
+      const pills = {
+        loading: ["Loading…", ""],
+        none: ["Not saved", ""],
+        draft: ["Draft", "draft"],
+        released: ["Released", "released"],
+        error: ["Offline", "error"]
+      };
+      const [pillText, pillClass] = pills[state.status] || pills.none;
+      pill.textContent = planBusy ? "Saving…" : pillText;
+      pill.className = `plan-status-pill ${pillClass}`.trim();
+
+      let message = "";
+      if (state.status === "error") {
+        message = state.error || "Not connected.";
+      } else if (state.status === "loading") {
+        message = `${dayLabel} · opening the saved plan`;
+      } else if (state.status === "released") {
+        message = `${dayLabel} · on the bench screens · target ${state.plannedTarget ?? "–"}`;
+        if (state.currentTarget !== null && state.currentTarget !== undefined && state.currentTarget !== state.plannedTarget) {
+          message += ` · now ${state.currentTarget} after bench changes`;
+        }
+      } else if (state.status === "draft") {
+        message = `${dayLabel} · saved as a draft, not sent to the benches`;
+      } else {
+        message = `${dayLabel} · not saved yet`;
+      }
+      text.textContent = message;
+      if (planDirty && state.status !== "error" && state.status !== "loading") {
+        const unsaved = document.createElement("span");
+        unsaved.className = "unsaved";
+        unsaved.textContent = " · unsaved changes";
+        text.appendChild(unsaved);
+      }
+
+      const offline = state.status === "error" || state.status === "loading" || !window.plannerData;
+      if (saveButton) saveButton.disabled = planBusy || offline;
+      if (releaseButton) {
+        releaseButton.disabled = planBusy || offline;
+        releaseButton.textContent = state.status === "released" ? "Release again" : "Release plan";
+      }
+    }
+
+    async function lockPlannerScreen() {
+      if (planDirty && !window.confirm("There are unsaved changes. Lock the screen anyway?")) return;
+      if (window.plannerData) await window.plannerData.lockScreen();
+      window.location.reload();
     }
 
     /* ============================================================
@@ -5902,6 +6409,7 @@
       const supplied = String(configText || "").trim();
       const standard = configurationComponentSummary(configKey).trim();
       if (supplied && supplied !== standard) return "#111827";
+      if (config.colourHex) return config.colourHex;
       const colours = {
         red: "#b91c1c",
         blue: "#1d4ed8",
