@@ -1,0 +1,180 @@
+rules_version = '2';
+
+// =====================================================================
+// Production Planner — Firestore security rules
+//
+// Paste into: Firebase console → Firestore Database → Rules → Publish.
+//
+// Sign-in uses PINs, not email:
+//   • Each screen signs in anonymously (no account), then enters a PIN.
+//   • There is one shared BENCH PIN and one longer MANAGEMENT PIN.
+//   • PINs are stored as documents in pins/{pin} with a role. Screens can't
+//     read that list; a PIN only works if a document with that exact ID exists.
+//   • A screen that entered a PIN gets devices/{its id} = { role, pin }.
+//     If that PIN is later changed or deleted, the screen loses access at once.
+//
+// Who can do what:
+//   management  – full access: roster, build batches, plans, staff, PINs.
+//   bench       – reads staff, colours, rosters and RELEASED plans. On a
+//                 released plan it can move people, log changes and update
+//                 the day's current target. It never sees draft plans.
+//   anyone else – no access.
+//
+// Data layout:
+//   pins/{pin}                       role ('bench' | 'management')
+//   devices/{uid}                    role, pin, createdAt
+//   staff/{staffKey}                 Worker Admin settings
+//   configPresets/{key}              configuration colours
+//   rosters/{YYYY-MM-DD}             who is in on that day
+//   plans/{YYYY-MM-DD}               build batches, status, targets, workflow
+//   plans/{date}/assignments/{id}    who works where, per phase (id = phase_staffKey)
+//   plans/{date}/events/{id}         changes made after release
+// =====================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Who is asking ----------------------------------------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function devicePath() {
+      return /databases/$(database)/documents/devices/$(request.auth.uid);
+    }
+
+    function pinPath(pin) {
+      return /databases/$(database)/documents/pins/$(pin);
+    }
+
+    function pinFormatOk(pin) {
+      return pin is string && pin.matches('^[A-Za-z0-9 _-]{6,64}$');
+    }
+
+    // The screen's role, but only while its PIN still exists with that role.
+    function role() {
+      let device = signedIn() && exists(devicePath()) ? get(devicePath()).data : null;
+      return device != null
+          && pinFormatOk(device.pin)
+          && exists(pinPath(device.pin))
+          && get(pinPath(device.pin)).data.role == device.role
+        ? device.role
+        : '';
+    }
+
+    function isManagement() {
+      return role() == 'management';
+    }
+
+    function isBench() {
+      return role() == 'bench';
+    }
+
+    function isAppUser() {
+      return isManagement() || isBench();
+    }
+
+    // ---------- Checks -------------------------------------------------
+    // Entering a PIN: the role must match the PIN's role.
+    function validDevice() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['role', 'pin', 'createdAt'])
+        && d.keys().hasOnly(['role', 'pin', 'createdAt'])
+        && pinFormatOk(d.pin)
+        && exists(pinPath(d.pin))
+        && get(pinPath(d.pin)).data.role == d.role
+        && d.createdAt == request.time;
+    }
+
+    // Management PIN at least 8 characters, bench PIN at least 6.
+    function validPin(pin) {
+      let d = request.resource.data;
+      return pinFormatOk(pin)
+        && d.keys().hasOnly(['role', 'updatedAt'])
+        && ((d.role == 'management' && pin.size() >= 8) || d.role == 'bench');
+    }
+
+    function planIsReleased(date) {
+      let plan = /databases/$(database)/documents/plans/$(date);
+      return exists(plan) && get(plan).data.status == 'released';
+    }
+
+    // A bench may only change the current target on a released plan.
+    function benchTargetUpdate() {
+      return resource.data.status == 'released'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['currentTarget', 'updatedAt', 'updatedBy'])
+        && request.resource.data.currentTarget is int
+        && request.resource.data.currentTarget >= 0
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // One job per person per phase: the document id must be "phase_staffKey".
+    function validAssignment(assignmentId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['phase', 'station', 'staffKey', 'updatedAt'])
+        && d.keys().hasOnly(['phase', 'station', 'jobLabel', 'batchId', 'staffKey', 'source', 'updatedBy', 'updatedAt'])
+        && d.phase in ['start', 'second', 'finish']
+        && d.station is string && d.station.size() > 0
+        && d.staffKey is string && d.staffKey.size() > 0
+        && assignmentId == d.phase + '_' + d.staffKey
+        && d.updatedAt == request.time;
+    }
+
+    function validEvent() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['bench', 'kind', 'createdAt'])
+        && d.keys().hasOnly(['bench', 'kind', 'staffKey', 'message', 'targetBefore', 'targetAfter', 'createdBy', 'createdAt'])
+        && d.kind in ['released', 'moved', 'removed', 'added', 'target_changed', 'note']
+        && d.createdAt == request.time;
+    }
+
+    // ---------- PINs and signed-in screens -----------------------------
+    match /pins/{pin} {
+      allow read, delete: if isManagement();
+      allow create, update: if isManagement() && validPin(pin);
+    }
+
+    match /devices/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isManagement());
+      allow create, update: if signedIn() && request.auth.uid == uid && validDevice();
+      allow delete: if signedIn() && (request.auth.uid == uid || isManagement());
+    }
+
+    // ---------- Reference data -----------------------------------------
+    match /staff/{staffKey} {
+      allow read: if isAppUser();
+      allow write: if isManagement();
+    }
+
+    match /configPresets/{presetKey} {
+      allow read: if isAppUser();
+      allow write: if isManagement();
+    }
+
+    match /rosters/{date} {
+      allow read: if isAppUser();
+      allow write: if isManagement();
+    }
+
+    // ---------- Daily plans --------------------------------------------
+    match /plans/{date} {
+      allow read: if isManagement() || (isBench() && resource.data.status == 'released');
+      allow create, delete: if isManagement();
+      allow update: if isManagement() || (isBench() && benchTargetUpdate());
+
+      match /assignments/{assignmentId} {
+        allow read: if isManagement() || (isBench() && planIsReleased(date));
+        allow create, update: if isManagement()
+          || (isBench() && planIsReleased(date) && validAssignment(assignmentId));
+        allow delete: if isManagement() || (isBench() && planIsReleased(date));
+      }
+
+      match /events/{eventId} {
+        allow read: if isManagement() || (isBench() && planIsReleased(date));
+        allow create: if isAppUser() && validEvent();
+        allow update, delete: if isManagement();
+      }
+    }
+  }
+}

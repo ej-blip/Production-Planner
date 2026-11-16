@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Local tools (preview server settings, design-checker cache)
+.claude/
+.impeccable/hook.cache.json
+
+# Firebase command-line tool
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Node
+node_modules/

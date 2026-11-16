@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Production Planner Setup</title>
+  <style>
+    :root {
+      --page: #020617;
+      --page-2: #0f172a;
+      --card: rgba(17, 24, 39, 0.94);
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --good: #22c55e;
+      --bad: #f87171;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(135deg, var(--page), var(--page-2));
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    .container { max-width: 860px; margin: 0 auto; }
+    h1 { margin: 0 0 6px; }
+    h2 { margin: 0 0 10px; font-size: 20px; }
+    h3 { margin: 18px 0 8px; font-size: 16px; }
+    p { line-height: 1.5; }
+    .subtitle { color: var(--muted); margin: 0 0 20px; }
+    .hidden { display: none !important; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    label { display: block; color: #cbd5e1; font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+
+    input {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    input:focus { outline: none; border-color: var(--accent); }
+
+    button {
+      padding: 11px 16px;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent);
+      color: #00111f;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button.secondary { background: #334155; color: var(--text); }
+    button.small { padding: 6px 10px; font-size: 13px; }
+    button:disabled { opacity: 0.6; cursor: wait; }
+
+    .inline-form {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .inline-form > div { flex: 1 1 240px; }
+
+    .message { min-height: 22px; margin: 10px 0 0; font-weight: 700; }
+    .message.error { color: var(--bad); }
+    .message.ok { color: var(--good); }
+
+    .signed-in-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      color: #cbd5e1;
+    }
+
+    .stats { margin: 6px 0 14px; color: #cbd5e1; }
+
+    .pin-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: #cbd5e1;
+    }
+
+    .pin-value {
+      font-family: Menlo, Consolas, monospace;
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      min-width: 120px;
+    }
+
+    code {
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Production Planner setup</h1>
+    <p class="subtitle">Load the starter data and manage the bench and management PINs. The full steps are in SETUP.md.</p>
+
+    <section id="configCard" class="card hidden">
+      <h2>Connect the app first</h2>
+      <p>Paste your Firebase web-app settings into <code>public/js/firebase-config.js</code> (SETUP stage 5), then reload this page.</p>
+    </section>
+
+    <section id="pinCard" class="card hidden">
+      <h2>Enter the management PIN</h2>
+      <p id="pinNote" class="hidden"></p>
+      <form id="pinForm" class="inline-form">
+        <div>
+          <label for="pinInput">Management PIN</label>
+          <input id="pinInput" type="password" autocomplete="off" required />
+        </div>
+        <button type="submit">Unlock</button>
+      </form>
+      <p id="pinMessage" class="message" role="status"></p>
+    </section>
+
+    <div id="adminArea" class="hidden">
+      <div class="signed-in-bar">
+        <span>Unlocked with the management PIN</span>
+        <button id="lockButton" type="button" class="secondary">Lock this screen</button>
+      </div>
+
+      <section class="card">
+        <h2>1. Starter data</h2>
+        <p>Adds the 13 staff from Worker Admin and the 8 configuration colours. Anything already there is left as it is.</p>
+        <div class="stats">Staff in the database: <strong id="staffCount">–</strong> · Colours: <strong id="presetCount">–</strong></div>
+        <button id="loadStarter" type="button">Load starter data</button>
+        <p id="starterMessage" class="message" role="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>2. PINs</h2>
+        <p>Bench screens use the bench PIN; this page and the management screens use the management PIN. Changing a PIN makes every screen using the old one ask for the new one.</p>
+
+        <h3>Bench PIN</h3>
+        <div class="pin-row">
+          <span class="pin-value" id="benchPinValue">Not set yet</span>
+          <button type="button" class="secondary small" data-reveal="bench">Show</button>
+        </div>
+        <form id="benchPinForm" class="inline-form">
+          <div>
+            <label for="benchPinInput">New bench PIN (at least 6 characters)</label>
+            <input id="benchPinInput" type="text" autocomplete="off" required />
+          </div>
+          <button type="submit">Set bench PIN</button>
+        </form>
+
+        <h3>Management PIN</h3>
+        <div class="pin-row">
+          <span class="pin-value" id="managementPinValue">–</span>
+          <button type="button" class="secondary small" data-reveal="management">Show</button>
+        </div>
+        <form id="managementPinForm" class="inline-form">
+          <div>
+            <label for="managementPinInput">New management PIN (at least 8 characters)</label>
+            <input id="managementPinInput" type="text" autocomplete="off" required />
+          </div>
+          <button type="submit">Change management PIN</button>
+        </form>
+
+        <p id="pinsMessage" class="message" role="status"></p>
+      </section>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth, onAuthStateChanged, signInAnonymously, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, writeBatch, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { firebaseConfig } from "./js/firebase-config.js";
+    import { STAFF, CONFIG_PRESETS } from "./js/starter-data.js";
+
+    const PIN_PATTERN = /^[A-Za-z0-9 _-]{6,64}$/;
+    const MIN_LENGTH = { bench: 6, management: 8 };
+
+    const $ = id => document.getElementById(id);
+    const show = (id, visible) => $(id).classList.toggle("hidden", !visible);
+
+    let auth;
+    let db;
+    let currentPins = [];          // [{ pin, role }]
+    let accessCheck = 0;           // only the newest access check updates the page
+    const revealed = { bench: false, management: false };
+
+    function setMessage(id, text, kind = "") {
+      const element = $(id);
+      element.textContent = text;
+      element.className = `message ${kind}`.trim();
+    }
+
+    function friendlyError(error) {
+      const messages = {
+        "auth/operation-not-allowed": "Anonymous sign-in isn't turned on yet (SETUP stage 4).",
+        "auth/admin-restricted-operation": "Anonymous sign-in isn't turned on yet (SETUP stage 4).",
+        "auth/network-request-failed": "Firebase can't be reached. Check the internet connection.",
+        "auth/too-many-requests": "Too many attempts. Wait a few minutes and try again.",
+        "auth/api-key-not-valid.-please-pass-a-valid-api-key.": "The settings in firebase-config.js aren't right (SETUP stage 5).",
+        "permission-denied": "The database refused this. Check the rules are published (SETUP stage 3).",
+        "unavailable": "The database can't be reached. Check the internet connection.",
+        "failed-precondition": "The database isn't created yet (SETUP stage 2)."
+      };
+      return messages[error?.code] || error?.message || "Something went wrong.";
+    }
+
+    function checkPinFormat(pin, role) {
+      if (!PIN_PATTERN.test(pin)) {
+        return "PINs can use letters, numbers, spaces, dashes and underscores, and need at least 6 characters.";
+      }
+      if (pin.length < MIN_LENGTH[role]) {
+        return `The ${role} PIN needs at least ${MIN_LENGTH[role]} characters.`;
+      }
+      return "";
+    }
+
+    const configured = Object.values(firebaseConfig)
+      .every(value => typeof value === "string" && value.trim() && !value.includes("PASTE-"));
+
+    if (!configured) {
+      show("configCard", true);
+    } else {
+      start();
+    }
+
+    function start() {
+      const app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+
+      onAuthStateChanged(auth, () => refreshAccess());
+
+      $("pinForm").addEventListener("submit", event => {
+        event.preventDefault();
+        unlock($("pinInput").value.trim());
+      });
+
+      $("lockButton").addEventListener("click", lockScreen);
+      $("loadStarter").addEventListener("click", loadStarterData);
+
+      $("benchPinForm").addEventListener("submit", event => {
+        event.preventDefault();
+        changePin("bench", $("benchPinInput").value.trim());
+      });
+
+      $("managementPinForm").addEventListener("submit", event => {
+        event.preventDefault();
+        changePin("management", $("managementPinInput").value.trim());
+      });
+
+      document.querySelectorAll("[data-reveal]").forEach(button => {
+        button.addEventListener("click", () => {
+          const role = button.dataset.reveal;
+          revealed[role] = !revealed[role];
+          button.textContent = revealed[role] ? "Hide" : "Show";
+          renderPins();
+        });
+      });
+    }
+
+    // Shows the admin area only if this screen holds a management PIN that still exists.
+    async function refreshAccess(note = "") {
+      const check = ++accessCheck;
+      const user = auth.currentUser;
+      let isManagement = false;
+      let pinNote = note;
+
+      if (user) {
+        try {
+          const device = await getDoc(doc(db, "devices", user.uid));
+          const role = device.exists() ? device.data().role : null;
+          if (role === "management") {
+            await loadPins();            // only works while the PIN is still valid
+            isManagement = true;
+          } else if (role === "bench" && !pinNote) {
+            pinNote = "This screen is unlocked for a bench. Enter the management PIN to use this page.";
+          }
+        } catch (error) {
+          if (error?.code === "permission-denied") {
+            pinNote = pinNote || "The management PIN has changed. Enter the new one.";
+          } else {
+            pinNote = friendlyError(error);
+          }
+        }
+      }
+
+      if (check !== accessCheck) return;   // a newer check has started
+
+      show("pinCard", !isManagement);
+      show("adminArea", isManagement);
+
+      if (isManagement) {
+        refreshCounts();
+        return;
+      }
+
+      $("pinNote").textContent = pinNote;
+      show("pinNote", Boolean(pinNote));
+      $("pinInput").focus();
+    }
+
+    async function unlock(pin) {
+      const button = $("pinForm").querySelector("button");
+      if (!PIN_PATTERN.test(pin)) {
+        setMessage("pinMessage", "That PIN isn't right.", "error");
+        return;
+      }
+
+      button.disabled = true;
+      setMessage("pinMessage", "Checking…");
+      try {
+        if (!auth.currentUser) await signInAnonymously(auth);
+        const deviceRef = doc(db, "devices", auth.currentUser.uid);
+
+        try {
+          await setDoc(deviceRef, { role: "management", pin, createdAt: serverTimestamp() });
+        } catch (error) {
+          if (error?.code !== "permission-denied") throw error;
+          try {
+            await setDoc(deviceRef, { role: "bench", pin, createdAt: serverTimestamp() });
+            setMessage("pinMessage", "That's the bench PIN. This page needs the management PIN.", "error");
+          } catch (benchError) {
+            if (benchError?.code !== "permission-denied") throw benchError;
+            setMessage("pinMessage", "That PIN isn't right.", "error");
+          }
+          return;
+        }
+
+        $("pinInput").value = "";
+        setMessage("pinMessage", "");
+        await refreshAccess();
+      } catch (error) {
+        setMessage("pinMessage", friendlyError(error), "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function lockScreen() {
+      try {
+        if (auth.currentUser) await deleteDoc(doc(db, "devices", auth.currentUser.uid));
+      } catch {
+        // Signing out below still locks this screen.
+      }
+      await signOut(auth);
+      currentPins = [];
+      setMessage("pinMessage", "");
+      refreshAccess();
+    }
+
+    async function refreshCounts() {
+      try {
+        const [staff, presets] = await Promise.all([
+          getDocs(collection(db, "staff")),
+          getDocs(collection(db, "configPresets"))
+        ]);
+        $("staffCount").textContent = staff.size;
+        $("presetCount").textContent = presets.size;
+      } catch (error) {
+        setMessage("starterMessage", friendlyError(error), "error");
+      }
+    }
+
+    async function loadStarterData() {
+      const button = $("loadStarter");
+      button.disabled = true;
+      setMessage("starterMessage", "Loading…");
+      try {
+        const [staffSnapshot, presetSnapshot] = await Promise.all([
+          getDocs(collection(db, "staff")),
+          getDocs(collection(db, "configPresets"))
+        ]);
+        const existingStaff = new Set(staffSnapshot.docs.map(entry => entry.id));
+        const existingPresets = new Set(presetSnapshot.docs.map(entry => entry.id));
+        const batch = writeBatch(db);
+        let staffAdded = 0;
+        let presetsAdded = 0;
+
+        STAFF.forEach(({ key, ...person }) => {
+          if (existingStaff.has(key)) return;
+          batch.set(doc(db, "staff", key), {
+            ...person,
+            active: true,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          staffAdded++;
+        });
+
+        CONFIG_PRESETS.forEach(({ key, ...preset }) => {
+          if (existingPresets.has(key)) return;
+          batch.set(doc(db, "configPresets", key), {
+            ...preset,
+            notes: "",
+            active: true,
+            updatedAt: serverTimestamp()
+          });
+          presetsAdded++;
+        });
+
+        if (staffAdded + presetsAdded === 0) {
+          setMessage("starterMessage", "Everything is already loaded.", "ok");
+        } else {
+          await batch.commit();
+          setMessage("starterMessage", `Added ${staffAdded} staff and ${presetsAdded} colours.`, "ok");
+        }
+        refreshCounts();
+      } catch (error) {
+        setMessage("starterMessage", friendlyError(error), "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function loadPins() {
+      const snapshot = await getDocs(collection(db, "pins"));
+      currentPins = snapshot.docs.map(entry => ({ pin: entry.id, role: entry.data().role }));
+      renderPins();
+    }
+
+    function renderPins() {
+      ["bench", "management"].forEach(role => {
+        const pins = currentPins.filter(entry => entry.role === role).map(entry => entry.pin);
+        const element = $(`${role}PinValue`);
+        if (!pins.length) {
+          element.textContent = "Not set yet";
+        } else {
+          element.textContent = revealed[role] ? pins.join("  ·  ") : "•".repeat(Math.min(12, pins[0].length));
+        }
+      });
+    }
+
+    async function changePin(role, newPin) {
+      const problem = checkPinFormat(newPin, role);
+      if (problem) {
+        setMessage("pinsMessage", problem, "error");
+        return;
+      }
+
+      const clash = currentPins.find(entry => entry.pin === newPin);
+      if (clash && clash.role !== role) {
+        setMessage("pinsMessage", `That PIN is already the ${clash.role} PIN. Choose a different one.`, "error");
+        return;
+      }
+      if (clash) {
+        setMessage("pinsMessage", `That's already the ${role} PIN.`, "ok");
+        return;
+      }
+
+      const form = $(`${role}PinForm`);
+      const button = form.querySelector("button");
+      button.disabled = true;
+      setMessage("pinsMessage", "Saving…");
+
+      try {
+        await setDoc(doc(db, "pins", newPin), { role, updatedAt: serverTimestamp() });
+
+        // Move this screen onto the new management PIN before the old one is removed.
+        if (role === "management") {
+          await setDoc(doc(db, "devices", auth.currentUser.uid), { role, pin: newPin, createdAt: serverTimestamp() });
+        }
+
+        const oldPins = currentPins.filter(entry => entry.role === role && entry.pin !== newPin);
+        for (const entry of oldPins) {
+          await deleteDoc(doc(db, "pins", entry.pin));
+        }
+
+        $(`${role}PinInput`).value = "";
+        setMessage("pinsMessage", role === "bench"
+          ? (oldPins.length ? "Bench PIN changed. Every bench screen will ask for the new PIN." : "Bench PIN set.")
+          : "Management PIN changed. Other management screens will ask for the new PIN.", "ok");
+        await loadPins();
+      } catch (error) {
+        setMessage("pinsMessage", friendlyError(error), "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
