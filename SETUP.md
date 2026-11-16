@@ -98,3 +98,19 @@ page handles PINs.
   will get the same button.
 - **Publishing online:** when the app is ready, it goes on Firebase Hosting at a
   `.web.app` address like IND Instruct. `firebase.json` is already set up for that.
+
+## Checking the access rules (developers)
+
+`tests/firestore-rules.test.mjs` checks what each kind of screen (management,
+bench, no PIN, old PIN) can and can't do. It runs on a local practice database
+with made-up PINs, so the live data and real PINs are never touched.
+
+Needs Java 21 and Node. Then, from the project folder:
+
+```bash
+npm install
+npm run test:rules
+```
+
+Run it after any change to `firestore.rules`, then publish the rules
+(step 3, or `firebase deploy --only firestore:rules --project production-planner-be3e6`).

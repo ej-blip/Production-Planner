@@ -131,6 +131,12 @@ service cloud.firestore {
         && d.createdAt == request.time;
     }
 
+    // A bench can't post as management or log a plan release.
+    function benchEvent() {
+      return request.resource.data.bench != 'management'
+        && request.resource.data.kind != 'released';
+    }
+
     // ---------- PINs and signed-in screens -----------------------------
     match /pins/{pin} {
       allow read, delete: if isManagement();
@@ -174,7 +180,8 @@ service cloud.firestore {
 
       match /events/{eventId} {
         allow read: if isManagement() || (isBench() && planIsReleased(date));
-        allow create: if isAppUser() && validEvent();
+        allow create: if validEvent()
+          && (isManagement() || (isBench() && planIsReleased(date) && benchEvent()));
         allow update, delete: if isManagement();
       }
     }
