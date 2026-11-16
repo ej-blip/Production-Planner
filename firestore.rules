@@ -99,13 +99,15 @@ service cloud.firestore {
       return exists(plan) && get(plan).data.status == 'released';
     }
 
-    // A bench may only change the current target on a released plan.
+    // A bench may only change the current target (and its own limit) on a
+    // released plan. benchLimits holds each bench's limit, e.g. { testing: 30 }.
     function benchTargetUpdate() {
       return resource.data.status == 'released'
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['currentTarget', 'updatedAt', 'updatedBy'])
+             .hasOnly(['currentTarget', 'benchLimits', 'updatedAt', 'updatedBy'])
         && request.resource.data.currentTarget is int
         && request.resource.data.currentTarget >= 0
+        && request.resource.data.get('benchLimits', {}) is map
         && request.resource.data.updatedAt == request.time;
     }
 

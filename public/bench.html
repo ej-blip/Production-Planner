@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Testing Bench</title>
+  <style>
+    :root {
+      --page: #020617;
+      --page-2: #0f172a;
+      --card: rgba(17, 24, 39, 0.94);
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --good: #22c55e;
+      --warn: #fbbf24;
+      --bad: #f87171;
+      --verizon: #dc2626;
+      --global: #2563eb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(135deg, var(--page), var(--page-2));
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 14px 20px;
+      background: rgba(2, 6, 23, 0.94);
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 { margin: 0; font-size: 26px; }
+    .sub { color: var(--muted); font-weight: 700; margin-top: 2px; }
+    .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    button {
+      padding: 11px 16px;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent);
+      color: #00111f;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button.secondary { background: #334155; color: var(--text); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    input[type="date"] {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #14532d;
+      color: #dcfce7;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .live::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--good);
+    }
+
+    .live.offline { background: #7f1d1d; color: #fee2e2; }
+    .live.offline::before { background: var(--bad); }
+
+    main { max-width: 1400px; margin: 0 auto; padding: 18px 20px 40px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .card h2 { margin: 0 0 12px; font-size: 20px; }
+    .hidden { display: none !important; }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+
+    .stat .label { color: var(--muted); font-weight: 700; font-size: 14px; }
+    .stat .value { font-size: 40px; font-weight: 900; margin-top: 4px; line-height: 1; }
+    .stat .value.small-value { font-size: 22px; line-height: 1.3; }
+    .stat .value.down { color: var(--warn); }
+    .stat .note { color: #cbd5e1; font-size: 13px; margin-top: 6px; font-weight: 700; }
+
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .setup {
+      border-radius: 14px;
+      border: 2px solid var(--border);
+      background: #020617;
+      padding: 14px;
+    }
+
+    .setup.verizon { border-color: var(--verizon); }
+    .setup.global { border-color: var(--global); }
+    .setup h3 { margin: 0 0 4px; font-size: 21px; }
+    .setup .setup-sub { color: #cbd5e1; font-weight: 700; margin-bottom: 10px; }
+    .setup table { width: 100%; border-collapse: collapse; }
+    .setup th, .setup td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); font-size: 15px; }
+    .setup th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .setup .phases { margin-top: 10px; color: #cbd5e1; font-size: 14px; line-height: 1.6; }
+
+    .phase-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .phase-tabs button { background: #334155; color: var(--text); }
+    .phase-tabs button.active { background: var(--accent); color: #00111f; }
+
+    .hint { color: var(--muted); margin: -4px 0 14px; line-height: 1.45; }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .zone {
+      min-height: 160px;
+      border-radius: 14px;
+      border: 2px dashed #475569;
+      background: #020617;
+      padding: 12px;
+      transition: border-color 0.12s, background 0.12s;
+    }
+
+    .zone.job { border-style: solid; }
+    .zone.job.verizon { border-color: var(--verizon); }
+    .zone.job.global { border-color: var(--global); }
+    .zone h3 { margin: 0 0 4px; font-size: 18px; }
+    .zone .zone-detail { color: #cbd5e1; font-size: 13px; font-weight: 700; margin-bottom: 10px; min-height: 18px; }
+    .zone.drop-target { background: #0c4a6e; border-color: var(--accent); }
+    .zone.tap-ready { cursor: pointer; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 16px;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    .chip.selected { background: var(--accent); color: #00111f; border-color: var(--accent); }
+    .chip.ghost { position: fixed; pointer-events: none; z-index: 1000; opacity: 0.92; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+    .empty { color: var(--muted); font-size: 14px; }
+
+    .events { list-style: none; margin: 0; padding: 0; }
+    .events li { padding: 10px 0; border-bottom: 1px solid var(--border); line-height: 1.4; }
+    .events .time { color: var(--muted); font-weight: 800; margin-right: 8px; }
+    .events .who { color: var(--muted); font-size: 13px; margin-left: 6px; }
+
+    .dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(2, 6, 23, 0.82);
+    }
+
+    .dialog {
+      width: min(460px, 100%);
+      background: #111827;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .dialog h3 { margin: 0 0 6px; font-size: 20px; }
+    .dialog p { margin: 0 0 14px; color: var(--muted); }
+    .dialog .choices { display: grid; gap: 10px; }
+
+    .dialog input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1600;
+      max-width: calc(100% - 32px);
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: #111827;
+      border: 1px solid var(--good);
+      font-weight: 800;
+    }
+
+    .toast.error { border-color: var(--bad); color: #fecaca; }
+
+    @media (max-width: 700px) {
+      .top { padding: 12px 16px; }
+      main { padding: 14px 16px 32px; }
+      h1 { font-size: 22px; }
+      .stat .value { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1 id="benchTitle">Testing bench</h1>
+      <div class="sub" id="dateLabel">Loading…</div>
+    </div>
+    <div class="top-actions">
+      <button type="button" class="secondary" id="prevDay" aria-label="Previous day">◀</button>
+      <input type="date" id="dateInput" aria-label="Plan date" />
+      <button type="button" class="secondary" id="nextDay" aria-label="Next day">▶</button>
+      <span id="liveBadge" class="live">Live</span>
+      <button type="button" class="secondary" id="lockButton">Lock</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="emptyState" class="card hidden">
+      <h2>No plan for this day yet</h2>
+      <p class="hint" id="emptyMessage">Plans appear here as soon as management releases them.</p>
+    </section>
+
+    <div id="planArea" class="hidden">
+      <section class="summary" id="summary"></section>
+
+      <section class="card">
+        <h2>Network setups</h2>
+        <div class="setup-grid" id="setups"></div>
+      </section>
+
+      <section class="card">
+        <h2>Who's on Testing</h2>
+        <p class="hint">Drag a name to move someone, or tap a name and then tap where they should go. Moving someone to <strong>Not on Testing</strong> asks for the reason, and management sees every change straight away.</p>
+        <div class="phase-tabs" id="phaseTabs" role="tablist"></div>
+        <div class="board" id="board"></div>
+      </section>
+
+      <section class="card">
+        <h2>Changes today</h2>
+        <ul class="events" id="events"></ul>
+      </section>
+    </div>
+  </main>
+
+  <script type="module">
+    import {
+      collection, doc, getDoc, getDocs, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc,
+      serverTimestamp, query, orderBy, limit
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
+
+    // ------------------------------------------------------------------
+    // Bench settings. Only Testing exists so far; other benches come later.
+    // ------------------------------------------------------------------
+    const BENCHES = {
+      testing: {
+        label: "Testing",
+        stations: ["testing", "testingVerizon", "testingGlobal"],
+        eligibleTeams: ["B", "C"],
+        restrictedNames: ["testing", "test"]
+      }
+    };
+    const benchKey = "testing";
+    const bench = BENCHES[benchKey];
+    const ACTOR = `${bench.label} bench`;
+
+    const PHASES = [["start", "Start phase"], ["second", "Second phase"], ["finish", "Finish phase"]];
+    const PHASE_KEYS = PHASES.map(([key]) => key);
+    const phaseLabel = key => (PHASES.find(([value]) => value === key) || [key, key])[1];
+
+    const NETWORKS = {
+      verizon: { label: "Verizon", station: "testingVerizon", cls: "verizon" },
+      global: { label: "Global", station: "testingGlobal", cls: "global" }
+    };
+    const SIM_LABELS = { verizon: "Verizon", att: "AT&T", "fusion-na": "Fusion NA", telstra: "Telstra" };
+    const UNIT_LABELS = { gen4: "Gen4", tap: "Tap" };
+    const SICK_REASON = "Sick / gone home";
+
+    const $ = id => document.getElementById(id);
+
+    const state = {
+      date: "",
+      plan: null,
+      planReadable: true,
+      assignments: [],
+      events: [],
+      roster: null,
+      staff: new Map(),
+      presets: {},
+      phase: "start",
+      selected: null,     // { staffKey, from }
+      busy: false,
+      live: true
+    };
+
+    let stops = [];
+    let detailStops = [];
+    let retryTimer = null;
+    let drag = null;
+    let renderPending = false;
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    function toInputDate(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
+    function fromInputDate(value) {
+      const [y, m, d] = String(value).split("-").map(Number);
+      return new Date(y, (m || 1) - 1, d || 1, 12);
+    }
+
+    function longDate(value) {
+      return new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+        .format(fromInputDate(value));
+    }
+
+    function staffName(key) {
+      const person = state.staff.get(key);
+      return person?.firstName || person?.name || key;
+    }
+
+    function networkOf(batch) {
+      return batch?.commsType === "verizon" ? "verizon" : "global";
+    }
+
+    function activeBatches(plan = state.plan) {
+      return (plan?.batches || [])
+        .map((batch, index) => ({ ...batch, index }))
+        .filter(batch => Number(batch.quantity) > 0);
+    }
+
+    function plannedUnits(batch) {
+      const target = (state.plan?.snapshot?.batchTargets || []).find(item => item.index === batch.index);
+      return target ? Number(target.planned) || 0 : Number(batch.quantity) || 0;
+    }
+
+    function isBenchStation(station) {
+      return bench.stations.includes(station);
+    }
+
+    // The jobs this bench can move people between.
+    function benchJobs() {
+      const batches = activeBatches();
+      if (state.plan?.workMode === "mixed") {
+        return ["verizon", "global"]
+          .filter(network => batches.some(batch => networkOf(batch) === network))
+          .map(network => ({ station: NETWORKS[network].station, label: `${NETWORKS[network].label} Testing`, network }));
+      }
+      const network = networkOf(batches[0] || { commsType: "verizon" });
+      return [{ station: "testing", label: "Testing", network }];
+    }
+
+    function jobLabel(station) {
+      if (station === "off") return `Not on ${bench.label}`;
+      return benchJobs().find(job => job.station === station)?.label || station;
+    }
+
+    function benchPeople(phase, assignments = state.assignments) {
+      return assignments.filter(item => item.phase === phase && isBenchStation(item.station));
+    }
+
+    function isRestricted(person) {
+      return String(person?.restrictedBenches || "")
+        .split(/[;,|]/)
+        .map(item => item.trim().toLowerCase())
+        .some(item => bench.restrictedNames.includes(item));
+    }
+
+    function sentHomeToday() {
+      return new Set(state.events
+        .filter(event => event.kind === "removed" && String(event.message || "").includes(SICK_REASON))
+        .map(event => event.staffKey));
+    }
+
+    // Eligible people who are in today and not on any job in this phase.
+    function availablePeople(phase) {
+      const busy = new Set(state.assignments.filter(item => item.phase === phase).map(item => item.staffKey));
+      const sent = sentHomeToday();
+      const entries = state.roster?.entries || null;
+      return [...state.staff.entries()]
+        .filter(([key, person]) => bench.eligibleTeams.includes(person.team) && !isRestricted(person))
+        .filter(([key]) => !entries || entries[key]?.available)
+        .filter(([key]) => !busy.has(key) && !sent.has(key))
+        .map(([key]) => key)
+        .sort((a, b) => staffName(a).localeCompare(staffName(b)));
+    }
+
+    // ------------------------------------------------------------------
+    // Testing capacity: the same agreed rules as the Management screen.
+    // Single build: 36 a day for Verizon, 30 for Global; a phase counts
+    // (half the daily limit) when it has at least 2 testers.
+    // Mixed day: each network needs its testing time; one tester on a
+    // network for a phase gives one phase of time, up to two phases.
+    // ------------------------------------------------------------------
+    const dailyLimit = comms => (comms === "verizon" ? 36 : 30);
+
+    function capacityInteger(value) {
+      const safe = Math.max(0, Number(value) || 0);
+      const nearest = Math.round(safe);
+      return Math.abs(safe - nearest) < 0.02 ? nearest : Math.floor(safe);
+    }
+
+    function testingCapacity(plan, assignments) {
+      const batches = activeBatches(plan);
+      if (!batches.length) return 0;
+      const onStation = (phase, station) => assignments.filter(item => item.phase === phase && item.station === station).length;
+
+      if (plan.workMode !== "mixed") {
+        const max = dailyLimit(batches[0].commsType);
+        const total = PHASE_KEYS.reduce((sum, phase) => sum + (onStation(phase, "testing") >= 2 ? max / 2 : 0), 0);
+        return Math.min(max, total);
+      }
+
+      const requested = batches.reduce((sum, batch) => sum + Number(batch.quantity), 0);
+      const ratios = ["verizon", "global"]
+        .filter(network => batches.some(batch => networkOf(batch) === network))
+        .map(network => {
+          const demand = batches
+            .filter(batch => networkOf(batch) === network)
+            .reduce((sum, batch) => sum + (Number(batch.quantity) / dailyLimit(batch.commsType)) * 2, 0);
+          const activePhases = PHASE_KEYS.filter(phase => onStation(phase, NETWORKS[network].station) > 0).length;
+          return demand <= 0 ? 1 : Math.max(0, Math.min(1, Math.min(2, activePhases) / demand));
+        });
+      return capacityInteger(requested * Math.min(1, ...ratios));
+    }
+
+    // ------------------------------------------------------------------
+    // Loading and live updates
+    // ------------------------------------------------------------------
+    async function loadReference() {
+      const [staff, presets] = await Promise.all([
+        getDocs(collection(db, "staff")),
+        getDocs(collection(db, "configPresets"))
+      ]);
+      state.staff = new Map(staff.docs.map(entry => [entry.id, entry.data()]));
+      state.presets = Object.fromEntries(presets.docs.map(entry => [entry.id, entry.data()]));
+    }
+
+    function stopDetails() {
+      detailStops.forEach(stop => stop());
+      detailStops = [];
+    }
+
+    function stopAll() {
+      stopDetails();
+      stops.forEach(stop => stop());
+      stops = [];
+      clearTimeout(retryTimer);
+    }
+
+    function openDate(date) {
+      stopAll();
+      Object.assign(state, { date, plan: null, planReadable: true, assignments: [], events: [], roster: null, selected: null });
+      $("dateInput").value = date;
+      render();
+
+      getDoc(doc(db, "rosters", date))
+        .then(snapshot => {
+          if (state.date !== date) return;
+          state.roster = snapshot.exists() ? snapshot.data() : null;
+          render();
+        })
+        .catch(() => {});
+
+      stops.push(onSnapshot(doc(db, "plans", date), { includeMetadataChanges: true }, snapshot => {
+        if (state.date !== date) return;
+        const plan = snapshot.exists() ? snapshot.data() : null;
+        const released = plan?.status === "released";
+        state.plan = released ? plan : null;
+        state.planReadable = true;
+        state.live = !snapshot.metadata.fromCache;
+        if (released && detailStops.length === 0) watchDetails(date);
+        if (!released) {
+          stopDetails();
+          state.assignments = [];
+          state.events = [];
+        }
+        render();
+      }, error => {
+        if (state.date !== date) return;
+        // Bench screens can't read a plan until it's released: check again shortly.
+        state.plan = null;
+        state.planReadable = error?.code !== "permission-denied";
+        state.live = error?.code === "permission-denied";
+        render();
+        retryTimer = setTimeout(() => {
+          if (state.date === date) openDate(date);
+        }, 60000);
+      }));
+    }
+
+    function watchDetails(date) {
+      detailStops.push(onSnapshot(collection(db, "plans", date, "assignments"), snapshot => {
+        if (state.date !== date) return;
+        state.assignments = snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() }));
+        render();
+      }, () => {}));
+      detailStops.push(onSnapshot(
+        query(collection(db, "plans", date, "events"), orderBy("createdAt", "desc"), limit(60)),
+        snapshot => {
+          if (state.date !== date) return;
+          state.events = snapshot.docs.map(entry => entry.data());
+          render();
+        },
+        () => {}
+      ));
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
+    function render() {
+      if (drag?.ghost) {
+        renderPending = true;
+        return;
+      }
+      renderPending = false;
+
+      $("benchTitle").textContent = `${bench.label} bench`;
+      $("dateLabel").textContent = state.date ? longDate(state.date) : "";
+      const badge = $("liveBadge");
+      badge.textContent = state.live ? "Live" : "Offline";
+      badge.classList.toggle("offline", !state.live);
+
+      const hasPlan = Boolean(state.plan);
+      $("emptyState").classList.toggle("hidden", hasPlan);
+      $("planArea").classList.toggle("hidden", !hasPlan);
+      if (!hasPlan) {
+        $("emptyMessage").textContent = state.planReadable
+          ? "Plans appear here as soon as management releases them."
+          : "The database can't be reached. Check the internet connection.";
+        return;
+      }
+
+      renderSummary();
+      renderSetups();
+      renderBoard();
+      renderEvents();
+    }
+
+    function renderSummary() {
+      const plan = state.plan;
+      const planned = plan.plannedTarget ?? 0;
+      const current = plan.currentTarget ?? planned;
+      const batches = activeBatches();
+      const byNetwork = ["verizon", "global"]
+        .map(network => [network, batches.filter(batch => networkOf(batch) === network).reduce((sum, batch) => sum + plannedUnits(batch), 0)])
+        .filter(([, units]) => units > 0)
+        .map(([network, units]) => `${NETWORKS[network].label} ${units}`);
+      const people = [...new Set(state.assignments.filter(item => isBenchStation(item.station)).map(item => item.staffKey))];
+
+      $("summary").innerHTML = `
+        <div class="stat">
+          <div class="label">Day target</div>
+          <div class="value ${current < planned ? "down" : ""}">${current}</div>
+          <div class="note">${current < planned ? `Down from ${planned} after bench changes` : "As planned"}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Units to test</div>
+          <div class="value small-value">${escapeHtml(byNetwork.join(" · ") || "None")}</div>
+          <div class="note">Planned units by network</div>
+        </div>
+        <div class="stat">
+          <div class="label">On Testing today</div>
+          <div class="value">${people.length}</div>
+          <div class="note">${escapeHtml(people.map(staffName).join(", ") || "Nobody assigned")}</div>
+        </div>`;
+    }
+
+    function renderSetups() {
+      const batches = activeBatches();
+      const networks = ["verizon", "global"].filter(network => batches.some(batch => networkOf(batch) === network));
+      const tasks = state.plan.snapshot?.phases || {};
+
+      $("setups").innerHTML = networks.map(network => {
+        const rows = batches.filter(batch => networkOf(batch) === network);
+        const sims = [...new Set(rows.map(batch => SIM_LABELS[batch.simType] || batch.simType))];
+        const job = benchJobs().find(item => item.network === network) || { station: NETWORKS[network].station };
+        const phaseLines = PHASES.map(([phase, label]) => {
+          const people = benchPeople(phase).filter(item => item.station === job.station).map(item => staffName(item.staffKey));
+          if (!people.length) return "";
+          const detail = (tasks[phase] || []).find(task => task.station === job.station)?.detail || "";
+          return `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(people.join(", "))}${detail ? ` — ${escapeHtml(detail)}` : ""}</div>`;
+        }).join("");
+
+        return `
+          <div class="setup ${NETWORKS[network].cls}">
+            <h3>${NETWORKS[network].label} setup</h3>
+            <div class="setup-sub">SIM: ${escapeHtml(sims.join(", "))}</div>
+            <table>
+              <thead><tr><th>Customer</th><th>Unit</th><th>Config</th><th>SIM</th><th>Units</th></tr></thead>
+              <tbody>
+                ${rows.map(batch => `
+                  <tr>
+                    <td>${escapeHtml(batch.customer)}</td>
+                    <td>${escapeHtml(UNIT_LABELS[batch.unitType] || batch.unitType)}</td>
+                    <td>${escapeHtml(state.presets[batch.configKey]?.label || batch.configKey || "")}</td>
+                    <td>${escapeHtml(SIM_LABELS[batch.simType] || batch.simType)}</td>
+                    <td><strong>${plannedUnits(batch)}</strong>${plannedUnits(batch) < Number(batch.quantity) ? ` of ${Number(batch.quantity)}` : ""}</td>
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+            <div class="phases">${phaseLines || "No testers assigned to this setup."}</div>
+          </div>`;
+      }).join("");
+    }
+
+    function renderBoard() {
+      $("phaseTabs").innerHTML = PHASES.map(([phase, label]) => {
+        const count = benchPeople(phase).length;
+        return `<button type="button" role="tab" data-phase="${phase}" class="${phase === state.phase ? "active" : ""}" aria-selected="${phase === state.phase}">${label} (${count})</button>`;
+      }).join("");
+
+      const phase = state.phase;
+      const tasks = state.plan.snapshot?.phases?.[phase] || [];
+      const selectedKey = state.selected?.staffKey;
+      const tapReady = state.selected ? "tap-ready" : "";
+
+      const chip = (key, zone) =>
+        `<span class="chip ${selectedKey === key && state.selected.from === zone ? "selected" : ""}" data-staff="${escapeHtml(key)}" data-zone="${escapeHtml(zone)}">${escapeHtml(staffName(key))}</span>`;
+
+      const jobZones = benchJobs().map(job => {
+        const people = benchPeople(phase).filter(item => item.station === job.station).map(item => item.staffKey);
+        const detail = tasks.find(task => task.station === job.station)?.detail || "";
+        return `
+          <div class="zone job ${NETWORKS[job.network]?.cls || ""} ${tapReady}" data-zone="${job.station}">
+            <h3>${escapeHtml(job.label)}</h3>
+            <div class="zone-detail">${escapeHtml(detail || (people.length ? "" : "No one on this job"))}</div>
+            <div class="chips">${people.map(key => chip(key, job.station)).join("") || '<span class="empty">Drop a name here</span>'}</div>
+          </div>`;
+      }).join("");
+
+      const available = availablePeople(phase);
+      const offZone = `
+        <div class="zone off ${tapReady}" data-zone="off">
+          <h3>Not on ${escapeHtml(bench.label)}</h3>
+          <div class="zone-detail">Testers who are in and free this phase</div>
+          <div class="chips">${available.map(key => chip(key, "off")).join("") || '<span class="empty">No free testers</span>'}</div>
+        </div>`;
+
+      $("board").innerHTML = jobZones + offZone;
+    }
+
+    function renderEvents() {
+      const items = state.events.map(event => {
+        const date = event.createdAt?.toDate ? event.createdAt.toDate() : null;
+        const time = date ? date.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" }) : "now";
+        return `<li><span class="time">${escapeHtml(time)}</span>${escapeHtml(event.message || "")}<span class="who">${escapeHtml(event.createdBy || "")}</span></li>`;
+      });
+      $("events").innerHTML = items.join("") || '<li class="empty">No changes yet.</li>';
+    }
+
+    // ------------------------------------------------------------------
+    // Moving people
+    // ------------------------------------------------------------------
+    function toast(message, isError = false) {
+      document.querySelector(".toast")?.remove();
+      const element = document.createElement("div");
+      element.className = `toast ${isError ? "error" : ""}`;
+      element.textContent = message;
+      document.body.appendChild(element);
+      setTimeout(() => element.remove(), 4000);
+    }
+
+    function askReason(name) {
+      return new Promise(resolve => {
+        const backdrop = document.createElement("div");
+        backdrop.className = "dialog-backdrop";
+        backdrop.innerHTML = `
+          <div class="dialog" role="dialog" aria-modal="true">
+            <h3></h3>
+            <p>Management will see this straight away.</p>
+            <div class="choices">
+              <button type="button" data-reason="${SICK_REASON}">${SICK_REASON}</button>
+              <button type="button" data-reason="Moved to another bench">Moved to another bench</button>
+              <input type="text" placeholder="Other reason" maxlength="120" />
+              <button type="button" data-reason="other">Use other reason</button>
+              <button type="button" class="secondary" data-reason="">Cancel</button>
+            </div>
+          </div>`;
+        backdrop.querySelector("h3").textContent = `Why is ${name} coming off ${bench.label}?`;
+        document.body.appendChild(backdrop);
+        backdrop.addEventListener("click", event => {
+          const button = event.target.closest("button[data-reason]");
+          if (!button) return;
+          let reason = button.dataset.reason;
+          if (reason === "other") {
+            reason = backdrop.querySelector("input").value.trim();
+            if (!reason) {
+              backdrop.querySelector("input").focus();
+              return;
+            }
+          }
+          backdrop.remove();
+          resolve(reason || null);
+        });
+      });
+    }
+
+    function assignmentRef(phase, staffKey) {
+      return doc(db, "plans", state.date, "assignments", `${phase}_${staffKey}`);
+    }
+
+    function logEvent(fields) {
+      return addDoc(collection(db, "plans", state.date, "events"), {
+        bench: benchKey,
+        createdBy: ACTOR,
+        createdAt: serverTimestamp(),
+        ...fields
+      });
+    }
+
+    async function applyMove(staffKey, from, to) {
+      if (!state.plan || from === to || state.busy) return;
+      const phase = state.phase;
+      const name = staffName(staffKey);
+      const phaseName = phaseLabel(phase).toLowerCase();
+      let next = state.assignments.filter(item => !(item.phase === phase && item.staffKey === staffKey));
+
+      let reason = null;
+      let laterPhases = [];
+      if (to === "off") {
+        reason = await askReason(name);
+        if (!reason) return;
+        // Someone who has gone home comes off every job for the rest of the day.
+        if (reason === SICK_REASON) {
+          const later = PHASE_KEYS.slice(PHASE_KEYS.indexOf(phase) + 1);
+          laterPhases = state.assignments.filter(item => item.staffKey === staffKey && later.includes(item.phase));
+          next = next.filter(item => !(item.staffKey === staffKey && later.includes(item.phase)));
+        }
+      } else {
+        next = [...next, { phase, station: to, staffKey }];
+      }
+
+      state.busy = true;
+      state.selected = null;
+      render();
+      try {
+        if (to === "off") {
+          await deleteDoc(assignmentRef(phase, staffKey));
+          for (const item of laterPhases) await deleteDoc(assignmentRef(item.phase, staffKey));
+          const rest = laterPhases.length ? " Also taken off the rest of the day." : "";
+          await logEvent({ kind: "removed", staffKey, message: `${name} taken off ${jobLabel(from)} (${phaseName}): ${reason}.${rest}` });
+        } else {
+          await setDoc(assignmentRef(phase, staffKey), {
+            phase,
+            station: to,
+            jobLabel: jobLabel(to),
+            staffKey,
+            source: "bench",
+            updatedBy: ACTOR,
+            updatedAt: serverTimestamp()
+          });
+          await logEvent(from === "off"
+            ? { kind: "added", staffKey, message: `${name} added to ${jobLabel(to)} (${phaseName}).` }
+            : { kind: "moved", staffKey, message: `${name} moved from ${jobLabel(from)} to ${jobLabel(to)} (${phaseName}).` });
+        }
+        await updateTarget(next);
+      } catch (error) {
+        toast(`That change wasn't saved: ${friendlyError(error)}`, true);
+      } finally {
+        state.busy = false;
+        render();
+      }
+    }
+
+    // Recalculate this bench's limit; the day target is the lowest of the
+    // planned target and every bench's limit.
+    async function updateTarget(nextAssignments) {
+      const plan = state.plan;
+      const planned = plan.plannedTarget ?? 0;
+      const before = plan.currentTarget ?? planned;
+      const limitNow = testingCapacity(plan, nextAssignments);
+      const limits = { ...(plan.benchLimits || {}), [benchKey]: limitNow };
+      const after = Math.max(0, Math.min(planned, ...Object.values(limits).map(Number)));
+      const stored = plan.benchLimits?.[benchKey];
+      const limitChanged = stored === undefined ? limitNow < planned : stored !== limitNow;
+
+      if (after === before && !limitChanged) return;
+
+      await updateDoc(doc(db, "plans", state.date), {
+        currentTarget: after,
+        [`benchLimits.${benchKey}`]: limitNow,
+        updatedAt: serverTimestamp(),
+        updatedBy: ACTOR
+      });
+
+      if (after !== before) {
+        await logEvent({
+          kind: "target_changed",
+          message: `Day target changed from ${before} to ${after} after ${bench.label} changes.`,
+          targetBefore: before,
+          targetAfter: after
+        });
+        toast(`Day target is now ${after} (was ${before}). Management has been told.`);
+      }
+    }
+
+    // Drag with mouse or finger; a short tap selects instead.
+    function zoneAt(x, y) {
+      return document.elementFromPoint(x, y)?.closest(".zone[data-zone]") || null;
+    }
+
+    function clearDropTargets() {
+      document.querySelectorAll(".zone.drop-target").forEach(zone => zone.classList.remove("drop-target"));
+    }
+
+    function wireBoard() {
+      const board = $("board");
+
+      board.addEventListener("pointerdown", event => {
+        const chip = event.target.closest(".chip[data-staff]");
+        if (!chip || state.busy) return;
+        drag = {
+          chip,
+          staffKey: chip.dataset.staff,
+          from: chip.dataset.zone,
+          startX: event.clientX,
+          startY: event.clientY,
+          pointerId: event.pointerId,
+          ghost: null
+        };
+        chip.setPointerCapture(event.pointerId);
+      });
+
+      board.addEventListener("pointermove", event => {
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        if (!drag.ghost && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 8) {
+          drag.ghost = drag.chip.cloneNode(true);
+          drag.ghost.classList.add("ghost");
+          document.body.appendChild(drag.ghost);
+        }
+        if (!drag.ghost) return;
+        drag.ghost.style.left = `${event.clientX - drag.ghost.offsetWidth / 2}px`;
+        drag.ghost.style.top = `${event.clientY - drag.ghost.offsetHeight / 2}px`;
+        clearDropTargets();
+        zoneAt(event.clientX, event.clientY)?.classList.add("drop-target");
+      });
+
+      const finish = (event, cancelled) => {
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        const current = drag;
+        drag = null;
+        if (current.ghost) {
+          current.ghost.remove();
+          const zone = cancelled ? null : zoneAt(event.clientX, event.clientY);
+          clearDropTargets();
+          if (renderPending) render();
+          if (zone) applyMove(current.staffKey, current.from, zone.dataset.zone);
+          return;
+        }
+        if (cancelled) return;
+        // A tap: select or unselect this person.
+        const same = state.selected?.staffKey === current.staffKey && state.selected?.from === current.from;
+        state.selected = same ? null : { staffKey: current.staffKey, from: current.from };
+        current.chip.dataset.justTapped = "yes";
+        render();
+      };
+
+      board.addEventListener("pointerup", event => finish(event, false));
+      board.addEventListener("pointercancel", event => finish(event, true));
+
+      // With someone selected, tapping a job (not a name) moves them there.
+      board.addEventListener("click", event => {
+        if (event.target.closest(".chip")) return;
+        const zone = event.target.closest(".zone[data-zone]");
+        if (!zone || !state.selected) return;
+        const { staffKey, from } = state.selected;
+        applyMove(staffKey, from, zone.dataset.zone);
+      });
+
+      $("phaseTabs").addEventListener("click", event => {
+        const button = event.target.closest("button[data-phase]");
+        if (!button) return;
+        state.phase = button.dataset.phase;
+        state.selected = null;
+        render();
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // Start
+    // ------------------------------------------------------------------
+    function shiftDate(days) {
+      const date = fromInputDate(state.date || toInputDate(new Date()));
+      date.setDate(date.getDate() + days);
+      openDate(toInputDate(date));
+    }
+
+    async function start() {
+      document.title = `${bench.label} Bench`;
+      await ensureAccess({
+        title: `${bench.label} bench`,
+        intro: "Enter the bench PIN to open this screen.",
+        pinLabel: "Bench PIN",
+        allowed: ["bench", "management"],
+        wrongRoleMessage: "That PIN isn't right."
+      });
+
+      try {
+        await loadReference();
+      } catch (error) {
+        toast(friendlyError(error), true);
+      }
+
+      wireBoard();
+      $("prevDay").addEventListener("click", () => shiftDate(-1));
+      $("nextDay").addEventListener("click", () => shiftDate(1));
+      $("dateInput").addEventListener("change", event => {
+        if (event.target.value) openDate(event.target.value);
+      });
+      $("lockButton").addEventListener("click", async () => {
+        await lockScreen();
+        window.location.reload();
+      });
+
+      const requested = new URLSearchParams(window.location.search).get("date");
+      openDate(/^\d{4}-\d{2}-\d{2}$/.test(requested || "") ? requested : toInputDate(new Date()));
+    }
+
+    start();
+  </script>
+</body>
+</html>

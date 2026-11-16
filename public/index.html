@@ -670,6 +670,18 @@
       color: #00111f;
     }
 
+    a.tab-link {
+      display: inline-block;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: #334155;
+      color: var(--text);
+      font-weight: 800;
+      text-decoration: none;
+      margin-right: 8px;
+      margin-bottom: 10px;
+    }
+
     .result-number {
       font-size: 56px;
       font-weight: 900;
@@ -1263,6 +1275,7 @@
          ========================================================== -->
     <div class="tabs">
       <button class="tab-button" onclick="openWorkerAdmin()">Worker Admin</button>
+      <a class="tab-button tab-link" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing screen ↗</a>
       <button class="tab-button" onclick="lockPlannerScreen()">Lock screen</button>
       <div id="activeUnitBadge" class="active-unit-badge">Active Unit: Gen4</div>
     </div>
@@ -5502,6 +5515,29 @@
         planDirty = false;
         renderPlanStatus();
       }
+
+      if (!loadError) watchPlanForChanges(date);
+    }
+
+    /* Live: bench screens change the current target and log what happened.
+       The status bar shows the latest bench change as soon as it's made. */
+    let stopPlanWatch = null;
+    let latestBenchEvent = null;
+
+    function watchPlanForChanges(date) {
+      if (stopPlanWatch) stopPlanWatch();
+      latestBenchEvent = null;
+      stopPlanWatch = window.plannerData.watchPlan(date, ({ plan, events }) => {
+        if (planDateValue() !== date || currentPlanState.date !== date) return;
+        if (plan && plan.status === currentPlanState.status) {
+          currentPlanState.plannedTarget = plan.plannedTarget ?? null;
+          currentPlanState.currentTarget = plan.currentTarget ?? null;
+        }
+        latestBenchEvent = currentPlanState.status === "released"
+          ? events.find(event => event.bench && event.bench !== "management") || null
+          : null;
+        renderPlanStatus();
+      });
     }
 
     function applySavedPlan(plan) {
@@ -5588,6 +5624,7 @@
       });
 
       let capacity = {};
+      let batchTargets = [];
       if (workDayMode === "mixed" && mixed?.possible) {
         capacity = {
           requested: mixed.totalRequested,
@@ -5595,6 +5632,8 @@
           bottleneck: mixed.bottleneckName || "",
           stages: { ...mixed.stageCapacityUnits }
         };
+        // Planned units per Work Mix batch (by its position in the batch list).
+        batchTargets = mixed.batches.map(batch => ({ index: batch.originalIndex, planned: batch.achievable }));
       } else if (result.workflowCapacity) {
         capacity = {
           requested: null,
@@ -5602,9 +5641,10 @@
           bottleneck: result.workflowCapacity.bottleneck?.name || "",
           stages: { ...result.workflowCapacity.stageCapacityUnits }
         };
+        batchTargets = [{ index: 0, planned: result.workflowCapacity.finalOutput }];
       }
 
-      return { phases, capacity };
+      return { phases, capacity, batchTargets };
     }
 
     function buildPlanAssignments() {
@@ -5742,6 +5782,12 @@
         message = `${dayLabel} · not saved yet`;
       }
       text.textContent = message;
+      if (latestBenchEvent?.message && state.status === "released") {
+        const change = document.createElement("span");
+        change.className = "unsaved";
+        change.textContent = ` · latest bench change: ${latestBenchEvent.message}`;
+        text.appendChild(change);
+      }
       if (planDirty && state.status !== "error" && state.status !== "loading") {
         const unsaved = document.createElement("span");
         unsaved.className = "unsaved";
