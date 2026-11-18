@@ -920,18 +920,74 @@
 
     .bench-card { border-color: #38bdf8; }
     .bench-phase-tabs { margin: 6px 0 12px; }
-    .bench-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-    .bench-zone { min-height: 96px; border-style: solid; }
-    .bench-zone.other { opacity: 0.7; }
-    .bench-zone.kind-assembly { border-color: #f59e0b; }
-    .bench-zone.kind-testing { border-color: #3b82f6; }
-    .bench-zone.kind-hardware { border-color: #a855f7; }
-    .bench-zone.kind-packing,
-    .bench-zone.kind-finalPackaging { border-color: #22c55e; }
-    .bench-zone.kind-custom { border-color: #94a3b8; }
-    .bench-zone.kind-none { border-style: dashed; border-color: #475569; }
-    .bench-zone.drop-target { opacity: 1; }
-    .zone-count { color: #94a3b8; font-size: 13px; margin-left: 4px; }
+    /* Crew-style bench board: crew cards with skill dots, stations with slots */
+    .bench-board .crew-layout { display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.6fr); gap: 12px; align-items: start; }
+    .bench-board .crew-panel { background: rgba(2, 6, 23, 0.55); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
+    .bench-board .crew-panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+    .bench-board .crew-panel-head h3 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; color: #c7d2fe; }
+    .bench-board .crew-panel-head span { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .bench-board .zone.crew-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; min-height: 90px; padding: 4px; border: 2px dashed transparent; background: transparent; }
+    .chip.crew-card {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 3px 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #0d1526;
+      border: 1px solid #263452;
+      font-size: 13px;
+      font-weight: 400;
+    }
+    .chip.crew-card.selected { background: #0d1526; color: var(--text); border-color: #5eead4; box-shadow: inset 0 0 0 1px #5eead4; }
+    .chip.crew-card.manual { border-color: #fbbf24; }
+    .chip.crew-card.ghost { width: 230px; }
+    .crew-avatar { grid-row: span 2; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 14px; color: #0b1220; }
+    .crew-avatar.kind-assembly { background: #fcd34d; } .crew-avatar.kind-testing { background: #93c5fd; }
+    .crew-avatar.kind-hardware { background: #c4b5fd; } .crew-avatar.kind-packing { background: #86efac; } .crew-avatar.kind-none { background: #cbd5e1; }
+    .crew-who { min-width: 0; }
+    .crew-who b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .crew-who span { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .crew-skills { grid-column: 2; display: flex; gap: 4px; flex-wrap: wrap; }
+    .crew-skill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; border-radius: 6px; font-size: 10px; font-weight: 900; background: #0a101d; border: 1px solid #263452; }
+    .crew-skill i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #334155; }
+    .crew-skill i.on { background: currentColor; }
+    .crew-skill.none { opacity: 0.35; }
+    .crew-skill.k-assembly { color: #f59e0b; } .crew-skill.k-testing { color: #3b82f6; }
+    .crew-skill.k-hardware { color: #a855f7; } .crew-skill.k-packing { color: #22c55e; }
+    .crew-pips { grid-column: 2; display: flex; gap: 3px; }
+    .crew-pips i { width: 22px; height: 5px; border-radius: 3px; background: #1e293b; }
+    .bench-board .crew-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+    .bench-board .zone.crew-station { min-height: 130px; border: 2px solid #263452; border-radius: 12px; background: #0d1526; padding: 10px; transition: border-color 0.12s, background 0.12s, opacity 0.12s; }
+    .bench-board .zone.crew-station.other { opacity: 0.75; }
+    .crew-station-head { display: flex; align-items: center; gap: 8px; }
+    .crew-station-head b { font-size: 15px; }
+    .crew-icon { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; font-weight: 900; color: #0b1220; flex: none; }
+    .crew-icon.kind-assembly { background: #f59e0b; } .crew-icon.kind-testing { background: #3b82f6; } .crew-icon.kind-hardware { background: #a855f7; }
+    .crew-icon.kind-packing { background: #22c55e; } .crew-icon.kind-finalPackaging { background: #64748b; } .crew-icon.kind-custom { background: #94a3b8; }
+    .crew-state { font-size: 12px; font-weight: 800; margin: 6px 0 8px; color: var(--muted); }
+    .crew-state.ok { color: #5eead4; }
+    .crew-state.short { color: var(--warn); }
+    .crew-slots { display: flex; flex-direction: column; gap: 6px; }
+    .crew-slots .chip.crew-card { grid-template-columns: 32px 1fr; padding: 6px 8px; }
+    .crew-slots .crew-avatar { width: 32px; height: 32px; font-size: 12px; }
+    .crew-slots .crew-skills, .crew-slots .crew-pips { display: none; }
+    .crew-drop { border: 1px dashed #334155; border-radius: 10px; padding: 8px; text-align: center; color: #475569; font-size: 12px; font-weight: 800; }
+    .crew-station .cant { display: none; margin-left: auto; font-size: 11px; font-weight: 900; color: var(--bad); }
+    .bench-board .zone.crew-station.fit-3 { border-color: #5eead4; background: #0c2a2a; opacity: 1; }
+    .bench-board .zone.crew-station.fit-2 { border-color: #3b82f6; opacity: 1; }
+    .bench-board .zone.crew-station.fit-0 { opacity: 0.35; }
+    .bench-board .zone.crew-station.fit-0 .cant { display: inline; }
+    .bench-board .zone.drop-target { background: #10324a; border-color: #38bdf8; }
+    .crew-detail { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+    .crew-detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .crew-detail-head b { font-size: 16px; }
+    .crew-detail-skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+    .crew-detail-skills div { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; border-radius: 8px; background: #0a101d; border: 1px solid #263452; font-size: 13px; font-weight: 800; }
+    .crew-dots i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #334155; margin-left: 3px; }
+    .crew-dots i.on { background: #5eead4; }
+    .crew-today { margin-top: 8px; font-size: 13px; color: #c7d2fe; line-height: 1.6; }
+    @media (max-width: 900px) { .bench-board .crew-layout { grid-template-columns: 1fr; } }
     .chip.manual { border-color: #fbbf24; box-shadow: inset 0 0 0 1px #fbbf24; }
 
     @media (max-width: 700px) {
@@ -3193,17 +3249,140 @@
       message.classList.toggle("error", notes.length > 0);
 
       const people = benchBoardPeople(benchBoardPhase);
-      const selected = benchBoard?.selected;
-      const chip = ({ worker, zone, manual }) => `<span class="chip ${manual ? "manual" : ""} ${selected?.staffKey === worker.key ? "selected" : ""}" data-staff="${safeAttr(worker.key)}" data-zone="${safeAttr(zone)}" title="${safeAttr(worker.name)}${manual ? " (moved by hand)" : ""}">${escapeHtml(worker.first || worker.name)}</span>`;
+      const selectedKey = benchBoard?.selected?.staffKey || null;
+      const free = people.filter(person => person.zone === "none");
+      const stations = benchBoardZones(benchBoardPhase, people).filter(({ zone }) => zone !== "none");
 
-      root.innerHTML = benchBoardZones(benchBoardPhase, people).map(({ zone, typical }) => {
-        const inZone = people.filter(person => person.zone === zone);
-        return `
-          <div class="zone bench-zone kind-${benchZoneKind(zone)} ${typical ? "" : "other"}" data-zone="${safeAttr(zone)}">
-            <h3>${escapeHtml(benchZoneLabel(zone))} <span class="zone-count">${inZone.length}</span></h3>
-            <div class="chips">${inZone.map(chip).join("") || '<span class="empty">—</span>'}</div>
-          </div>`;
+      root.innerHTML = `
+        <div class="crew-layout">
+          <section class="crew-panel">
+            <div class="crew-panel-head"><h3>Crew</h3><span>${free.length} free</span></div>
+            <div class="zone crew-roster" data-zone="none">${free.map(person => crewCardHtml(person, selectedKey)).join("") || '<span class="empty">—</span>'}</div>
+            <div class="crew-detail">${crewDetailHtml(selectedKey)}</div>
+          </section>
+          <section class="crew-panel">
+            <div class="crew-panel-head"><h3>Stations</h3></div>
+            <div class="crew-stations">${stations.map(({ zone, typical }) => crewStationHtml(zone, typical, people, selectedKey)).join("")}</div>
+          </section>
+        </div>`;
+      highlightBenchFit(selectedKey);
+    }
+
+    const CREW_SKILL_KIND = { subAssembly: "assembly", assembly: "assembly", testing: "testing", hardware: "hardware", packing: "packing" };
+    const CREW_ICONS = { subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE", testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PK", finalPackaging: "FP" };
+    const CREW_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 2, testingVerizon: 1, testingGlobal: 1, hardware: 2, packing: 2 };
+
+    function crewInitials(name) {
+      return String(name || "?").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
+    }
+
+    function crewAvatarKind(worker) {
+      let best = null;
+      window.PlannerSkills.SKILL_KEYS.forEach(skill => {
+        const level = skillLevel(worker, skill);
+        if (level > 0 && (!best || level > best.level)) best = { level, kind: CREW_SKILL_KIND[skill] };
+      });
+      return best ? best.kind : "none";
+    }
+
+    function crewStationKind(zone) {
+      const kind = benchZoneKind(zone);
+      return kind === "finalPackaging" ? "finalPackaging" : kind;
+    }
+
+    // Colour of the job someone has in each phase (start, second, finish).
+    function crewPips(key) {
+      return WORKFLOW_PHASES.map(phase => {
+        const assignment = lastWorkflowModel?.phases?.[phase]?.get(key);
+        const colours = { assembly: "#f59e0b", testing: "#3b82f6", hardware: "#a855f7", packing: "#22c55e", finalPackaging: "#64748b", custom: "#94a3b8" };
+        const colour = assignment ? colours[crewStationKind(benchZoneOf(assignment))] || "#94a3b8" : "#1e293b";
+        return `<i style="background:${colour}" title="${escapeHtml(phaseLabel(phase))}: ${escapeHtml(assignment ? workflowAssignmentTitle(assignment) : "Free")}"></i>`;
       }).join("");
+    }
+
+    function crewCardHtml({ worker, zone, manual }, selectedKey) {
+      const skills = window.PlannerSkills.SKILL_KEYS.map(skill => {
+        const level = skillLevel(worker, skill);
+        const dots = [1, 2, 3].map(n => `<i class="${level >= n ? "on" : ""}"></i>`).join("");
+        return `<span class="crew-skill k-${CREW_SKILL_KIND[skill]} ${level ? "" : "none"}">${window.PlannerSkills.SKILL_SHORT[skill]}${level ? dots : ""}</span>`;
+      }).join("");
+      const status = zone === "none" ? "Free" : benchZoneLabel(zone);
+      return `
+        <div class="chip crew-card ${manual ? "manual" : ""} ${selectedKey === worker.key ? "selected" : ""}" data-staff="${safeAttr(worker.key)}" data-zone="${safeAttr(zone)}" title="${safeAttr(worker.name)}${manual ? " (moved by hand)" : ""}">
+          <div class="crew-avatar kind-${crewAvatarKind(worker)}">${escapeHtml(crewInitials(worker.name))}</div>
+          <div class="crew-who"><b>${escapeHtml(worker.name)}</b><span>${escapeHtml(status)}</span></div>
+          <div class="crew-skills">${skills}</div>
+          <div class="crew-pips">${crewPips(worker.key)}</div>
+        </div>`;
+    }
+
+    // Units a station gives this phase (single build only).
+    function crewStationOutput(zone, count) {
+      if (workDayMode === "mixed") return null;
+      const unitType = document.getElementById("unitType").value;
+      const commsType = document.getElementById("commsType").value;
+      const phase = lastWorkflowModel.phases[benchBoardPhase];
+      const subAssembly = [...phase.values()].filter(item => normalizeWorkflowStation(item.station) === "subAssembly").length;
+      if (zone === "assembly") return subAssembly > 0 ? count * assemblyPerBench(unitType) : 0;
+      if (zone === "testing") return singleTestingCapacityPerPhase(count, commsType);
+      if (zone === "hardware") return hardwareCapacity(count, unitType, commsType);
+      if (zone === "packing") return packingCapacity(count, unitType);
+      return null;
+    }
+
+    function crewStationHtml(zone, typical, people, selectedKey) {
+      const inZone = people.filter(person => person.zone === zone);
+      const kind = crewStationKind(zone);
+      const icon = zone.startsWith("custom:") ? "CJ" : CREW_ICONS[zone] || "··";
+      const needed = Math.max(0, (CREW_MIN[zone] || 0) - inZone.length);
+      const output = crewStationOutput(zone, inZone.length);
+      const state = needed > 0 && inZone.length > 0
+        ? `<div class="crew-state short">Needs ${needed} more</div>`
+        : inZone.length
+          ? `<div class="crew-state ok">Running${output !== null ? ` · ${output} units` : ""}</div>`
+          : '<div class="crew-state">Idle</div>';
+      return `
+        <div class="zone crew-station ${typical ? "" : "other"}" data-zone="${safeAttr(zone)}" data-station="${safeAttr(zone)}">
+          <div class="crew-station-head">
+            <span class="crew-icon kind-${kind}">${escapeHtml(icon)}</span>
+            <b>${escapeHtml(benchZoneLabel(zone))}</b>
+            <span class="cant">Can't</span>
+          </div>
+          ${state}
+          <div class="crew-slots">
+            ${inZone.map(person => crewCardHtml(person, selectedKey)).join("")}
+            <div class="crew-drop">Drop here</div>
+          </div>
+        </div>`;
+    }
+
+    function crewDetailHtml(key) {
+      const worker = key ? (lastWorkflowModel?.usableWorkers || []).find(item => item.key === key) : null;
+      if (!worker) return '<span class="empty">—</span>';
+      const skills = window.PlannerSkills.SKILL_KEYS.map(skill => {
+        const level = skillLevel(worker, skill);
+        return `<div><span>${escapeHtml(window.PlannerSkills.SKILL_LABELS[skill])}</span><span class="crew-dots">${level ? [1, 2, 3].map(n => `<i class="${level >= n ? "on" : ""}"></i>`).join("") : "Can't"}</span></div>`;
+      }).join("");
+      const today = WORKFLOW_PHASES.map(phase => {
+        const assignment = lastWorkflowModel.phases[phase].get(key);
+        return `<div><strong>${escapeHtml(BENCH_PHASE_TABS[phase])}:</strong> ${escapeHtml(assignment ? workflowAssignmentTitle(assignment) : "Free")}</div>`;
+      }).join("");
+      return `
+        <div class="crew-detail-head"><div class="crew-avatar kind-${crewAvatarKind(worker)}">${escapeHtml(crewInitials(worker.name))}</div><b>${escapeHtml(worker.name)}</b></div>
+        <div class="crew-detail-skills">${skills}</div>
+        <div class="crew-today">${today}</div>`;
+    }
+
+    // While someone is held or selected, light up where they'd do well.
+    function highlightBenchFit(key) {
+      const worker = key ? (lastWorkflowModel?.usableWorkers || []).find(item => item.key === key) : null;
+      document.querySelectorAll("#benchBoard .crew-station[data-station]").forEach(element => {
+        element.classList.remove("fit-0", "fit-2", "fit-3");
+        if (!worker) return;
+        const zone = element.dataset.station;
+        const level = zone.startsWith("custom:") ? 1 : workflowWorkerEligible(worker, zone) ? skillLevel(worker, normalizeWorkflowStation(zone)) || 1 : 0;
+        element.classList.add(level >= 3 ? "fit-3" : level >= 1 ? "fit-2" : "fit-0");
+      });
     }
 
     function setBenchBoardMessage(text) {
@@ -3252,8 +3431,10 @@
       benchBoard = window.attachDragBoard(document.getElementById("benchBoard"), {
         onMove: moveBenchAssignment,
         onSelect: () => renderBenchBoard(),
+        onDragStart: key => highlightBenchFit(key),
         onDragEnd: () => {
           if (benchBoardRenderPending) renderBenchBoard();
+          else highlightBenchFit(benchBoard.selected?.staffKey || null);
         },
         isBusy: () => !attendanceReady() || !lastWorkflowModel
       });
