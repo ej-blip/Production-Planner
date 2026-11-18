@@ -451,7 +451,7 @@
       const entries = state.roster?.entries || null;
       return [...state.staff.entries()]
         .filter(([key, person]) => bench.eligibleTeams.includes(person.team) && !isRestricted(person))
-        .filter(([key]) => !entries || entries[key]?.available)
+        .filter(([key]) => entries?.[key]?.available !== false)   // in unless marked away
         .filter(([key]) => !busy.has(key) && !sent.has(key))
         .map(([key]) => key)
         .sort((a, b) => staffName(a).localeCompare(staffName(b)));

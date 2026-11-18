@@ -429,29 +429,6 @@
       line-height: 1.45;
     }
 
-    /* ============================================================
-       PHASE 1B: ROSTER HEADER DATE SCAN STATUS
-       ============================================================ */
-    .roster-date-status {
-      margin-top: 9px;
-      min-height: 20px;
-      color: #cbd5e1;
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
-    .roster-date-status.scanning {
-      color: #fde68a;
-    }
-
-    .roster-date-status.detected {
-      color: #bbf7d0;
-    }
-
-    .roster-date-status.manual {
-      color: #cbd5e1;
-    }
-
     .card {
       position: relative;
       background: rgba(17, 24, 39, 0.94);
@@ -808,38 +785,66 @@
     }
 
     /* ============================================================
-       02. ROSTER PREVIEW / CORRECTION UI
+       02. WHO'S IN BOARD (drag names between In and Away)
        ============================================================ */
-    #preview {
-      width: 100%;
-      max-height: 540px;
-      object-fit: contain;
-      margin-top: 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      display: none;
-      background: #020617;
+    .week-strip { display: flex; align-items: stretch; gap: 8px; margin: 6px 0 14px; }
+    .week-strip button { margin: 0; }
+    .week-nav { padding: 8px 12px; }
+    .week-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; flex: 1; }
+    .week-day {
+      padding: 8px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: var(--text);
     }
-
-
-    .roster-verification-table {
-      min-width: 720px;
+    .week-day.active { background: #14532d; border-color: #22c55e; }
+    .week-day-name { font-weight: 800; font-size: 13px; }
+    .week-day-count { font-size: 12px; color: #cbd5e1; font-weight: 600; }
+    .attendance-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .attendance-head strong { font-size: 17px; }
+    .attendance-head button { margin: 0 0 0 auto; }
+    .attendance-board { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+    .zone {
+      min-height: 120px;
+      border-radius: 14px;
+      border: 2px dashed #475569;
+      background: rgba(2, 6, 23, 0.6);
+      padding: 12px;
+      transition: border-color 0.12s, background 0.12s;
     }
-
-    .roster-toggle {
-      padding: 7px 10px;
-      font-size: 12px;
-      margin: 2px 4px 2px 0;
-      background: #334155;
-      color: #fff;
+    .zone h3 { margin: 0 0 10px; font-size: 16px; }
+    .zone.in-zone { border-style: solid; border-color: #22c55e; }
+    .zone.away-zone { border-color: #ef4444; }
+    .zone.drop-target { background: #0c4a6e; border-color: #38bdf8; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 15px;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
     }
+    .away-zone .chip { background: #450a0a; border-color: #7f1d1d; color: #fecaca; }
+    .chip.selected { background: #38bdf8; color: #00111f; border-color: #38bdf8; }
+    .chip.ghost { position: fixed; pointer-events: none; z-index: 1000; opacity: 0.92; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+    .empty { color: #94a3b8; font-size: 14px; }
+    .save-state.error { color: var(--bad); font-weight: 800; }
 
-    .roster-toggle.available.active {
-      background: #16a34a;
-    }
-
-    .roster-toggle.absent.active {
-      background: #dc2626;
+    @media (max-width: 700px) {
+      .attendance-board { grid-template-columns: 1fr; }
+      .week-days { grid-template-columns: repeat(5, minmax(58px, 1fr)); overflow-x: auto; }
     }
 
     /* ============================================================
@@ -1267,7 +1272,7 @@
   <div class="container">
     <h1>Daily Capacity Calculator</h1>
     <div class="subtitle">
-      Upload the weekly roster, verify availability, calculate the best station allocation, and export a visual daily production plan.
+      Set who's in, enter the work mix, check the best station allocation, then release the plan to the benches.
     </div>
 
     <!-- ==========================================================
@@ -1410,31 +1415,25 @@
     </div>
 
     <!-- ==========================================================
-         ROSTER UPLOAD / SIMPLE AVAILABLE-ABSENT SCAN
+         WHO'S IN: everyone is in unless dragged to Away for that day
          ========================================================== -->
     <div class="card roster-card">
-      <h2 class="section-title">Team Roster Upload</h2>
-
-      <div class="grid">
-        <div>
-          <label for="rosterImage">Upload Roster Image</label>
-          <input id="rosterImage" type="file" accept="image/*" />
-          <p class="small">Automatic scan: green tick / green cell means available. Blank white or light-grey means unavailable.</p>
-          <div id="rosterDateStatus" class="roster-date-status manual">Roster date scan is ready. The header date will update Selected Day Date automatically.</div>
-        </div>
-
-        <div>
-          <label>Current Selected Day Count</label>
-          <div id="dayCount" class="result-number">0</div>
-          <div class="result-label">usable workers</div>
-        </div>
+      <h2 class="section-title">Who's In</h2>
+      <div class="week-strip">
+        <button type="button" class="secondary week-nav" onclick="shiftAttendanceWeek(-1)" aria-label="Previous week">◀</button>
+        <div id="weekDays" class="week-days"></div>
+        <button type="button" class="secondary week-nav" onclick="shiftAttendanceWeek(1)" aria-label="Next week">▶</button>
       </div>
-
-      <img id="preview" alt="Roster preview" />
+      <div class="attendance-head">
+        <strong id="attendanceTitle"></strong>
+        <span id="attendanceSaveState" class="small save-state" aria-live="polite"></span>
+        <button type="button" class="secondary" onclick="markEveryoneIn()">Everyone in</button>
+      </div>
+      <div id="attendanceBoard" class="attendance-board"></div>
+      <p class="small">Everyone is in by default. Drag a name to <strong>Away</strong> if they're off that day, or tap the name and then tap Away. Changes save straight away, so you can set up the week ahead.</p>
+      <p id="attendanceIgnored" class="small"></p>
     </div>
 
-    <button onclick="calculateFromRoster()">Calculate From Roster</button>
-    <button class="secondary" onclick="clearRoster()">Clear Roster</button>
 
     <!-- Capacity summary, bench allocation, and consolidated roster correction card render here. -->
     <div id="output"></div>
@@ -1558,10 +1557,10 @@
     </div>
   </div>
 
-  <!-- External dependencies: Tesseract.js for roster-header date OCR, html2canvas for JPEG workflow export. -->
-  <!-- Firebase: management PIN, staff, colours and daily plans. -->
+  <!-- External dependency: html2canvas for JPEG workflow export. -->
+  <!-- Firebase: management PIN, staff, colours, who's in and daily plans. -->
   <script type="module" src="js/planner-data.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="js/drag-board.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <script>
@@ -1575,25 +1574,8 @@
     const COLLAPSE_STORAGE_KEY = "dailyCapacityCalculator.collapsedSections.v1";
     const WORK_MIX_STORAGE_KEY = "dailyCapacityCalculator.workMix.v1";
 
-    const MONTH_INDEX = {
-      january: 0, jan: 0,
-      february: 1, feb: 1,
-      march: 2, mar: 2,
-      april: 3, apr: 3,
-      may: 4,
-      june: 5, jun: 5,
-      july: 6, jul: 6,
-      august: 7, aug: 7,
-      september: 8, sept: 8, sep: 8,
-      october: 9, oct: 9,
-      november: 10, nov: 10,
-      december: 11, dec: 11
-    };
-
     let workDayMode = "single";
     let workBatches = [];
-    let detectedRosterMonday = "";
-    let rosterDateScanSequence = 0;
     let lastResult = null;
     let lastMixedCapacityResult = null;
     let lastWorkflowModel = null;
@@ -1680,24 +1662,9 @@
       }
     };
 
-    /* Reference roster geometry. Day columns match the supplied roster image.
-       Row centers were tuned to the supplied 13-row reference roster. */
-    const dayColumnPositions = {
-      monday: 0.323,
-      tuesday: 0.473,
-      wednesday: 0.623,
-      thursday: 0.773,
-      friday: 0.923
-    };
-
-    const rowPositions = [
-      0.221, 0.279, 0.337, 0.394, 0.451, 0.509, 0.566,
-      0.625, 0.683, 0.741, 0.798, 0.856, 0.913
-    ];
-
-    let rawRosterStatusByDay = makeBlankRosterStatus();
+    // Who's in on the Selected Day Date: everyone, minus anyone marked away.
+    let attendance = { date: "", away: new Set() };
     let rosterWorkersByDay = makeBlankRoster();
-    let rosterCorrections = [];
     let stationAdjustments = [];
     let lastStationIssues = [];
 
@@ -1726,7 +1693,12 @@
 
       init();
       renderPlanStatus();
-      if (data && currentPlanState.status !== "error") await loadPlanForSelectedDate();
+      if (data && currentPlanState.status !== "error") {
+        await loadPlanForSelectedDate();
+      } else {
+        setAttendanceFor(planDateValue(), null);
+        calculateFromRoster();
+      }
     }
 
     function waitForPlannerData(timeoutMs) {
@@ -1752,7 +1724,7 @@
       renderStationAdjustmentList();
       enhanceCollapsibleSections();
 
-      document.getElementById("rosterImage").addEventListener("change", handleImageUpload);
+      wireAttendanceBoard();
       document.getElementById("daySelect").addEventListener("change", () => {
         shiftPlanDateToSelectedDay();
         loadPlanForSelectedDate();
@@ -1824,16 +1796,6 @@
         wednesday: [],
         thursday: [],
         friday: []
-      };
-    }
-
-    function makeBlankRosterStatus() {
-      return {
-        monday: {},
-        tuesday: {},
-        wednesday: {},
-        thursday: {},
-        friday: {}
       };
     }
 
@@ -2010,7 +1972,6 @@
 
     function removeAdminWorker(workerKey) {
       workerMap = workerMap.filter(worker => worker.key !== workerKey);
-      rosterCorrections = rosterCorrections.filter(correction => correction.workerKey !== workerKey);
       stationAdjustments = stationAdjustments.filter(adjustment => adjustment.workerKey !== workerKey);
       renderWorkerAdminTable();
     }
@@ -2042,15 +2003,7 @@
       populateWorkerControls();
       renderStationOptions();
 
-      rosterCorrections = rosterCorrections.filter(correction => workerMap.some(worker => worker.key === correction.workerKey));
       stationAdjustments = stationAdjustments.filter(adjustment => workerMap.some(worker => worker.key === adjustment.workerKey));
-
-      const preview = document.getElementById("preview");
-      if (preview && preview.src && preview.style.display !== "none" && preview.naturalWidth > 0) {
-        readRosterImage(preview);
-      } else {
-        rebuildCorrectedRoster();
-      }
 
       calculateFromRoster();
       renderWorkerAdminTable();
@@ -2062,21 +2015,11 @@
       if (!window.confirm("Reset all worker admin settings to the original defaults?")) return;
       workerMap = cloneDefaultWorkers();
       persistWorkerConfig();
-      rosterCorrections = [];
       stationAdjustments = [];
       lastStationIssues = [];
       populateWorkerControls();
       renderStationOptions();
       renderWorkerAdminTable();
-
-      const preview = document.getElementById("preview");
-      if (preview && preview.src && preview.style.display !== "none" && preview.naturalWidth > 0) {
-        readRosterImage(preview);
-      } else {
-        rawRosterStatusByDay = makeBlankRosterStatus();
-        rebuildCorrectedRoster();
-      }
-
       calculateFromRoster();
     }
 
@@ -2626,148 +2569,20 @@
     }
 
     /* ============================================================
-       ROSTER IMAGE UPLOAD
+       WHO'S IN (ATTENDANCE)
+       Everyone in Worker Admin (except team Ignore) is in by default.
+       Dragging a name to Away marks them off for the Selected Day Date.
+       Each change saves to Firebase straight away (rosters/{date}), so
+       the week can be set up ahead, and other management screens follow
+       live. The calculator only plans with the people who are in.
        ============================================================ */
-    function handleImageUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const scanSequence = ++rosterDateScanSequence;
-      detectedRosterMonday = "";
-      setRosterDateStatus("Reading roster header date…", "scanning");
-
-      const reader = new FileReader();
-      reader.onload = eventReader => {
-        const preview = document.getElementById("preview");
-
-        preview.onload = () => {
-          readRosterImage(preview);
-          calculateFromRoster();
-          detectRosterWeekFromImage(preview, scanSequence);
-        };
-
-        preview.onerror = () => {
-          setRosterDateStatus("Roster date was not read. Enter Selected Day Date manually.", "manual");
-          window.alert("The image could not be loaded. Save the roster as a normal PNG or JPG and try again.");
-        };
-
-        preview.src = eventReader.target.result;
-        preview.style.display = "block";
-      };
-
-      reader.readAsDataURL(file);
-    }
-
-    /* ============================================================
-       PHASE 1B: ROSTER HEADER DATE OCR
-       Reads only the header area. No confidence preview is shown.
-       The first date in the range is treated as Monday by template convention.
-       ============================================================ */
-    async function detectRosterWeekFromImage(img, scanSequence) {
-      if (scanSequence !== rosterDateScanSequence) return;
-
-      if (typeof Tesseract === "undefined" || typeof Tesseract.recognize !== "function") {
-        setRosterDateStatus("Date scan is unavailable. Enter Selected Day Date manually.", "manual");
-        return;
-      }
-
-      try {
-        const headerCanvas = buildRosterHeaderCanvas(img);
-        const result = await Tesseract.recognize(headerCanvas, "eng");
-        if (scanSequence !== rosterDateScanSequence) return;
-
-        const monday = parseRosterMondayFromText(result?.data?.text || "");
-        if (!monday) {
-          detectedRosterMonday = "";
-          setRosterDateStatus("Roster date was not detected. Selected Day Date is still editable manually.", "manual");
-          return;
-        }
-
-        detectedRosterMonday = monday;
-        syncPlanDateToDetectedRoster();
-        const start = parseInputDateLocal(monday);
-        const end = new Date(start);
-        end.setDate(end.getDate() + 4);
-        setRosterDateStatus(`Roster week detected: ${formatShortDisplayDate(start)} to ${formatShortDisplayDate(end)}.`, "detected");
-        calculateFromRoster();
-      } catch (error) {
-        if (scanSequence !== rosterDateScanSequence) return;
-        detectedRosterMonday = "";
-        setRosterDateStatus("Roster date was not detected. Selected Day Date is still editable manually.", "manual");
-      }
-    }
-
-    function buildRosterHeaderCanvas(img) {
-      const cropHeight = Math.max(70, Math.round(img.naturalHeight * 0.16));
-      const sourceWidth = img.naturalWidth;
-      const targetWidth = Math.min(2200, Math.max(1400, Math.round(sourceWidth * 1.6)));
-      const scale = targetWidth / sourceWidth;
-      const targetHeight = Math.max(100, Math.round(cropHeight * scale));
-
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      ctx.drawImage(img, 0, 0, sourceWidth, cropHeight, 0, 0, targetWidth, targetHeight);
-
-      // The roster uses white text on a dark-blue header. Convert it to
-      // high-contrast black text on white for more reliable date recognition.
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const pixels = imageData.data;
-      for (let index = 0; index < pixels.length; index += 4) {
-        const r = pixels[index];
-        const g = pixels[index + 1];
-        const b = pixels[index + 2];
-        const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-        const value = brightness > 145 ? 0 : 255;
-        pixels[index] = value;
-        pixels[index + 1] = value;
-        pixels[index + 2] = value;
-        pixels[index + 3] = 255;
-      }
-      ctx.putImageData(imageData, 0, 0);
-      return canvas;
-    }
-
-    function parseRosterMondayFromText(rawText) {
-      const text = String(rawText || "")
-        .replace(/[–—−]/g, "-")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      const monthPattern = "January|Jan|February|Feb|March|Mar|April|Apr|May|June|Jun|July|Jul|August|Aug|September|Sept|Sep|October|Oct|November|Nov|December|Dec";
-      const rangeRegex = new RegExp(
-        String.raw`\b(${monthPattern})\.?\s+([0-3]?\d)(?:st|nd|rd|th)?\s*(?:-|to)\s*(?:(?:${monthPattern})\.?\s+)?[0-3]?\d(?:st|nd|rd|th)?\s*,?\s*(20\d{2})\b`,
-        "i"
-      );
-      const singleRegex = new RegExp(
-        String.raw`\b(${monthPattern})\.?\s+([0-3]?\d)(?:st|nd|rd|th)?\s*,?\s*(20\d{2})\b`,
-        "i"
-      );
-
-      const match = text.match(rangeRegex) || text.match(singleRegex);
-      if (!match) return "";
-
-      const monthKey = String(match[1] || "").toLowerCase().replace(/\.$/, "");
-      const month = MONTH_INDEX[monthKey];
-      const day = Number(match[2]);
-      const year = Number(match[3]);
-      if (!Number.isInteger(month) || !Number.isInteger(day) || day < 1 || day > 31 || year < 2000 || year > 2100) return "";
-
-      const date = new Date(year, month, day, 12, 0, 0, 0);
-      if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) return "";
-      return dateToInputValue(date);
-    }
-
-    function syncPlanDateToDetectedRoster() {
-      if (!detectedRosterMonday) return false;
-      const day = document.getElementById("daySelect")?.value || "monday";
-      const offset = Math.max(0, DAYS.indexOf(day));
-      const date = parseInputDateLocal(detectedRosterMonday);
-      date.setDate(date.getDate() + offset);
-      document.getElementById("planDate").value = dateToInputValue(date);
-      return true;
-    }
+    let attendanceBoard = null;
+    let attendanceRenderPending = false;
+    let attendanceSave = { state: "", message: "" };   // state: "", "saving", "saved", "error"
+    let attendanceSaveSequence = 0;
+    let weekRosters = {};          // date → saved roster (or null) for the week on screen
+    let weekRostersMonday = "";
+    let stopRosterWatch = null;
 
     function parseInputDateLocal(value) {
       const parts = String(value || "").split("-").map(Number);
@@ -2775,215 +2590,218 @@
       return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0, 0);
     }
 
-    function formatShortDisplayDate(date) {
-      return new Intl.DateTimeFormat("en-AU", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
-      }).format(date);
+    function plannableWorkers() {
+      return workerMap.filter(worker => worker.team !== "IGNORE").sort(compareByRosterThenPriority);
     }
 
-    function setRosterDateStatus(message, state = "manual") {
-      const status = document.getElementById("rosterDateStatus");
-      if (!status) return;
-      status.textContent = message;
-      status.classList.remove("scanning", "detected", "manual");
-      status.classList.add(state);
-    }
-
-    /* ============================================================
-       GREEN / WHITE ROSTER CELL DETECTION
-       ============================================================ */
-    function readRosterImage(img) {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      ctx.drawImage(img, 0, 0);
-
-      rawRosterStatusByDay = makeBlankRosterStatus();
-
-      DAYS.forEach(day => {
-        const x = Math.round(canvas.width * dayColumnPositions[day]);
-
-        workerMap.forEach(worker => {
-          if (!Number.isInteger(worker.rosterIndex) || !rowPositions[worker.rosterIndex]) {
-            rawRosterStatusByDay[day][worker.key] = {
-              state: "absent",
-              greenRatio: 0,
-              blankRatio: 0
-            };
-            return;
-          }
-
-          const y = Math.round(canvas.height * rowPositions[worker.rosterIndex]);
-          rawRosterStatusByDay[day][worker.key] = classifyRosterCell(
-            ctx,
-            canvas.width,
-            canvas.height,
-            x,
-            y,
-            worker.key
-          );
-        });
+    function awayKeysFromRoster(roster) {
+      const away = new Set();
+      Object.entries(roster?.entries || {}).forEach(([workerKey, entry]) => {
+        if (entry && entry.available === false) away.add(workerKey);
       });
-
-      rebuildCorrectedRoster();
+      return away;
     }
 
-    function classifyRosterCell(ctx, canvasWidth, canvasHeight, centerX, centerY, workerKey) {
-      let cellWidth = Math.round(canvasWidth * 0.078);
-      let cellHeight = Math.round(canvasHeight * 0.030);
-
-      if (workerKey === "rupesh") {
-        cellWidth = Math.round(canvasWidth * 0.060);
-        cellHeight = Math.round(canvasHeight * 0.024);
-      }
-
-      const startX = Math.max(0, centerX - Math.round(cellWidth / 2));
-      const endX = Math.min(canvasWidth - 1, centerX + Math.round(cellWidth / 2));
-      const startY = Math.max(0, centerY - Math.round(cellHeight / 2));
-      const endY = Math.min(canvasHeight - 1, centerY + Math.round(cellHeight / 2));
-
-      let greenPixels = 0;
-      let blankPixels = 0;
-      let sampledPixels = 0;
-
-      for (let x = startX; x <= endX; x += 2) {
-        for (let y = startY; y <= endY; y += 2) {
-          const [r, g, b] = ctx.getImageData(x, y, 1, 1).data;
-
-          const isGreen =
-            g > 110 &&
-            g > r + 20 &&
-            g > b + 15 &&
-            r < 210;
-
-          const isWhite = r > 205 && g > 205 && b > 205;
-          const isLightGrey = Math.max(r, g, b) - Math.min(r, g, b) < 20 && Math.min(r, g, b) > 190;
-
-          if (isGreen) greenPixels++;
-          if (isWhite || isLightGrey) blankPixels++;
-          sampledPixels++;
-        }
-      }
-
-      const greenRatio = sampledPixels ? greenPixels / sampledPixels : 0;
-      const blankRatio = sampledPixels ? blankPixels / sampledPixels : 0;
-
-      if (greenRatio >= 0.45) {
-        return { state: "available", greenRatio, blankRatio };
-      }
-
-      /* White/light-grey cells and ambiguous cells are treated as absent. */
-      return { state: "absent", greenRatio, blankRatio };
+    function sameKeys(a, b) {
+      return a.size === b.size && [...a].every(key => b.has(key));
     }
 
-    /* ============================================================
-       CONSOLIDATED ROSTER CORRECTIONS
-       ============================================================ */
-    function getRawRosterStatus(workerKey, day) {
-      return rawRosterStatusByDay[day]?.[workerKey] || {
-        state: "absent",
-        greenRatio: 0,
-        blankRatio: 0
-      };
+    function setAttendanceFor(date, roster) {
+      attendance = { date, away: awayKeysFromRoster(roster) };
+      attendanceSave = { state: "", message: "" };
     }
 
-    function getCorrection(workerKey, day) {
-      return rosterCorrections.find(correction => correction.workerKey === workerKey && correction.day === day) || null;
-    }
-
-    function getEffectiveRosterStatus(workerKey, day) {
-      const raw = getRawRosterStatus(workerKey, day);
-      const correction = getCorrection(workerKey, day);
-
-      if (!correction) return { ...raw, manual: false };
-
-      return {
-        state: correction.action === "add" ? "available" : "absent",
-        greenRatio: raw.greenRatio,
-        blankRatio: raw.blankRatio,
-        manual: true
-      };
+    function attendanceReady() {
+      const date = planDateValue();
+      return Boolean(date) && attendance.date === date;
     }
 
     function rebuildCorrectedRoster() {
       rosterWorkersByDay = makeBlankRoster();
+      const day = document.getElementById("daySelect").value;
+      rosterWorkersByDay[day] = workerMap
+        .filter(worker => !attendance.away.has(worker.key))
+        .sort(compareByRosterThenPriority);
+    }
 
-      DAYS.forEach(day => {
-        rosterWorkersByDay[day] = workerMap
-          .filter(worker => getEffectiveRosterStatus(worker.key, day).state === "available")
-          .sort(compareByRosterThenPriority);
+    function moveAttendance(workerKey, from, to) {
+      if (!attendanceReady()) return;
+      if (to === "away") attendance.away.add(workerKey);
+      else attendance.away.delete(workerKey);
+      attendanceChanged();
+    }
+
+    function markEveryoneIn() {
+      if (!attendanceReady() || !attendance.away.size) return;
+      attendance.away.clear();
+      attendanceChanged();
+    }
+
+    function attendanceChanged() {
+      weekRosters[attendance.date] = buildRosterPayload();
+      saveAttendanceNow();
+      calculateFromRoster();      // re-plans with who's in and redraws the board
+    }
+
+    async function saveAttendanceNow() {
+      const date = attendance.date;
+      const roster = buildRosterPayload();
+      if (!window.plannerData || !date) {
+        attendanceSave = { state: "error", message: "Not saved online: Firebase can't be reached." };
+        renderAttendance();
+        return;
+      }
+      const sequence = ++attendanceSaveSequence;
+      attendanceSave = { state: "saving", message: "Saving…" };
+      renderAttendance();
+      try {
+        await window.plannerData.saveAttendance(date, roster);
+        if (sequence === attendanceSaveSequence) attendanceSave = { state: "saved", message: "Saved" };
+      } catch (error) {
+        if (sequence === attendanceSaveSequence) {
+          attendanceSave = { state: "error", message: `Not saved: ${window.plannerData.friendlyError(error)}` };
+        }
+      }
+      if (attendance.date === date) renderAttendance();
+    }
+
+    function weekDatesFor(dateValue) {
+      const monday = parseInputDateLocal(dateValue);
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      return DAYS.map((day, index) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + index);
+        return dateToInputValue(date);
       });
     }
 
-    function setRosterCorrection(workerKey, day, action) {
-      rosterCorrections = rosterCorrections.filter(correction => {
-        return !(correction.workerKey === workerKey && correction.day === day);
+    // Live: the saved who's-in lists for the week on screen.
+    function watchAttendanceWeek() {
+      const date = planDateValue();
+      if (!date || !window.plannerData) return;
+      const dates = weekDatesFor(date);
+      if (dates[0] === weekRostersMonday) return;
+      if (stopRosterWatch) stopRosterWatch();
+      weekRostersMonday = dates[0];
+      weekRosters = {};
+      stopRosterWatch = window.plannerData.watchRosters(dates, (rosterDate, roster) => {
+        if (weekRostersMonday !== dates[0]) return;
+        weekRosters[rosterDate] = roster;
+        const remoteAway = awayKeysFromRoster(roster);
+        // Another management screen changed this day's list: follow it.
+        if (rosterDate === attendance.date && attendanceReady() &&
+            attendanceSave.state !== "saving" && !sameKeys(remoteAway, attendance.away)) {
+          attendance.away = remoteAway;
+          calculateFromRoster();
+          return;
+        }
+        renderAttendance();
       });
-
-      rosterCorrections.push({ workerKey, day, action });
-      rebuildCorrectedRoster();
-      calculateFromRoster();
     }
 
-    function clearRosterCorrections() {
-      rosterCorrections = [];
-      rebuildCorrectedRoster();
-      calculateFromRoster();
+    function awayCountFor(date, plannableKeys) {
+      const away = date === attendance.date ? attendance.away : awayKeysFromRoster(weekRosters[date]);
+      return [...away].filter(key => plannableKeys.has(key)).length;
     }
 
-    function renderRosterVerificationCard(day) {
-      const usableWorkers = workerMap.filter(worker => worker.team !== "IGNORE").sort(compareByRosterThenPriority);
-      const available = usableWorkers.filter(worker => getEffectiveRosterStatus(worker.key, day).state === "available");
-      const absent = usableWorkers.filter(worker => getEffectiveRosterStatus(worker.key, day).state !== "available");
+    function longDayLabel(dateValue) {
+      const weekday = parseInputDateLocal(dateValue).toLocaleDateString("en-AU", { weekday: "long" });
+      return `${weekday} ${formatDateForHeader(dateValue, "")}`;
+    }
+
+    function shortDayMonth(dateValue) {
+      const parts = String(dateValue).split("-");
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}` : dateValue;
+    }
+
+    function renderAttendance() {
+      const boardElement = document.getElementById("attendanceBoard");
+      if (!boardElement) return;
+      if (attendanceBoard?.isDragging()) {
+        attendanceRenderPending = true;
+        return;
+      }
+      attendanceRenderPending = false;
+
+      const date = planDateValue();
+      const people = plannableWorkers();
+      const plannableKeys = new Set(people.map(worker => worker.key));
+
+      document.getElementById("weekDays").innerHTML = date
+        ? weekDatesFor(date).map((value, index) => {
+            const away = awayCountFor(value, plannableKeys);
+            return `
+              <button type="button" class="week-day ${value === date ? "active" : ""}" data-date="${value}">
+                <span class="week-day-name">${capitalize(DAYS[index]).slice(0, 3)} ${shortDayMonth(value)}</span>
+                <span class="week-day-count">${people.length - away} in${away ? ` · ${away} away` : ""}</span>
+              </button>`;
+          }).join("")
+        : "";
+
+      const title = document.getElementById("attendanceTitle");
+      const saveState = document.getElementById("attendanceSaveState");
       const ignored = workerMap.filter(worker => worker.team === "IGNORE");
+      document.getElementById("attendanceIgnored").textContent = ignored.length
+        ? `Not planned (team "Ignore" in Worker Admin): ${ignored.map(worker => worker.name).join(", ")}.`
+        : "";
 
-      return `
-        <div class="card">
-          <h2 class="section-title">${capitalize(day)} Roster After Scanner Corrections</h2>
-          <div class="summary-grid">
-            <div class="mini">Available Workers<strong>${available.length}</strong></div>
-            <div class="mini">Absent Workers<strong>${absent.length}</strong></div>
-          </div>
+      if (!attendanceReady()) {
+        const failed = currentPlanState.status === "error" && currentPlanState.date === date;
+        title.textContent = date ? longDayLabel(date) : "Choose a date";
+        saveState.textContent = "";
+        boardElement.innerHTML = `<div class="empty">${failed ? `Couldn't load who's in: ${escapeHtml(currentPlanState.error)}` : (date ? "Loading…" : "")}</div>`;
+        return;
+      }
 
-          <div class="table-scroll" style="margin-top:12px;">
-            <table class="roster-verification-table">
-              <thead>
-                <tr>
-                  <th>Worker</th>
-                  <th>Current Status</th>
-                  <th>Manual Correction</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${usableWorkers.map(worker => {
-                  const effective = getEffectiveRosterStatus(worker.key, day);
-                  const correction = getCorrection(worker.key, day);
-                  return `
-                    <tr>
-                      <td>${escapeHtml(worker.name)}</td>
-                      <td>
-                        <span class="pill ${effective.state === "available" ? "available" : "absent"}">
-                          ${effective.state === "available" ? "Available" : "Absent"}${effective.manual ? " (manual)" : ""}
-                        </span>
-                      </td>
-                      <td>
-                        <button class="roster-toggle available ${correction?.action === "add" ? "active" : ""}" onclick="setRosterCorrection('${safeJs(worker.key)}','${day}','add')">Available</button>
-                        <button class="roster-toggle absent ${correction?.action === "remove" ? "active" : ""}" onclick="setRosterCorrection('${safeJs(worker.key)}','${day}','remove')">Absent</button>
-                      </td>
-                    </tr>
-                  `;
-                }).join("")}
-              </tbody>
-            </table>
-          </div>
+      const inPeople = people.filter(worker => !attendance.away.has(worker.key));
+      const awayPeople = people.filter(worker => attendance.away.has(worker.key));
+      const selected = attendanceBoard?.selected;
+      const chip = (worker, zone) => `<span class="chip ${selected?.staffKey === worker.key ? "selected" : ""}" data-staff="${safeAttr(worker.key)}" data-zone="${zone}">${escapeHtml(worker.name)}</span>`;
 
-          <button class="secondary" style="margin-top:14px;" onclick="clearRosterCorrections()">Clear All Corrections</button>
-          ${ignored.length ? `<div class="small" style="margin-top:6px;">Ignored names: ${ignored.map(worker => escapeHtml(worker.name)).join(", ")}</div>` : ""}
+      title.textContent = `${longDayLabel(date)} · ${inPeople.length} in${awayPeople.length ? `, ${awayPeople.length} away` : ""}`;
+      saveState.textContent = attendanceSave.message;
+      saveState.classList.toggle("error", attendanceSave.state === "error");
+
+      boardElement.innerHTML = `
+        <div class="zone in-zone" data-zone="in">
+          <h3>In (${inPeople.length})</h3>
+          <div class="chips">${inPeople.map(worker => chip(worker, "in")).join("") || '<span class="empty">Nobody is in.</span>'}</div>
+        </div>
+        <div class="zone away-zone" data-zone="away">
+          <h3>Away (${awayPeople.length})</h3>
+          <div class="chips">${awayPeople.map(worker => chip(worker, "away")).join("") || '<span class="empty">Drag anyone who is off that day here.</span>'}</div>
         </div>
       `;
+    }
+
+    function wireAttendanceBoard() {
+      attendanceBoard = window.attachDragBoard(document.getElementById("attendanceBoard"), {
+        onMove: moveAttendance,
+        onSelect: () => renderAttendance(),
+        onDragEnd: () => {
+          if (attendanceRenderPending) renderAttendance();
+        },
+        isBusy: () => !attendanceReady()
+      });
+
+      document.getElementById("weekDays").addEventListener("click", event => {
+        const button = event.target.closest("button[data-date]");
+        if (!button || button.dataset.date === planDateValue()) return;
+        openPlanDate(button.dataset.date);
+      });
+    }
+
+    function shiftAttendanceWeek(weeks) {
+      const date = parseInputDateLocal(planDateValue() || dateToInputValue(new Date()));
+      date.setDate(date.getDate() + weeks * 7);
+      openPlanDate(dateToInputValue(date));
+    }
+
+    function openPlanDate(value) {
+      attendanceBoard?.clearSelection();
+      document.getElementById("planDate").value = value;
+      syncDaySelectToPlanDate();
+      loadPlanForSelectedDate();
     }
 
     /* ============================================================
@@ -5390,7 +5208,7 @@
       const unitType = document.getElementById("unitType").value;
       const workers = rosterWorkersByDay[day] || [];
       const usableWorkers = workers.filter(worker => worker.team !== "IGNORE");
-      document.getElementById("dayCount").textContent = usableWorkers.length;
+      renderAttendance();
 
       const teamA = usableWorkers.filter(worker => worker.team === "A");
       const teamB = usableWorkers.filter(worker => worker.team === "B");
@@ -5466,7 +5284,6 @@
 
     // Picking a day moves the date to that weekday in the same week.
     function shiftPlanDateToSelectedDay() {
-      if (syncPlanDateToDetectedRoster()) return;
       const value = planDateValue();
       if (!value) return;
       const date = parseInputDateLocal(value);
@@ -5480,13 +5297,16 @@
     async function loadPlanForSelectedDate() {
       const date = planDateValue();
       if (!date || !window.plannerData || currentPlanState.status === "error" && !currentPlanState.date) {
+        if (attendance.date !== date) setAttendanceFor(date, null);
         calculateFromRoster();
         return;
       }
 
       const requestId = ++planLoadSequence;
       currentPlanState = { date, status: "loading" };
+      watchAttendanceWeek();
       renderPlanStatus();
+      renderAttendance();
 
       let loaded = null;
       let loadError = null;
@@ -5500,7 +5320,7 @@
       loadingPlan = true;
       try {
         if (loaded?.plan) applySavedPlan(loaded.plan);
-        if (loaded?.roster) applySavedRoster(loaded.roster);
+        if (!loadError) setAttendanceFor(date, loaded?.roster || null);
         currentPlanState = loadError
           ? { date, status: "error", error: window.plannerData.friendlyError(loadError) }
           : {
@@ -5556,22 +5376,6 @@
       lastStationIssues = [];
       document.getElementById("notesInstructions").value = plan.notes || "";
       renderStationAdjustmentList();
-    }
-
-    // The saved roster for this date becomes the day's starting availability.
-    // Uploading a new roster image afterwards replaces it, as before.
-    function applySavedRoster(roster) {
-      const day = document.getElementById("daySelect").value;
-      rawRosterStatusByDay[day] = {};
-      Object.entries(roster.entries || {}).forEach(([workerKey, entry]) => {
-        rawRosterStatusByDay[day][workerKey] = {
-          state: entry?.available ? "available" : "absent",
-          greenRatio: 0,
-          blankRatio: 0
-        };
-      });
-      rosterCorrections = rosterCorrections.filter(correction => correction.day !== day);
-      rebuildCorrectedRoster();
     }
 
     function currentPlanTarget() {
@@ -5665,19 +5469,14 @@
       return assignments;
     }
 
+    // Who's in for the date on screen. Everyone plannable gets an entry, so
+    // the bench screens know who is in even before the plan is released.
     function buildRosterPayload() {
-      const day = document.getElementById("daySelect").value;
       const entries = {};
-      workerMap
-        .filter(worker => worker.team !== "IGNORE")
-        .forEach(worker => {
-          const status = getEffectiveRosterStatus(worker.key, day);
-          entries[worker.key] = {
-            available: status.state === "available",
-            source: status.manual ? "manual" : "scan"
-          };
-        });
-      return { day, entries };
+      plannableWorkers().forEach(worker => {
+        entries[worker.key] = { available: !attendance.away.has(worker.key) };
+      });
+      return { day: document.getElementById("daySelect").value, entries };
     }
 
     function setPlanBusy(busy) {
@@ -5689,6 +5488,10 @@
       const date = planDateValue();
       if (!date) {
         window.alert("Choose the Selected Day Date first.");
+        return;
+      }
+      if (!attendanceReady()) {
+        window.alert("This day is still loading. Try again in a moment.");
         return;
       }
       if (currentPlanState.status === "released" && currentPlanState.date === date &&
@@ -5715,8 +5518,12 @@
         window.alert("Choose the Selected Day Date first.");
         return;
       }
+      if (!attendanceReady()) {
+        window.alert("This day is still loading. Try again in a moment.");
+        return;
+      }
       if (target === null || !lastWorkflowModel) {
-        window.alert("There's no valid plan to release yet. Check the roster and the work mix first.");
+        window.alert("There's no valid plan to release yet. Check who's in and the work mix first.");
         return;
       }
 
@@ -5815,10 +5622,9 @@
     function render(result, day, commsType, unitType) {
       const out = document.getElementById("output");
       const commsLabel = getCommsLabel(commsType);
-      const rosterCard = renderRosterVerificationCard(day);
 
       if (workDayMode === "mixed") {
-        out.innerHTML = `${renderMixedCapacityOutput(result.mixedCapacity, day)}${rosterCard}`;
+        out.innerHTML = renderMixedCapacityOutput(result.mixedCapacity, day);
         return;
       }
 
@@ -5828,7 +5634,6 @@
             <h2 class="section-title bad">No Valid Production Plan for ${capitalize(day)}</h2>
             <p>${escapeHtml(result.reason)}</p>
           </div>
-          ${rosterCard}
         `;
         return;
       }
@@ -5896,7 +5701,6 @@
           </div>
         </div>
 
-        ${rosterCard}
       `;
     }
 
@@ -6576,29 +6380,6 @@
     /* ============================================================
        22. CLEAR / DATE / ESCAPING UTILITIES
        ============================================================ */
-    function clearRoster() {
-      ++rosterDateScanSequence;
-      detectedRosterMonday = "";
-      setRosterDateStatus("Roster date scan is ready. The header date will update Selected Day Date automatically.", "manual");
-      document.getElementById("rosterImage").value = "";
-      document.getElementById("preview").style.display = "none";
-      document.getElementById("preview").src = "";
-      document.getElementById("output").innerHTML = "";
-      document.getElementById("workflowSection").innerHTML = "";
-      document.getElementById("dayCount").textContent = "0";
-      document.getElementById("plannerToolsCard").classList.add("hidden");
-
-      rawRosterStatusByDay = makeBlankRosterStatus();
-      rosterWorkersByDay = makeBlankRoster();
-      rosterCorrections = [];
-      stationAdjustments = [];
-      lastStationIssues = [];
-      lastResult = null;
-      lastMixedCapacityResult = null;
-      lastWorkflowModel = null;
-      renderStationAdjustmentList();
-    }
-
     function dateToInputValue(date) {
       const yyyy = date.getFullYear();
       const mm = String(date.getMonth() + 1).padStart(2, "0");

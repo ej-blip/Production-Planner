@@ -1,10 +1,12 @@
 {
   "name": "production-planner",
   "private": true,
-  "description": "Production Planner – developer tools only (the app itself has no build step).",
+  "description": "Production Planner \u2013 developer tools only (the app itself has no build step).",
   "type": "module",
   "scripts": {
-    "test:rules": "firebase emulators:exec --only firestore --project demo-production-planner \"node --test tests/\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-production-planner \"node --test tests/\"",
+    "practice": "firebase emulators:start --only auth,firestore --project demo-production-planner",
+    "practice:seed": "node scripts/seed-practice.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^6.0.0",

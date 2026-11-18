@@ -114,3 +114,25 @@ npm run test:rules
 
 Run it after any change to `firestore.rules`, then publish the rules
 (step 3, or `firebase deploy --only firestore:rules --project production-planner-be3e6`).
+
+## Practice mode (developers)
+
+Try the whole app on this computer with test data, without touching the live
+database or needing the real PINs:
+
+```bash
+npm run practice
+```
+
+Leave that running. In a second terminal, fill it with the starter staff,
+colours and two made-up PINs (listed at the top of `scripts/seed-practice.mjs`):
+
+```bash
+npm run practice:seed
+```
+
+Then serve `public/` locally (e.g. `python3 -m http.server 8765 --directory public`)
+and open `http://localhost:8765/?practice=1`. A yellow **PRACTICE DATABASE** bar
+shows while it's on; `?practice=0` switches back. Practice mode only works on
+`localhost`, never on the live website. The practice data is wiped when
+`npm run practice` stops.

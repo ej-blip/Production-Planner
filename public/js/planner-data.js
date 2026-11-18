@@ -8,9 +8,12 @@
 //   saveDraft(date, plan, roster)
 //   releasePlan(date, plan, roster, assignments, target)
 //   watchPlan(date, callback)    → live { plan, events } updates; returns a stop function
+//   saveAttendance(date, roster) → saves who's in for that day straight away
+//   watchRosters(dates, callback)→ live callback(date, roster | null) for each date;
+//                                  returns a stop function
 //   lockScreen()
 import {
-  collection, doc, getDoc, getDocs, writeBatch, serverTimestamp,
+  collection, doc, getDoc, getDocs, setDoc, writeBatch, serverTimestamp,
   onSnapshot, query, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, ensureAccess, lockScreen, friendlyError } from "./session.js";
@@ -156,6 +159,22 @@ function watchPlan(date, callback) {
 }
 
 // ---------------------------------------------------------------------
+// Who's in (rosters/{date}). Everyone is in unless marked away.
+// ---------------------------------------------------------------------
+async function saveAttendance(date, roster) {
+  await setDoc(doc(db, "rosters", date), { ...roster, updatedAt: serverTimestamp(), updatedBy: ACTOR });
+}
+
+function watchRosters(dates, callback) {
+  const stops = dates.map(date => onSnapshot(
+    doc(db, "rosters", date),
+    snapshot => callback(date, snapshot.exists() ? snapshot.data() : null),
+    () => {}
+  ));
+  return () => stops.forEach(stop => stop());
+}
+
+// ---------------------------------------------------------------------
 window.plannerData = {
   async start() {
     await ensureAccess({
@@ -172,6 +191,8 @@ window.plannerData = {
   saveDraft,
   releasePlan,
   watchPlan,
+  saveAttendance,
+  watchRosters,
   lockScreen,
   friendlyError
 };

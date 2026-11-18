@@ -2,17 +2,45 @@
 // Used by the Management screen (planner-data.js) and the bench screens.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, onAuthStateChanged, signInAnonymously, signOut
+  getAuth, connectAuthEmulator, onAuthStateChanged, signInAnonymously, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  initializeFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc,
+  initializeFirestore, connectFirestoreEmulator, collection, doc, getDoc, getDocs, setDoc, deleteDoc,
   serverTimestamp, query, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
-export const app = initializeApp(firebaseConfig);
+// Practice mode (developers only). On this computer (localhost), opening any
+// screen with ?practice=1 switches the app to the local practice database
+// (the Firebase emulator, see `npm run practice`) with made-up PINs; ?practice=0
+// switches back. It can never apply on the live website.
+export const PRACTICE = (() => {
+  if (!["localhost", "127.0.0.1"].includes(location.hostname)) return false;
+  const choice = new URLSearchParams(location.search).get("practice");
+  try {
+    if (choice === "1") localStorage.setItem("practiceDatabase", "1");
+    if (choice === "0") localStorage.removeItem("practiceDatabase");
+    return localStorage.getItem("practiceDatabase") === "1";
+  } catch {
+    return choice === "1";
+  }
+})();
+
+export const app = PRACTICE
+  ? initializeApp({ ...firebaseConfig, projectId: "demo-production-planner" }, "practice")
+  : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = initializeFirestore(app, { ignoreUndefinedProperties: true });
+
+if (PRACTICE) {
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  const banner = document.createElement("div");
+  banner.textContent = "PRACTICE DATABASE: local test data, not the live app";
+  banner.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99999;padding:4px;" +
+    "background:#a16207;color:#fff;font:800 13px system-ui,sans-serif;text-align:center;pointer-events:none;";
+  document.body.appendChild(banner);
+}
 
 const PIN_PATTERN = /^[A-Za-z0-9 _-]{6,64}$/;
 
