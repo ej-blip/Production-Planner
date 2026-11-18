@@ -264,6 +264,76 @@
 
     .toast.error { border-color: var(--bad); color: #fecaca; }
 
+
+    /* Crew-style job board ------------------------------------------- */
+    .crew-layout { display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.6fr); gap: 14px; align-items: start; }
+    .crew-panel { background: #020617; border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .crew-panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+    .crew-panel-head h3 { margin: 0; font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em; color: #c7d2fe; }
+    .crew-panel-head span { color: var(--muted); font-size: 13px; font-weight: 700; }
+    .zone.crew-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; min-height: 110px; padding: 4px; border: 2px dashed transparent; background: transparent; }
+    .chip.crew-card {
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      gap: 4px 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #0d1526;
+      border: 1px solid #263452;
+      font-size: 14px;
+      font-weight: 400;
+    }
+    .chip.crew-card.selected { background: #0d1526; color: var(--text); border-color: #5eead4; box-shadow: inset 0 0 0 2px #5eead4; }
+    .chip.crew-card.ghost { width: 240px; }
+    .crew-avatar { grid-row: span 2; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 16px; color: #0b1220; }
+    .kind-assembly.crew-avatar { background: #fcd34d; } .kind-testing.crew-avatar { background: #93c5fd; }
+    .kind-hardware.crew-avatar { background: #c4b5fd; } .kind-packing.crew-avatar { background: #86efac; } .kind-none.crew-avatar { background: #cbd5e1; }
+    .crew-who { min-width: 0; }
+    .crew-who b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .crew-who span { font-size: 13px; color: var(--muted); font-weight: 700; }
+    .crew-skills { grid-column: 2; display: flex; gap: 4px; flex-wrap: wrap; }
+    .crew-skill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 900; background: #0a101d; border: 1px solid #263452; }
+    .crew-skill i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #334155; }
+    .crew-skill i.on { background: currentColor; }
+    .crew-skill.none { opacity: 0.35; }
+    .crew-skill.k-assembly { color: #f59e0b; } .crew-skill.k-testing { color: #3b82f6; }
+    .crew-skill.k-hardware { color: #a855f7; } .crew-skill.k-packing { color: #22c55e; }
+    .crew-pips { grid-column: 2; display: flex; gap: 3px; }
+    .crew-pips i { width: 24px; height: 6px; border-radius: 3px; background: #1e293b; }
+    .crew-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .zone.crew-station { min-height: 150px; border: 2px solid #263452; border-radius: 14px; background: #0d1526; padding: 12px; transition: border-color 0.12s, background 0.12s, opacity 0.12s; }
+    .crew-station-head { display: flex; align-items: center; gap: 8px; }
+    .crew-station-head b { font-size: 17px; }
+    .crew-icon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 900; color: #0b1220; flex: none; }
+    .kind-assembly.crew-icon { background: #f59e0b; } .kind-testing.crew-icon { background: #3b82f6; } .kind-hardware.crew-icon { background: #a855f7; }
+    .kind-packing.crew-icon { background: #22c55e; } .kind-final.crew-icon { background: #64748b; }
+    .verizon .crew-icon { background: var(--verizon); color: #fff; } .global .crew-icon { background: var(--global); color: #fff; }
+    .crew-state { font-size: 13px; font-weight: 800; margin: 6px 0 10px; color: var(--muted); }
+    .crew-state.ok { color: #5eead4; }
+    .crew-state.short { color: var(--warn); }
+    .crew-detail-line { font-size: 12px; color: #cbd5e1; font-weight: 700; margin: -4px 0 8px; }
+    .crew-slots { display: flex; flex-direction: column; gap: 8px; }
+    .crew-slots .chip.crew-card { grid-template-columns: 38px 1fr; padding: 8px 10px; }
+    .crew-slots .crew-avatar { width: 38px; height: 38px; font-size: 13px; }
+    .crew-slots .crew-skills, .crew-slots .crew-pips { display: none; }
+    .crew-drop { border: 1px dashed #334155; border-radius: 10px; padding: 10px; text-align: center; color: #475569; font-size: 13px; font-weight: 800; }
+    .crew-station .cant { display: none; margin-left: auto; font-size: 12px; font-weight: 900; color: var(--bad); }
+    .zone.crew-station.fit-3 { border-color: #5eead4; background: #0c2a2a; }
+    .zone.crew-station.fit-2 { border-color: #3b82f6; }
+    .zone.crew-station.fit-0 { opacity: 0.35; }
+    .zone.crew-station.fit-0 .cant { display: inline; }
+    .zone.crew-station.drop-target, .zone.crew-roster.drop-target { background: #10324a; border-color: #38bdf8; }
+    .crew-detail { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .crew-detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .crew-detail-head b { font-size: 17px; }
+    .crew-detail-skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+    .crew-detail-skills div { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-radius: 8px; background: #0a101d; border: 1px solid #263452; font-size: 13px; font-weight: 800; }
+    .crew-dots i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #334155; margin-left: 3px; }
+    .crew-dots i.on { background: #5eead4; }
+    .crew-today { margin-top: 8px; font-size: 14px; color: #c7d2fe; line-height: 1.6; }
+    @media (max-width: 900px) { .crew-layout { grid-template-columns: 1fr; } }
+
     @media (max-width: 700px) {
       .top { padding: 12px 16px; }
       main { padding: 14px 16px 32px; }
@@ -373,7 +443,7 @@
       <section class="card" id="boardCard">
         <h2 id="boardTitle">Who's on this bench</h2>
         <div class="phase-tabs" id="phaseTabs" role="tablist"></div>
-        <div class="board" id="board"></div>
+        <div id="board"></div>
       </section>
 
       <section class="card">
@@ -1103,6 +1173,134 @@
       }).join("");
     }
 
+    // ------------------------------------------------------------------
+    // Crew-style job board: free people on the left with their skill dots,
+    // this bench's jobs as stations on the right.
+    // ------------------------------------------------------------------
+    const SKILL_KIND = { subAssembly: "assembly", assembly: "assembly", testing: "testing", hardware: "hardware", packing: "packing" };
+    const STATION_KIND = {
+      subAssembly: "assembly", assembly: "assembly", assemblyGen4: "assembly", assemblyTap: "assembly",
+      testing: "testing", testingVerizon: "testing", testingGlobal: "testing",
+      hardware: "hardware", packing: "packing", finalPackaging: "final"
+    };
+    const STATION_ICON = {
+      subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE",
+      testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PK", finalPackaging: "FP"
+    };
+    const STATION_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 2, testingVerizon: 1, testingGlobal: 1, hardware: 2, packing: 2 };
+    const KIND_COLOUR = { assembly: "#f59e0b", testing: "#3b82f6", hardware: "#a855f7", packing: "#22c55e", final: "#64748b" };
+
+    const personName = key => state.staff.get(key)?.name || staffName(key);
+    const initials = name => String(name || "?").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
+
+    function avatarKind(person) {
+      let best = null;
+      window.PlannerSkills.SKILL_KEYS.forEach(skill => {
+        const level = window.PlannerSkills.levelFor(person, skill);
+        if (level > 0 && (!best || level > best.level)) best = { level, kind: SKILL_KIND[skill] };
+      });
+      return best ? best.kind : "none";
+    }
+
+    function jobFor(key, phase) {
+      return state.assignments.find(item => item.staffKey === key && item.phase === phase) || null;
+    }
+
+    function pipsHtml(key) {
+      return PHASE_KEYS.map(phase => {
+        const job = jobFor(key, phase);
+        const colour = job ? KIND_COLOUR[STATION_KIND[job.station]] || "#94a3b8" : "#1e293b";
+        return `<i style="background:${colour}" title="${escapeHtml(phaseLabel(phase))}: ${escapeHtml(job ? job.jobLabel || jobLabel(job.station) : "Free")}"></i>`;
+      }).join("");
+    }
+
+    function crewCardHtml(key, zone, selectedKey) {
+      const person = state.staff.get(key) || { name: key };
+      const skills = window.PlannerSkills.SKILL_KEYS.map(skill => {
+        const level = window.PlannerSkills.levelFor(person, skill);
+        const dots = [1, 2, 3].map(n => `<i class="${level >= n ? "on" : ""}"></i>`).join("");
+        return `<span class="crew-skill k-${SKILL_KIND[skill]} ${level ? "" : "none"}">${window.PlannerSkills.SKILL_SHORT[skill]}${level ? dots : ""}</span>`;
+      }).join("");
+      const status = zone === "off" ? "Free" : jobLabel(zone);
+      return `
+        <div class="chip crew-card ${selectedKey === key ? "selected" : ""}" data-staff="${escapeHtml(key)}" data-zone="${escapeHtml(zone)}">
+          <div class="crew-avatar kind-${avatarKind(person)}">${escapeHtml(initials(person.name || key))}</div>
+          <div class="crew-who"><b>${escapeHtml(personName(key))}</b><span>${escapeHtml(status)}</span></div>
+          <div class="crew-skills">${skills}</div>
+          <div class="crew-pips">${pipsHtml(key)}</div>
+        </div>`;
+    }
+
+    // Units a job gives this phase (single build only).
+    function stationOutput(station, count) {
+      if (state.plan.workMode === "mixed") return null;
+      const batch = activeBatches()[0];
+      if (!batch) return null;
+      const inPhase = list => state.assignments.filter(item => item.phase === state.phase && list.includes(item.station)).length;
+      if (station === "assembly") return inPhase(["subAssembly"]) > 0 ? count * assemblyPerBench(batch.unitType) : 0;
+      if (station === "testing") return count >= 2 ? dailyLimit(batch.commsType) / 2 : 0;
+      if (station === "hardware") return hardwareCapacity(count, batch.unitType, batch.commsType);
+      if (station === "packing") return packingCapacity(count, batch.unitType);
+      return null;
+    }
+
+    function stationHtml(job, tasks, selectedKey) {
+      const people = benchPeople(state.phase).filter(item => item.station === job.station).map(item => item.staffKey);
+      const kind = STATION_KIND[job.station] || "final";
+      const needed = Math.max(0, (STATION_MIN[job.station] || 0) - people.length);
+      const output = stationOutput(job.station, people.length);
+      const detail = tasks.find(task => task.station === job.station)?.detail || "";
+      const status = needed > 0 && people.length > 0
+        ? `<div class="crew-state short">Needs ${needed} more</div>`
+        : people.length
+          ? `<div class="crew-state ok">Running${output !== null ? ` · ${output} units` : ""}</div>`
+          : '<div class="crew-state">Idle</div>';
+      return `
+        <div class="zone crew-station ${NETWORKS[job.network]?.cls || ""}" data-zone="${escapeHtml(job.station)}" data-station="${escapeHtml(job.station)}">
+          <div class="crew-station-head">
+            <span class="crew-icon kind-${kind}">${escapeHtml(STATION_ICON[job.station] || "··")}</span>
+            <b>${escapeHtml(job.label)}</b>
+            <span class="cant">Can't</span>
+          </div>
+          ${status}
+          ${detail ? `<div class="crew-detail-line">${escapeHtml(detail)}</div>` : ""}
+          <div class="crew-slots">
+            ${people.map(key => crewCardHtml(key, job.station, selectedKey)).join("")}
+            <div class="crew-drop">Drop here</div>
+          </div>
+        </div>`;
+    }
+
+    function detailHtml(key) {
+      const person = key ? state.staff.get(key) : null;
+      if (!person) return "";
+      const skills = window.PlannerSkills.SKILL_KEYS.map(skill => {
+        const level = window.PlannerSkills.levelFor(person, skill);
+        return `<div><span>${escapeHtml(window.PlannerSkills.SKILL_LABELS[skill])}</span><span class="crew-dots">${level ? [1, 2, 3].map(n => `<i class="${level >= n ? "on" : ""}"></i>`).join("") : "Can't"}</span></div>`;
+      }).join("");
+      const today = PHASES.map(([phase, label]) => {
+        const job = jobFor(key, phase);
+        return `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(job ? job.jobLabel || jobLabel(job.station) : "Free")}</div>`;
+      }).join("");
+      return `
+        <div class="crew-detail">
+          <div class="crew-detail-head"><div class="crew-avatar kind-${avatarKind(person)}">${escapeHtml(initials(person.name || key))}</div><b>${escapeHtml(personName(key))}</b></div>
+          <div class="crew-detail-skills">${skills}</div>
+          <div class="crew-today">${today}</div>
+        </div>`;
+    }
+
+    // While someone is held or selected, light up where they'd do well.
+    function highlightFit(key) {
+      const person = key ? state.staff.get(key) : null;
+      document.querySelectorAll("#board .crew-station[data-station]").forEach(element => {
+        element.classList.remove("fit-0", "fit-2", "fit-3");
+        if (!person) return;
+        const level = window.PlannerSkills.levelFor(person, element.dataset.station);
+        element.classList.add(level >= 3 ? "fit-3" : level >= 1 ? "fit-2" : "fit-0");
+      });
+    }
+
     function renderBoard() {
       $("boardCard").classList.toggle("hidden", !hasBoard);
       if (!hasBoard) return;
@@ -1113,33 +1311,23 @@
         return `<button type="button" role="tab" data-phase="${phase}" class="${phase === state.phase ? "active" : ""}" aria-selected="${phase === state.phase}">${label} (${count})</button>`;
       }).join("");
 
-      const phase = state.phase;
-      const tasks = state.plan.snapshot?.phases?.[phase] || [];
-      const selected = board?.selected;
-      const tapReady = selected ? "tap-ready" : "";
+      const tasks = state.plan.snapshot?.phases?.[state.phase] || [];
+      const selectedKey = board?.selected?.staffKey || null;
+      const free = availablePeople(state.phase);
 
-      const chip = (key, zone) =>
-        `<span class="chip ${selected?.staffKey === key && selected?.from === zone ? "selected" : ""}" data-staff="${escapeHtml(key)}" data-zone="${escapeHtml(zone)}">${escapeHtml(staffName(key))}</span>`;
-
-      const jobZones = benchJobs().map(job => {
-        const people = benchPeople(phase).filter(item => item.station === job.station).map(item => item.staffKey);
-        const detail = tasks.find(task => task.station === job.station)?.detail || "";
-        return `
-          <div class="zone job bench-${benchKey} ${NETWORKS[job.network]?.cls || ""} ${tapReady}" data-zone="${escapeHtml(job.station)}">
-            <h3>${escapeHtml(job.label)}</h3>
-            <div class="zone-detail">${escapeHtml(detail)}</div>
-            <div class="chips">${people.map(key => chip(key, job.station)).join("") || '<span class="empty">—</span>'}</div>
-          </div>`;
-      }).join("");
-
-      const available = availablePeople(phase);
-      const offZone = `
-        <div class="zone off ${tapReady}" data-zone="off">
-          <h3>Not on ${escapeHtml(bench.label)}</h3>
-          <div class="chips">${available.map(key => chip(key, "off")).join("") || '<span class="empty">Nobody free</span>'}</div>
+      $("board").innerHTML = `
+        <div class="crew-layout">
+          <section class="crew-panel">
+            <div class="crew-panel-head"><h3>Not on ${escapeHtml(bench.label)}</h3><span>${free.length} free</span></div>
+            <div class="zone crew-roster" data-zone="off">${free.map(key => crewCardHtml(key, "off", selectedKey)).join("") || '<span class="empty">—</span>'}</div>
+            ${detailHtml(selectedKey)}
+          </section>
+          <section class="crew-panel">
+            <div class="crew-panel-head"><h3>Jobs</h3></div>
+            <div class="crew-stations">${benchJobs().map(job => stationHtml(job, tasks, selectedKey)).join("")}</div>
+          </section>
         </div>`;
-
-      $("board").innerHTML = jobZones + offZone;
+      highlightFit(selectedKey);
     }
 
     function renderEvents() {
@@ -1315,8 +1503,10 @@
       board = window.attachDragBoard($("board"), {
         onMove: applyMove,
         onSelect: () => render(),
+        onDragStart: key => highlightFit(key),
         onDragEnd: () => {
           if (renderPending) render();
+          else highlightFit(board.selected?.staffKey || null);
         },
         isBusy: () => state.busy || !state.plan
       });
