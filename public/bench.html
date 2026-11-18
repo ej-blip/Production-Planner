@@ -12,6 +12,7 @@
   <meta name="theme-color" content="#020617" />
   <link rel="apple-touch-icon" href="icons/bench.png" />
   <link rel="icon" type="image/png" href="icons/bench.png" />
+  <link rel="stylesheet" href="css/floor.css" />
   <style>
     :root {
       --page: #020617;
@@ -287,6 +288,17 @@
     .notes-card { border-color: var(--warn); }
     .notes-text { white-space: pre-line; font-size: 17px; line-height: 1.5; }
 
+    .batch-status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .batch-status { display: flex; flex-direction: column; gap: 10px; }
+    .batch-status .sticky { font-size: 16px; padding: 14px 16px; }
+    .batch-status .sticky b { font-size: 18px; }
+    .batch-status .sticky-status { font-size: 20px; }
+    .batch-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .batch-actions button { flex: 1 1 auto; padding: 14px 12px; font-size: 16px; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .card-head h2 { margin: 0; }
+    .pinned-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+
     .next-plan { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
     .chooser-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 6px 0 14px; }
@@ -336,6 +348,20 @@
     <div id="planArea" class="hidden">
       <section class="summary" id="summary"></section>
 
+      <section class="card" id="batchesCard">
+        <h2 id="batchesTitle">Your batches</h2>
+        <p class="hint" id="batchesHint"></p>
+        <div class="batch-status-grid" id="batchStatuses"></div>
+      </section>
+
+      <section class="card" id="pinnedCard">
+        <div class="card-head">
+          <h2>Pinned notes</h2>
+          <button type="button" class="secondary" id="pinNoteButton">+ Pin a note</button>
+        </div>
+        <div class="pinned-row" id="pinnedNotes"></div>
+      </section>
+
       <section class="card notes-card hidden" id="notesCard">
         <h2>Notes from management</h2>
         <div class="notes-text" id="notesText"></div>
@@ -367,6 +393,10 @@
       serverTimestamp, query, orderBy, limit
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
+    import {
+      floorBatches, batchTitle, progressOf, expectedUnits, statusText, statusNoteHtml, pinnedNoteHtml,
+      watchFloor, setBatchStatus, askUnitsDone, askNote, addNote, editNote, removeNote, showPhoto
+    } from "./js/floor.js";
 
     // ------------------------------------------------------------------
     // Jobs: who can do them (Worker Admin teams) and the word used for
@@ -451,7 +481,10 @@
       phase: "start",
       busy: false,
       live: true,
-      nextPlan: null      // { from, date } once the next released plan has been looked up
+      nextPlan: null,     // { from, date } once the next released plan has been looked up
+      role: null,         // "bench" or "management"
+      progress: new Map(),
+      notes: []
     };
 
     let stops = [];
@@ -712,7 +745,7 @@
     function openDate(date) {
       stopAll();
       board?.clearSelection();
-      Object.assign(state, { date, plan: null, reachable: true, assignments: [], events: [], roster: null, nextPlan: null });
+      Object.assign(state, { date, plan: null, reachable: true, assignments: [], events: [], roster: null, nextPlan: null, progress: new Map(), notes: [] });
       $("dateInput").value = date;
       render();
 
@@ -782,6 +815,12 @@
         state.assignments = snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() }));
         render();
       }, () => {}));
+      detailStops.push(watchFloor(date, ({ progress, notes }) => {
+        if (state.date !== date) return;
+        state.progress = progress;
+        state.notes = notes;
+        render();
+      }));
       detailStops.push(onSnapshot(
         query(collection(db, "plans", date, "events"), orderBy("createdAt", "desc"), limit(60)),
         snapshot => {
@@ -818,6 +857,8 @@
       }
 
       renderSummary();
+      renderBatchStatuses();
+      renderPinned();
       renderNotes();
       renderInfo();
       renderBoard();
@@ -893,6 +934,101 @@
         : "";
 
       $("summary").innerHTML = target + middle + last;
+    }
+
+    // This bench's sticky note for each batch, with big buttons to update it.
+    function renderBatchStatuses() {
+      const cage = benchKey === "cage";
+      const batches = floorBatches(state.plan);
+      $("batchesTitle").textContent = cage ? "Release status" : "Your batches";
+      $("batchesHint").textContent = cage
+        ? "Tap Releasing when you start pulling parts for a batch, then Released. If you can only release part of it, enter how many units it covers."
+        : "Tap Start when you begin a batch, then Hit target when it's done, or enter how many you did. The next benches and management see it straight away.";
+      $("batchStatuses").innerHTML = batches.map(batch => {
+        const item = progressOf(state.progress, benchKey, batch);
+        const buttons = [];
+        if (item.status === "waiting") buttons.push(`<button type="button" data-set="in_progress" data-batch="${escapeHtml(batch.key)}">${cage ? "Releasing" : "Start"}</button>`);
+        if (item.status === "waiting" || item.status === "in_progress") {
+          buttons.push(`<button type="button" data-set="hit" data-batch="${escapeHtml(batch.key)}">${cage ? "Released" : "Hit target"}</button>`);
+        }
+        buttons.push(`<button type="button" class="secondary" data-set="short" data-batch="${escapeHtml(batch.key)}">${item.status === "short" ? "Change number" : cage ? "Released fewer" : "Enter number"}</button>`);
+        if (item.status !== "waiting") buttons.push(`<button type="button" class="secondary" data-set="waiting" data-batch="${escapeHtml(batch.key)}">Undo</button>`);
+        return `
+          <div class="batch-status">
+            ${statusNoteHtml({ bench: benchKey, batch, progress: state.progress, presets: state.presets })}
+            <div class="batch-actions">${buttons.join("")}</div>
+          </div>`;
+      }).join("") || '<p class="empty">No batches in this plan.</p>';
+    }
+
+    function renderPinned() {
+      const notes = state.notes.filter(note => note.bench === benchKey || note.bench === "all");
+      $("pinnedNotes").innerHTML = notes.map(note => pinnedNoteHtml(note, state.role)).join("")
+        || '<p class="empty">Nothing pinned. Pin a note or photo for this bench, or ask management to.</p>';
+    }
+
+    async function setStatus(batchKey, status) {
+      const batch = floorBatches(state.plan).find(item => item.key === batchKey);
+      if (!batch || state.busy) return;
+      const expected = expectedUnits(state.progress, benchKey, batch);
+      let done = null;
+      if (status === "hit") done = expected;
+      if (status === "short") {
+        done = await askUnitsDone({ title: `${bench.label}: ${batchTitle(batch)}`, expected });
+        if (done === null) return;
+        if (done >= expected) status = "hit";
+      }
+      state.busy = true;
+      try {
+        await setBatchStatus(state.date, benchKey, batch, status, done, ACTOR);
+        const text = statusText(benchKey, { status, done }, expected);
+        await logEvent({ kind: "note", message: `${bench.label} · ${batchTitle(batch)}: ${text}.` });
+      } catch (error) {
+        toast(`That wasn't saved: ${friendlyError(error)}`, true);
+      } finally {
+        state.busy = false;
+        render();
+      }
+    }
+
+    async function pinNote() {
+      const result = await askNote({
+        title: `Pin a note`,
+        bench: benchKey,
+        benches: [{ key: benchKey, label: bench.label }, { key: "all", label: "Everyone" }]
+      });
+      if (!result) return;
+      try {
+        await addNote(state.date, result, state.role, ACTOR);
+      } catch (error) {
+        toast(`That note wasn't pinned: ${friendlyError(error)}`, true);
+      }
+    }
+
+    async function changeNote(noteId) {
+      const note = state.notes.find(item => item.id === noteId);
+      if (!note) return;
+      const result = await askNote({
+        title: "Edit note",
+        note,
+        benches: [{ key: benchKey, label: bench.label }, { key: "all", label: "Everyone" }]
+      });
+      if (!result) return;
+      try {
+        await editNote(state.date, note, result, state.role, ACTOR);
+      } catch (error) {
+        toast(`That change wasn't saved: ${friendlyError(error)}`, true);
+      }
+    }
+
+    async function deleteNote(noteId) {
+      const note = state.notes.find(item => item.id === noteId);
+      if (!note || !window.confirm("Remove this note?")) return;
+      try {
+        await removeNote(state.date, note);
+      } catch (error) {
+        toast(`That note wasn't removed: ${friendlyError(error)}`, true);
+      }
     }
 
     function renderNotes() {
@@ -1245,7 +1381,7 @@
         return;
       }
 
-      await ensureAccess({
+      state.role = await ensureAccess({
         title: bench.label,
         intro: "Enter the bench PIN to open this screen.",
         pinLabel: "Bench PIN",
@@ -1266,6 +1402,17 @@
       $("dateInput").addEventListener("change", event => {
         if (event.target.value) openDate(event.target.value);
       });
+      $("planArea").addEventListener("click", event => {
+        const setButton = event.target.closest("button[data-set]");
+        if (setButton) return setStatus(setButton.dataset.batch, setButton.dataset.set);
+        const photo = event.target.closest("[data-photo]");
+        if (photo) return showPhoto(photo.getAttribute("src"));
+        const edit = event.target.closest("[data-edit-note]");
+        if (edit) return changeNote(edit.dataset.editNote);
+        const remove = event.target.closest("[data-remove-note]");
+        if (remove) return deleteNote(remove.dataset.removeNote);
+      });
+      $("pinNoteButton").addEventListener("click", pinNote);
       $("nextPlan").addEventListener("click", event => {
         const button = event.target.closest("button[data-open-date]");
         if (button) openDate(button.dataset.openDate);

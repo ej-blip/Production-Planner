@@ -913,6 +913,8 @@
       .flow-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
+    a.tab-link.board-link { background: #b45309; color: #fff7ed; }
+    .release-actions a.tab-link { margin: 0; }
     .bench-links { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-right: 8px; }
     .bench-links .work-mode-label { margin-right: 2px; }
 
@@ -1370,6 +1372,7 @@
          ========================================================== -->
     <div class="tabs">
       <button class="tab-button" onclick="openWorkerAdmin()">Worker Admin</button>
+      <a class="tab-button tab-link board-link" data-board-link href="board.html" target="_blank" rel="noopener">Floor board ↗</a>
       <span class="bench-links" aria-label="Bench screens">
         <span class="work-mode-label">Bench screens</span>
         <a class="tab-button tab-link" data-bench="assembly" href="bench.html?bench=assembly" target="_blank" rel="noopener">Assembly ↗</a>
@@ -1635,6 +1638,7 @@
       <div class="release-actions">
         <button type="button" class="secondary" data-plan-action="draft" onclick="savePlanDraft()">Save draft</button>
         <button type="button" data-plan-action="release" onclick="releaseCurrentPlan()">Release plan</button>
+        <a class="tab-button tab-link board-link" data-board-link href="board.html" target="_blank" rel="noopener">Open floor board ↗</a>
       </div>
     </div>
 
@@ -3038,6 +3042,9 @@
       document.getElementById("dayBarLabel").textContent = date ? longDayLabel(date) : "";
       document.querySelectorAll("a[data-bench]").forEach(link => {
         link.href = `bench.html?bench=${link.dataset.bench}${date ? `&date=${date}` : ""}`;
+      });
+      document.querySelectorAll("a[data-board-link]").forEach(link => {
+        link.href = `board.html${date ? `?date=${date}` : ""}`;
       });
 
       renderReleaseSummary(statuses);

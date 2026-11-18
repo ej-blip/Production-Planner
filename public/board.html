@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Floor board · Production Planner</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Floor board" />
+  <meta name="theme-color" content="#020617" />
+  <link rel="apple-touch-icon" href="icons/board.png" />
+  <link rel="icon" type="image/png" href="icons/board.png" />
+  <link rel="stylesheet" href="css/floor.css" />
+  <style>
+    :root {
+      --page: #020617;
+      --page-2: #0f172a;
+      --card: rgba(17, 24, 39, 0.94);
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --good: #22c55e;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(135deg, var(--page), var(--page-2));
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px 20px;
+      background: rgba(2, 6, 23, 0.94);
+      border-bottom: 1px solid var(--border);
+    }
+    h1 { margin: 0; font-size: 26px; }
+    .sub { color: var(--muted); font-weight: 700; margin-top: 2px; }
+    .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    button, a.button {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent);
+      color: #00111f;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    button.secondary, a.button.secondary { background: #334155; color: var(--text); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    input[type="date"] {
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #14532d;
+      color: #dcfce7;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+    .live.offline { background: #7f1d1d; color: #fee2e2; }
+    .live.offline::before { background: var(--bad); }
+    main { padding: 16px 20px 40px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+      max-width: 900px;
+    }
+    .card h2 { margin: 0 0 8px; font-size: 20px; }
+    .hint { color: var(--muted); line-height: 1.45; margin: 0; }
+    .hidden { display: none !important; }
+
+    .strip { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .stat { background: #020617; border: 1px solid var(--border); border-radius: 14px; padding: 10px 16px; min-width: 170px; }
+    .stat .label { color: var(--muted); font-weight: 700; font-size: 13px; }
+    .stat .value { font-size: 30px; font-weight: 900; line-height: 1.1; margin-top: 2px; }
+    .stat .value.down { color: var(--warn); }
+    .stat .note { color: #cbd5e1; font-size: 12px; font-weight: 700; margin-top: 2px; }
+
+    .everyone { margin-bottom: 14px; }
+    .everyone-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .everyone-head h2 { margin: 0; font-size: 16px; color: #cbd5e1; }
+    .pinned-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+
+    .floor {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(170px, 1fr));
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+    .column {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 320px;
+    }
+    .column-head h2 { margin: 0; font-size: 18px; }
+    .magnets { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; min-height: 22px; }
+    .magnet { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: #1e293b; border: 1px solid #475569; color: #e2e8f0; }
+    .magnet.none { color: var(--muted); font-weight: 700; border-style: dashed; }
+    .column-foot { margin-top: auto; }
+    .column-foot button { width: 100%; }
+    .empty { color: var(--muted); font-size: 14px; }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1800;
+      max-width: calc(100% - 32px);
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: #111827;
+      border: 1px solid var(--good);
+      font-weight: 800;
+    }
+    .toast.error { border-color: var(--bad); color: #fecaca; }
+
+    @media (max-width: 700px) {
+      .top { padding: 10px 16px; }
+      main { padding: 12px 16px 32px; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Floor board</h1>
+      <div class="sub" id="dateLabel">Loading…</div>
+    </div>
+    <div class="top-actions">
+      <button type="button" class="secondary" id="prevDay" aria-label="Previous day">◀</button>
+      <input type="date" id="dateInput" aria-label="Plan date" />
+      <button type="button" class="secondary" id="nextDay" aria-label="Next day">▶</button>
+      <button type="button" class="secondary" id="todayButton">Today</button>
+      <span id="liveBadge" class="live">Live</span>
+      <a class="button secondary hidden" id="planningLink" href="index.html#release">Planning</a>
+      <button type="button" class="secondary" id="lockButton">Lock</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="emptyState" class="card hidden">
+      <h2>No released plan for this day</h2>
+      <p class="hint" id="emptyMessage">The board fills in as soon as management releases the plan.</p>
+      <p class="hint hidden" id="nextPlan"></p>
+    </section>
+
+    <div id="boardArea" class="hidden">
+      <section class="strip" id="strip"></section>
+
+      <section class="everyone">
+        <div class="everyone-head">
+          <h2>Notes for everyone</h2>
+          <button type="button" class="secondary" id="addEveryoneNote">+ Note for everyone</button>
+        </div>
+        <div class="pinned-row" id="everyoneNotes"></div>
+      </section>
+
+      <section class="floor" id="floor" aria-label="Benches"></section>
+    </div>
+  </main>
+
+  <script type="module">
+    import {
+      collection, doc, getDoc, getDocs, onSnapshot, addDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
+    import {
+      FLOOR_BENCHES, MAGNET_STATIONS, benchLabel, floorBatches, batchTitle, progressOf, expectedUnits,
+      statusText, statusNoteHtml, pinnedNoteHtml, watchFloor, setBatchStatus, askStatus, askNote,
+      addNote, editNote, removeNote, showPhoto, escapeHtml
+    } from "./js/floor.js";
+
+    const $ = id => document.getElementById(id);
+    const state = {
+      role: null,
+      date: "",
+      plan: null,
+      reachable: true,
+      live: true,
+      assignments: [],
+      staff: new Map(),
+      presets: {},
+      progress: new Map(),
+      notes: [],
+      nextPlan: null
+    };
+    let stops = [];
+    let detailStops = [];
+    let retryTimer = null;
+
+    const actor = () => (state.role === "management" ? "Management" : "Floor board");
+
+    function toInputDate(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+    function fromInputDate(value) {
+      const [y, m, d] = String(value).split("-").map(Number);
+      return new Date(y, (m || 1) - 1, d || 1, 12);
+    }
+    function longDate(value) {
+      return new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(fromInputDate(value));
+    }
+    function staffName(key) {
+      const person = state.staff.get(key);
+      return person?.firstName || person?.name || key;
+    }
+    function toast(message, isError = false) {
+      document.querySelector(".toast")?.remove();
+      const element = document.createElement("div");
+      element.className = `toast ${isError ? "error" : ""}`;
+      element.textContent = message;
+      document.body.appendChild(element);
+      setTimeout(() => element.remove(), 4000);
+    }
+
+    // ------------------------------------------------------------------
+    // Loading and live updates
+    // ------------------------------------------------------------------
+    function stopDetails() {
+      detailStops.forEach(stop => stop());
+      detailStops = [];
+    }
+    function stopAll() {
+      stopDetails();
+      stops.forEach(stop => stop());
+      stops = [];
+      clearTimeout(retryTimer);
+    }
+
+    function openDate(date) {
+      stopAll();
+      Object.assign(state, { date, plan: null, reachable: true, assignments: [], progress: new Map(), notes: [], nextPlan: null });
+      $("dateInput").value = date;
+      $("planningLink").href = `index.html#release`;
+      render();
+
+      stops.push(onSnapshot(doc(db, "plans", date), { includeMetadataChanges: true }, snapshot => {
+        if (state.date !== date) return;
+        const plan = snapshot.exists() ? snapshot.data() : null;
+        const released = plan?.status === "released";
+        state.plan = released ? plan : null;
+        state.reachable = true;
+        state.live = !snapshot.metadata.fromCache;
+        if (released && detailStops.length === 0) watchDetails(date);
+        if (!released) {
+          stopDetails();
+          lookForNextPlan(date);
+        }
+        render();
+      }, error => {
+        if (state.date !== date) return;
+        state.plan = null;
+        state.reachable = error?.code === "permission-denied";   // just not released yet
+        state.live = state.reachable;
+        render();
+        if (state.reachable) lookForNextPlan(date);
+        retryTimer = setTimeout(() => {
+          if (state.date === date) openDate(date);
+        }, 60000);
+      }));
+    }
+
+    function watchDetails(date) {
+      detailStops.push(onSnapshot(collection(db, "plans", date, "assignments"), snapshot => {
+        if (state.date !== date) return;
+        state.assignments = snapshot.docs.map(entry => entry.data());
+        render();
+      }, () => {}));
+      detailStops.push(watchFloor(date, ({ progress, notes }) => {
+        if (state.date !== date) return;
+        state.progress = progress;
+        state.notes = notes;
+        render();
+      }));
+    }
+
+    async function lookForNextPlan(fromDate) {
+      if (state.nextPlan?.from === fromDate) return;
+      state.nextPlan = { from: fromDate, date: null, searching: true };
+      const start = fromInputDate(fromDate);
+      let found = null;
+      for (let day = 1; day <= 14 && !found; day++) {
+        const next = new Date(start);
+        next.setDate(start.getDate() + day);
+        const key = toInputDate(next);
+        try {
+          const snapshot = await getDoc(doc(db, "plans", key));
+          if (snapshot.exists() && snapshot.data().status === "released") found = key;
+        } catch {
+          // Not released yet: keep looking.
+        }
+        if (state.date !== fromDate) return;
+      }
+      state.nextPlan = { from: fromDate, date: found, searching: false };
+      render();
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
+    function render() {
+      $("dateLabel").textContent = state.date ? longDate(state.date) : "";
+      $("liveBadge").textContent = state.live ? "Live" : "Offline";
+      $("liveBadge").classList.toggle("offline", !state.live);
+
+      const hasPlan = Boolean(state.plan);
+      $("emptyState").classList.toggle("hidden", hasPlan);
+      $("boardArea").classList.toggle("hidden", !hasPlan);
+      if (!hasPlan) {
+        renderEmpty();
+        return;
+      }
+      renderStrip();
+      renderEveryone();
+      renderFloor();
+    }
+
+    function renderEmpty() {
+      $("emptyMessage").textContent = state.reachable
+        ? (state.role === "management"
+          ? "The board fills in when this day's plan is released from Planning."
+          : "The board fills in as soon as management releases the plan.")
+        : "The database can't be reached. Check the internet connection.";
+      const next = state.nextPlan;
+      const holder = $("nextPlan");
+      const show = Boolean(next && next.from === state.date && state.reachable);
+      holder.classList.toggle("hidden", !show);
+      if (!show) return;
+      holder.innerHTML = next.searching
+        ? "Looking for the next released plan…"
+        : next.date
+          ? `Next released plan: <strong>${escapeHtml(longDate(next.date))}</strong> <button type="button" data-open-date="${escapeHtml(next.date)}">Open it</button>`
+          : "No released plans in the next two weeks.";
+    }
+
+    function renderStrip() {
+      const plan = state.plan;
+      const planned = plan.plannedTarget ?? 0;
+      const current = plan.currentTarget ?? planned;
+      const batches = floorBatches(plan);
+      let packed = 0;
+      let packingFinished = 0;
+      batches.forEach(batch => {
+        const item = progressOf(state.progress, "packing", batch);
+        if (item.status === "hit") {
+          packed += Number.isInteger(item.done) ? item.done : expectedUnits(state.progress, "packing", batch);
+          packingFinished++;
+        } else if (item.status === "short") {
+          packed += item.done || 0;
+          packingFinished++;
+        }
+      });
+      $("strip").innerHTML = `
+        <div class="stat"><div class="label">Day target</div>
+          <div class="value ${current < planned ? "down" : ""}">${current}</div>
+          <div class="note">${current < planned ? `Down from ${planned}` : "As planned"}</div></div>
+        <div class="stat"><div class="label">Packed (finished batches)</div>
+          <div class="value">${packed}</div>
+          <div class="note">${packingFinished} of ${batches.length} batch${batches.length === 1 ? "" : "es"} done at Packing</div></div>`;
+    }
+
+    function renderEveryone() {
+      const notes = state.notes.filter(note => note.bench === "all");
+      $("everyoneNotes").innerHTML = notes.map(note => pinnedNoteHtml(note, state.role)).join("")
+        || '<span class="empty">Nothing pinned for everyone.</span>';
+    }
+
+    function magnetsFor(bench) {
+      const stations = MAGNET_STATIONS[bench] || [];
+      const people = [...new Set(state.assignments.filter(item => stations.includes(item.station)).map(item => item.staffKey))];
+      return people.map(staffName).sort((a, b) => a.localeCompare(b));
+    }
+
+    function renderFloor() {
+      const batches = floorBatches(state.plan);
+      $("floor").innerHTML = FLOOR_BENCHES.map(bench => {
+        const names = magnetsFor(bench.key);
+        const magnets = bench.key === "cage"
+          ? ""
+          : names.map(name => `<span class="magnet">${escapeHtml(name)}</span>`).join("") || '<span class="magnet none">Nobody assigned</span>';
+        const notes = state.notes.filter(note => note.bench === bench.key);
+        return `
+          <div class="column" data-column="${bench.key}">
+            <div class="column-head">
+              <h2>${escapeHtml(bench.short)}</h2>
+              <div class="magnets">${magnets}</div>
+            </div>
+            ${batches.map(batch => statusNoteHtml({ bench: bench.key, batch, progress: state.progress, presets: state.presets, clickable: true })).join("")
+              || '<span class="empty">No batches</span>'}
+            ${notes.map(note => pinnedNoteHtml(note, state.role)).join("")}
+            <div class="column-foot"><button type="button" class="secondary" data-add-note="${bench.key}">+ Note</button></div>
+          </div>`;
+      }).join("");
+    }
+
+    // ------------------------------------------------------------------
+    // Actions
+    // ------------------------------------------------------------------
+    async function changeStatus(bench, batchKey) {
+      const batch = floorBatches(state.plan).find(item => item.key === batchKey);
+      if (!batch) return;
+      const choice = await askStatus({ bench, batch, progress: state.progress });
+      if (!choice) return;
+      const date = state.date;
+      try {
+        await setBatchStatus(date, bench, batch, choice.status, choice.done, actor());
+        const text = statusText(bench, choice, expectedUnits(state.progress, bench, batch));
+        await addDoc(collection(db, "plans", date, "events"), {
+          bench: state.role === "management" ? "management" : bench,
+          kind: "note",
+          message: `${benchLabel(bench)} · ${batchTitle(batch)}: ${text}.`,
+          createdBy: actor(),
+          createdAt: serverTimestamp()
+        });
+      } catch (error) {
+        toast(`That wasn't saved: ${friendlyError(error)}`, true);
+      }
+    }
+
+    async function pinNote(bench) {
+      const result = await askNote({
+        title: bench === "all" ? "Note for everyone" : `Note for ${benchLabel(bench)}`,
+        bench
+      });
+      if (!result) return;
+      try {
+        await addNote(state.date, result, state.role, actor());
+      } catch (error) {
+        toast(`That note wasn't pinned: ${friendlyError(error)}`, true);
+      }
+    }
+
+    async function changeNote(noteId) {
+      const note = state.notes.find(item => item.id === noteId);
+      if (!note) return;
+      const result = await askNote({
+        title: "Edit note",
+        note,
+        benches: [{ key: "all", label: "Everyone" }, ...FLOOR_BENCHES.map(item => ({ key: item.key, label: item.label }))]
+      });
+      if (!result) return;
+      try {
+        await editNote(state.date, note, result, state.role, actor());
+      } catch (error) {
+        toast(`That change wasn't saved: ${friendlyError(error)}`, true);
+      }
+    }
+
+    async function deleteNote(noteId) {
+      const note = state.notes.find(item => item.id === noteId);
+      if (!note || !window.confirm("Remove this note from the board?")) return;
+      try {
+        await removeNote(state.date, note);
+      } catch (error) {
+        toast(`That note wasn't removed: ${friendlyError(error)}`, true);
+      }
+    }
+
+    function wire() {
+      $("boardArea").addEventListener("click", event => {
+        const photo = event.target.closest("[data-photo]");
+        if (photo) return showPhoto(photo.getAttribute("src"));
+        const edit = event.target.closest("[data-edit-note]");
+        if (edit) return changeNote(edit.dataset.editNote);
+        const remove = event.target.closest("[data-remove-note]");
+        if (remove) return deleteNote(remove.dataset.removeNote);
+        const add = event.target.closest("[data-add-note]");
+        if (add) return pinNote(add.dataset.addNote);
+        const sticky = event.target.closest(".sticky.clickable");
+        if (sticky) return changeStatus(sticky.dataset.bench, sticky.dataset.batch);
+      });
+      $("boardArea").addEventListener("keydown", event => {
+        const sticky = event.target.closest?.(".sticky.clickable");
+        if (sticky && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          changeStatus(sticky.dataset.bench, sticky.dataset.batch);
+        }
+      });
+      $("addEveryoneNote").addEventListener("click", () => pinNote("all"));
+      $("nextPlan").addEventListener("click", event => {
+        const button = event.target.closest("button[data-open-date]");
+        if (button) openDate(button.dataset.openDate);
+      });
+      const shift = days => {
+        const date = fromInputDate(state.date || toInputDate(new Date()));
+        date.setDate(date.getDate() + days);
+        openDate(toInputDate(date));
+      };
+      $("prevDay").addEventListener("click", () => shift(-1));
+      $("nextDay").addEventListener("click", () => shift(1));
+      $("todayButton").addEventListener("click", () => openDate(toInputDate(new Date())));
+      $("dateInput").addEventListener("change", event => {
+        if (event.target.value) openDate(event.target.value);
+      });
+      $("lockButton").addEventListener("click", async () => {
+        await lockScreen();
+        window.location.reload();
+      });
+    }
+
+    async function start() {
+      state.role = await ensureAccess({
+        title: "Floor board",
+        intro: "Enter the management or bench PIN to open the floor board.",
+        pinLabel: "PIN",
+        allowed: ["management", "bench"],
+        wrongRoleMessage: "That PIN isn't right."
+      });
+      $("planningLink").classList.toggle("hidden", state.role !== "management");
+      try {
+        const [staff, presets] = await Promise.all([
+          getDocs(collection(db, "staff")),
+          getDocs(collection(db, "configPresets"))
+        ]);
+        state.staff = new Map(staff.docs.map(entry => [entry.id, entry.data()]));
+        state.presets = Object.fromEntries(presets.docs.map(entry => [entry.id, entry.data()]));
+      } catch (error) {
+        toast(friendlyError(error), true);
+      }
+      wire();
+      const requested = new URLSearchParams(window.location.search).get("date");
+      openDate(/^\d{4}-\d{2}-\d{2}$/.test(requested || "") ? requested : toInputDate(new Date()));
+    }
+
+    start();
+  </script>
+</body>
+</html>

@@ -84,7 +84,11 @@ async function seed() {
       [`plans/${RELEASED}/assignments`, "start_ethan", { phase: "start", station: "verizonTest", staffKey: "ethan", updatedAt: now }],
       [`plans/${RELEASED}/events`, "first", { bench: "management", kind: "released", createdAt: now }],
       [`plans/${DRAFT}/assignments`, "start_ethan", { phase: "start", station: "verizonTest", staffKey: "ethan", updatedAt: now }],
-      [`plans/${DRAFT}/events`, "first", { bench: "management", kind: "note", createdAt: now }]
+      [`plans/${DRAFT}/events`, "first", { bench: "management", kind: "note", createdAt: now }],
+      [`plans/${RELEASED}/progress`, "assembly_batch-1", { bench: "assembly", batchId: "batch-1", status: "in_progress", updatedAt: now }],
+      [`plans/${RELEASED}/notes`, "from-management", { bench: "packing", text: "Pallet split 2 x 15", role: "management", createdAt: now, updatedAt: now }],
+      [`plans/${RELEASED}/notes`, "from-bench", { bench: "packing", text: "Short on boxes", role: "bench", createdAt: now, updatedAt: now }],
+      [`plans/${DRAFT}/notes`, "draft-note", { bench: "all", text: "Draft only", role: "management", createdAt: now, updatedAt: now }]
     ];
     for (const [path, id, data] of writes) await setDoc(doc(db, path, id), data);
   });
@@ -480,6 +484,133 @@ describe("Screens without a working PIN", () => {
       await assertFails(updateDoc(doc(db, "plans", RELEASED), benchTargetChange(0)));
       await assertFails(setDoc(doc(db, "plans", RELEASED, "assignments", "start_ethan"), benchAssignment("start", "ethan")));
       await assertFails(addDoc(collection(db, "plans", RELEASED, "events"), benchEvent({ kind: "note" })));
+      await assertFails(getDocs(collection(db, "plans", RELEASED, "progress")));
+      await assertFails(setDoc(doc(db, "plans", RELEASED, "progress", "assembly_batch-1"), progress("assembly", "batch-1", "hit")));
+      await assertFails(getDocs(collection(db, "plans", RELEASED, "notes")));
+      await assertFails(addDoc(collection(db, "plans", RELEASED, "notes"), note({ role: "bench" })));
     });
   }
+});
+
+// ---------------------------------------------------------------------
+// Floor board: batch statuses per bench, and pinned notes / photos.
+// ---------------------------------------------------------------------
+function progress(bench, batchId, status, done) {
+  return {
+    bench, batchId, status,
+    ...(done === undefined ? {} : { done }),
+    updatedBy: `${bench} bench`,
+    updatedAt: serverTimestamp()
+  };
+}
+
+const SMALL_JPEG = "data:image/jpeg;base64," + "A".repeat(4000);
+
+function note(fields = {}) {
+  return {
+    bench: "packing",
+    text: "Pallet split changed to 3 x 10",
+    role: "bench",
+    createdBy: "Packing bench",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...fields
+  };
+}
+
+describe("Floor board – batch statuses", () => {
+  it("a bench marks a batch in progress, hit target, or short with a number", async () => {
+    const db = bench();
+    await assertSucceeds(setDoc(doc(db, "plans", RELEASED, "progress", "testing_batch-1"), progress("testing", "batch-1", "in_progress")));
+    await assertSucceeds(setDoc(doc(db, "plans", RELEASED, "progress", "testing_batch-1"), progress("testing", "batch-1", "hit", 30)));
+    await assertSucceeds(setDoc(doc(db, "plans", RELEASED, "progress", "assembly_batch-1"), progress("assembly", "batch-1", "short", 24)));
+    await assertSucceeds(setDoc(doc(db, "plans", RELEASED, "progress", "cage_batch-1"), progress("cage", "batch-1", "waiting", null)));
+  });
+
+  it("benches and management read the statuses of a released plan", async () => {
+    await assertSucceeds(getDocs(collection(bench(), "plans", RELEASED, "progress")));
+    await assertSucceeds(getDocs(collection(management(), "plans", RELEASED, "progress")));
+  });
+
+  it("a bench can't see or set statuses on a draft plan", async () => {
+    await assertFails(getDocs(collection(bench(), "plans", DRAFT, "progress")));
+    await assertFails(setDoc(doc(bench(), "plans", DRAFT, "progress", "testing_batch-1"), progress("testing", "batch-1", "hit")));
+  });
+
+  it("management can set statuses on any plan", async () => {
+    await assertSucceeds(setDoc(doc(management(), "plans", DRAFT, "progress", "packing_batch-1"), progress("packing", "batch-1", "hit", 36)));
+  });
+
+  it("statuses must be well formed", async () => {
+    const db = bench();
+    const ref = id => doc(db, "plans", RELEASED, "progress", id);
+    await assertFails(setDoc(ref("testing_batch-2"), progress("testing", "batch-1", "hit")));          // id doesn't match
+    await assertFails(setDoc(ref("office_batch-1"), progress("office", "batch-1", "hit")));            // unknown bench
+    await assertFails(setDoc(ref("testing_batch-1"), progress("testing", "batch-1", "done")));         // unknown status
+    await assertFails(setDoc(ref("testing_batch-1"), progress("testing", "batch-1", "short", -3)));    // negative
+    await assertFails(setDoc(ref("testing_batch-1"), progress("testing", "batch-1", "short", 2.5)));   // fraction
+    await assertFails(setDoc(ref("testing_batch-1"), { ...progress("testing", "batch-1", "hit"), extra: 1 }));
+    await assertFails(setDoc(ref("testing_batch-1"), { ...progress("testing", "batch-1", "hit"), updatedAt: Timestamp.now() }));
+  });
+
+  it("only management can delete a status", async () => {
+    await assertFails(deleteDoc(doc(bench(), "plans", RELEASED, "progress", "assembly_batch-1")));
+    await assertSucceeds(deleteDoc(doc(management(), "plans", RELEASED, "progress", "assembly_batch-1")));
+  });
+});
+
+describe("Floor board – pinned notes and photos", () => {
+  it("a bench pins a note, with or without a photo", async () => {
+    const db = bench();
+    await assertSucceeds(addDoc(collection(db, "plans", RELEASED, "notes"), note()));
+    await assertSucceeds(addDoc(collection(db, "plans", RELEASED, "notes"), note({ photo: SMALL_JPEG })));
+  });
+
+  it("management pins notes on any plan, including drafts", async () => {
+    await assertSucceeds(addDoc(collection(management(), "plans", DRAFT, "notes"), note({ role: "management", bench: "all" })));
+  });
+
+  it("a bench can't pretend its note came from management", async () => {
+    await assertFails(addDoc(collection(bench(), "plans", RELEASED, "notes"), note({ role: "management" })));
+  });
+
+  it("photos must be a JPEG under the size limit", async () => {
+    const db = bench();
+    await assertFails(addDoc(collection(db, "plans", RELEASED, "notes"), note({ photo: "data:image/png;base64,AAAA" })));
+    await assertFails(addDoc(collection(db, "plans", RELEASED, "notes"), note({ photo: "https://example.com/x.jpg" })));
+    await assertFails(addDoc(collection(db, "plans", RELEASED, "notes"), note({ photo: "data:image/jpeg;base64," + "A".repeat(900000) })));
+  });
+
+  it("notes must be well formed", async () => {
+    const db = bench();
+    await assertFails(addDoc(collection(db, "plans", RELEASED, "notes"), note({ bench: "office" })));
+    await assertFails(addDoc(collection(db, "plans", RELEASED, "notes"), note({ text: "x".repeat(2001) })));
+    await assertFails(addDoc(collection(db, "plans", RELEASED, "notes"), note({ pinned: true })));
+  });
+
+  it("benches read notes on a released plan only", async () => {
+    await assertSucceeds(getDocs(collection(bench(), "plans", RELEASED, "notes")));
+    await assertFails(getDocs(collection(bench(), "plans", DRAFT, "notes")));
+    await assertFails(addDoc(collection(bench(), "plans", DRAFT, "notes"), note()));
+  });
+
+  it("a bench edits or removes bench notes, but not management's", async () => {
+    const db = bench();
+    const keepCreated = { createdAt: Timestamp.fromMillis(0) };
+    await env.withSecurityRulesDisabled(async context => {
+      await setDoc(doc(context.firestore(), "plans", RELEASED, "notes", "from-bench"), note({ createdAt: keepCreated.createdAt, updatedAt: Timestamp.now() }));
+      await setDoc(doc(context.firestore(), "plans", RELEASED, "notes", "from-management"), note({ role: "management", createdAt: keepCreated.createdAt, updatedAt: Timestamp.now() }));
+    });
+    await assertSucceeds(setDoc(doc(db, "plans", RELEASED, "notes", "from-bench"), note({ text: "Boxes arrived", ...keepCreated })));
+    await assertFails(setDoc(doc(db, "plans", RELEASED, "notes", "from-bench"), note({ text: "Moved the date" })));   // createdAt changed
+    await assertFails(setDoc(doc(db, "plans", RELEASED, "notes", "from-management"), note({ text: "Edited", ...keepCreated })));
+    await assertFails(deleteDoc(doc(db, "plans", RELEASED, "notes", "from-management")));
+    await assertSucceeds(deleteDoc(doc(db, "plans", RELEASED, "notes", "from-bench")));
+  });
+
+  it("management edits and removes any note", async () => {
+    const db = management();
+    await assertSucceeds(deleteDoc(doc(db, "plans", RELEASED, "notes", "from-bench")));
+    await assertSucceeds(deleteDoc(doc(db, "plans", RELEASED, "notes", "from-management")));
+  });
 });

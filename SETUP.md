@@ -147,3 +147,13 @@ shows while it's on; `?practice=0` switches back. Practice mode only works on
 
 Each bench screen opens on today's plan. If today's plan isn't released yet, it offers
 the next released plan.
+
+## The floor board
+
+**https://production-planner-be3e6.web.app/board.html** (also linked from the Management screen)
+is the live board: a column per bench (Cage → Assembly → Testing → Hardware → Packing) with a
+sticky note per batch showing that bench's status, who's on each bench, and pinned notes and
+photos. It works with the management PIN, or the bench PIN on a floor TV or tablet.
+
+Benches update their batches from their own screen (Start → Hit target, or enter the number
+done). A short count shows on later benches as "N coming".

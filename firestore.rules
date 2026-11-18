@@ -16,8 +16,10 @@ rules_version = '2';
 // Who can do what:
 //   management  – full access: roster, build batches, plans, staff, PINs.
 //   bench       – reads staff, colours, rosters and RELEASED plans. On a
-//                 released plan it can move people, log changes and update
-//                 the day's current target. It never sees draft plans.
+//                 released plan it can move people, log changes, update
+//                 the day's current target, set batch statuses on the floor
+//                 board and pin notes (editing only notes a bench pinned).
+//                 It never sees draft plans.
 //   anyone else – no access.
 //
 // Data layout:
@@ -29,6 +31,9 @@ rules_version = '2';
 //   plans/{YYYY-MM-DD}               build batches, status, targets, workflow
 //   plans/{date}/assignments/{id}    who works where, per phase (id = phase_staffKey)
 //   plans/{date}/events/{id}         changes made after release
+//   plans/{date}/progress/{id}       floor board: each bench's status per batch
+//                                    (id = bench_batchId)
+//   plans/{date}/notes/{id}          floor board: pinned notes and photos
 // =====================================================================
 
 service cloud.firestore {
@@ -137,6 +142,32 @@ service cloud.firestore {
         && request.resource.data.kind != 'released';
     }
 
+    // Floor board: one bench's status for one batch.
+    function validProgress(progressId) {
+      let d = request.resource.data;
+      return d.keys().hasAll(['bench', 'batchId', 'status', 'updatedAt'])
+        && d.keys().hasOnly(['bench', 'batchId', 'status', 'done', 'updatedBy', 'updatedAt'])
+        && d.bench in ['cage', 'assembly', 'testing', 'hardware', 'packing']
+        && d.batchId is string && d.batchId.size() > 0 && d.batchId.size() <= 64
+        && progressId == d.bench + '_' + d.batchId
+        && d.status in ['waiting', 'in_progress', 'hit', 'short']
+        && (d.get('done', null) == null || (d.done is int && d.done >= 0 && d.done <= 100000))
+        && d.updatedAt == request.time;
+    }
+
+    // Floor board: a pinned note (text and/or one shrunk JPEG photo).
+    function validNote() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['bench', 'text', 'role', 'createdAt', 'updatedAt'])
+        && d.keys().hasOnly(['bench', 'text', 'photo', 'role', 'createdBy', 'createdAt', 'updatedAt'])
+        && d.bench in ['all', 'cage', 'assembly', 'testing', 'hardware', 'packing']
+        && d.text is string && d.text.size() <= 2000
+        && (d.get('photo', null) == null
+            || (d.photo is string && d.photo.size() <= 900000 && d.photo.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+')))
+        && d.role == role()
+        && d.updatedAt == request.time;
+    }
+
     // ---------- PINs and signed-in screens -----------------------------
     match /pins/{pin} {
       allow read, delete: if isManagement();
@@ -176,6 +207,26 @@ service cloud.firestore {
         allow create, update: if isManagement()
           || (isBench() && planIsReleased(date) && validAssignment(assignmentId));
         allow delete: if isManagement() || (isBench() && planIsReleased(date));
+      }
+
+      match /progress/{progressId} {
+        allow read: if isManagement() || (isBench() && planIsReleased(date));
+        allow create, update: if validProgress(progressId)
+          && (isManagement() || (isBench() && planIsReleased(date)));
+        allow delete: if isManagement();
+      }
+
+      match /notes/{noteId} {
+        allow read: if isManagement() || (isBench() && planIsReleased(date));
+        allow create: if validNote()
+          && request.resource.data.createdAt == request.time
+          && (isManagement() || (isBench() && planIsReleased(date)));
+        // Benches can change or remove only notes a bench pinned.
+        allow update: if validNote()
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (isManagement() || (isBench() && planIsReleased(date) && resource.data.role == 'bench'));
+        allow delete: if isManagement()
+          || (isBench() && planIsReleased(date) && resource.data.role == 'bench');
       }
 
       match /events/{eventId} {

@@ -1,0 +1,94 @@
+/* Production Planner — floor board sticky notes, pinned notes and dialogs.
+   Shared by board.html and bench.html (both dark pages). */
+
+.sticky {
+  --note: #64748b;
+  display: block;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--note) 38%, #f8fafc);
+  color: #0f172a;
+  border: 3px solid transparent;
+  line-height: 1.35;
+  font-size: 14px;
+  text-align: left;
+}
+.sticky b { display: block; font-size: 15px; }
+.sticky-sub { display: block; font-size: 13px; color: #334155; margin-top: 2px; }
+.sticky-status { display: block; margin-top: 6px; font-weight: 900; font-size: 15px; }
+.sticky.status-waiting { opacity: 0.55; }
+.sticky.status-in_progress { border-color: #2563eb; }
+.sticky.status-hit { border-color: #16a34a; }
+.sticky.status-hit .sticky-status { color: #14532d; }
+.sticky.status-short { border-color: #d97706; }
+.sticky.status-short .sticky-status { color: #7c2d12; }
+.sticky.clickable { cursor: pointer; }
+.sticky.clickable:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+
+.pinned {
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fde68a;
+  color: #422006;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.pinned-text { white-space: pre-line; font-weight: 700; }
+.pinned-photo { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: 4px; margin-top: 6px; cursor: zoom-in; }
+.pinned-meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: #713f12; }
+.pinned-actions { display: inline-flex; gap: 10px; }
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  text-decoration: underline;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.floor-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.85);
+}
+.floor-dialog {
+  width: min(480px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  background: #111827;
+  color: #f8fafc;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 20px;
+}
+.floor-dialog h3 { margin: 0 0 6px; font-size: 20px; }
+.floor-dialog p { margin: 0 0 12px; color: #94a3b8; }
+.floor-dialog label { display: block; margin: 0 0 12px; color: #cbd5e1; font-weight: 700; font-size: 14px; }
+.floor-dialog input,
+.floor-dialog select,
+.floor-dialog textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: #f8fafc;
+  font-size: 16px;
+  font-family: inherit;
+}
+.floor-dialog .floor-choices { display: grid; gap: 10px; }
+.floor-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.floor-error { color: #f87171 !important; font-weight: 700; min-height: 1px; }
+.floor-photo-preview img { display: block; max-width: 100%; max-height: 200px; border-radius: 8px; margin-bottom: 6px; }
+.floor-photo-preview { color: #94a3b8; margin-bottom: 8px; }
+.photo-full { display: block; max-width: 100%; max-height: 75vh; margin: 0 auto 12px; border-radius: 8px; }
