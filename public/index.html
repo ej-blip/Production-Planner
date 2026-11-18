@@ -1309,7 +1309,7 @@
     }
 
     .admin-table {
-      min-width: 1160px;
+      min-width: 760px;
     }
 
     .admin-table input,
@@ -1319,12 +1319,29 @@
       font-size: 14px;
     }
 
+    .admin-table .center { text-align: center; }
+    .admin-table tr.off td { opacity: 0.5; }
+    .admin-table .dots { display: inline-flex; gap: 5px; }
+    .admin-table .dot {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      margin: 0;
+      border-radius: 50%;
+      border: 2px solid #475569;
+      background: transparent;
+    }
+    .admin-table .dot.on { background: var(--accent); border-color: var(--accent); }
+    .admin-table .icon-button { padding: 8px 12px; margin: 0; }
+
     .admin-table .name-input {
-      min-width: 210px;
+      min-width: 160px;
     }
 
-    .admin-table .bench-input {
-      min-width: 230px;
+    .admin-table input[type="checkbox"] {
+      min-width: 0;
+      width: 20px;
+      height: 20px;
     }
 
     .admin-hint {
@@ -1363,9 +1380,6 @@
 <body>
   <div class="container">
     <h1>Production Planner</h1>
-    <div class="subtitle">
-      Management · plan the day in four steps, then release it to the bench screens.
-    </div>
 
     <!-- ==========================================================
          WORKER ADMIN + ACTIVE UNIT BADGE
@@ -1430,7 +1444,6 @@
       <span class="work-mode-label">Work Day Setup</span>
       <button id="singleWorkModeButton" type="button" class="work-mode-button active" onclick="setWorkDayMode('single')">Single Build</button>
       <button id="mixedWorkModeButton" type="button" class="work-mode-button" onclick="setWorkDayMode('mixed')">Mixed Work Day</button>
-      <span id="workModeSummary" class="work-mode-summary">One product / network setup</span>
     </div>
 
     <!-- ==========================================================
@@ -1495,7 +1508,6 @@
          ========================================================== -->
     <div id="mixedWorkCard" class="card work-mix-card hidden" data-step="mix">
       <h2 class="section-title">Work Mix</h2>
-      <p class="small">Add each planned batch. Configuration Colour fills the standard component setup; edit the setup text whenever a Tap or Gen4 build needs a variation.</p>
 
       <div id="workMixSummary" class="summary-grid"></div>
 
@@ -1539,8 +1551,6 @@
         <button type="button" class="secondary" onclick="markEveryoneIn()">Everyone in</button>
       </div>
       <div id="attendanceBoard" class="attendance-board"></div>
-      <p class="small">Everyone is in by default. Drag a name to <strong>Away</strong> if they're off that day, or tap the name and then tap Away. Changes save straight away, so you can set up the week ahead.</p>
-      <p id="attendanceIgnored" class="small"></p>
     </div>
 
 
@@ -1556,7 +1566,6 @@
       </div>
       <div id="benchBoard" class="bench-board"></div>
       <p id="benchBoardMessage" class="small save-state"></p>
-      <p class="small">Starts from the calculator's suggested layout for the people who are in. Drag a name to another job, or tap the name and then tap the job. Names with a yellow edge were moved by hand. The target updates as you go; save or release the plan to keep the changes.</p>
     </div>
 
     <!-- Capacity summary and bench allocation render here. -->
@@ -1568,7 +1577,6 @@
          ========================================================== -->
     <div id="plannerToolsCard" class="card tools-card hidden" data-step="benches">
       <h2 class="section-title">Custom Jobs</h2>
-      <p class="small">For a job that isn't on the board (e.g. strapping and wrapping), or to assign by form instead of dragging.</p>
 
       <button class="secondary" onclick="toggleToolPanel('stationAdjustmentPanel')">Open Station Adjustments</button>
 
@@ -1577,9 +1585,6 @@
            ======================================================== -->
       <div id="stationAdjustmentPanel" class="tool-panel">
         <h3 class="section-title">Station Adjustments</h3>
-        <p class="small">
-          Choose a worker, phase and job. Each worker can have one job per phase. <strong>Assign / Move Within Phase</strong> replaces that worker's current job in the selected phase. Manual choices stay in place until you reset them or the worker becomes unavailable.
-        </p>
 
         <div class="grid">
           <div>
@@ -1616,7 +1621,6 @@
           </div>
         </div>
 
-        <p class="small" id="stationPhaseHint">Any production job can be scheduled in any phase. Testing setup remains network-specific on mixed days.</p>
         <div id="currentPhaseAssignment" class="current-assignment-hint">Current assignment: not calculated yet.</div>
         <button onclick="applyStationAdjustment()">Apply Phase Assignment</button>
         <button class="secondary" onclick="clearStationAdjustments()">Reset to Suggested Workflow</button>
@@ -1634,8 +1638,8 @@
       <h2 class="section-title">Review &amp; Release</h2>
       <div id="releaseSummary" class="summary-grid"></div>
       <p id="releaseWarnings" class="small save-state error"></p>
-      <label for="notesInstructions">Notes &amp; Instructions for the benches</label>
-      <textarea id="notesInstructions" placeholder="Workflow notes, instructions for unassigned workers, stock notes, audit prep, training, handover details, etc."></textarea>
+      <label for="notesInstructions">Notes for the benches</label>
+      <textarea id="notesInstructions"></textarea>
       <div class="release-actions">
         <button type="button" class="secondary" data-plan-action="draft" onclick="savePlanDraft()">Save draft</button>
         <button type="button" data-plan-action="release" onclick="releaseCurrentPlan()">Release plan</button>
@@ -1658,27 +1662,24 @@
     <div class="modal">
       <div class="modal-header">
         <div>
-          <h2 id="workerAdminTitle" style="margin-bottom:6px;">Worker Admin</h2>
-          <div class="small">Changes are saved online and shared with every Production Planner screen.</div>
+          <h2 id="workerAdminTitle" style="margin-bottom:6px;">Workers</h2>
         </div>
         <button class="secondary" onclick="closeWorkerAdmin()">Close</button>
       </div>
 
       <div class="modal-body">
-        <div class="admin-hint">
-          <strong>Priority Rank:</strong> lower numbers are preferred first. <strong>Preferred / Restricted Benches:</strong> enter comma-separated names such as
-          <em>hardware, packing, testing, assembly, sub assembly</em>. Jashan is prioritized for Hardware Check by default.
-        </div>
         <div class="table-scroll">
           <table class="admin-table">
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Team</th>
-                <th>Priority Rank</th>
-                <th>Preferred Benches</th>
-                <th>Restricted Benches</th>
-                <th>Action</th>
+                <th class="center">In production</th>
+                <th class="center">Sub Assembly</th>
+                <th class="center">Assembly</th>
+                <th class="center">Testing</th>
+                <th class="center">Hardware</th>
+                <th class="center">Packing</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="workerAdminBody"></tbody>
@@ -1699,6 +1700,7 @@
   <!-- Firebase: management PIN, staff, colours, who's in and daily plans. -->
   <script type="module" src="js/planner-data.js"></script>
   <script src="js/drag-board.js"></script>
+  <script src="js/skills.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <script>
@@ -1721,19 +1723,19 @@
     let collapsedSectionKeys = loadCollapsedSectionKeys();
 
     const DEFAULT_WORKERS = [
-      { key: "aarzoo", name: "Aarzoo Aarzoo", first: "Aarzoo", team: "A", priorityRank: 3, preferredBenches: "sub assembly, assembly", restrictedBenches: "", rosterIndex: 0 },
-      { key: "ethan", name: "Ethan Merrey", first: "Ethan", team: "A", priorityRank: 4, preferredBenches: "assembly, hardware", restrictedBenches: "", rosterIndex: 1 },
-      { key: "fares", name: "Fares Jaber", first: "Fares", team: "B", priorityRank: 4, preferredBenches: "testing", restrictedBenches: "", rosterIndex: 2 },
-      { key: "hansen", name: "Hansen", first: "Hansen", team: "A", priorityRank: 5, preferredBenches: "assembly, packing", restrictedBenches: "", rosterIndex: 3 },
-      { key: "jashan", name: "Jashanpreet Kaur", first: "Jashan", team: "A", priorityRank: 1, preferredBenches: "hardware", restrictedBenches: "", rosterIndex: 4 },
-      { key: "john", name: "John Alimasi", first: "John", team: "A", priorityRank: 6, preferredBenches: "hardware, assembly", restrictedBenches: "", rosterIndex: 5 },
-      { key: "jose", name: "Jose Miguel", first: "Jose", team: "IGNORE", priorityRank: 50, preferredBenches: "", restrictedBenches: "", rosterIndex: 6 },
-      { key: "juanita", name: "Juanita Rhenals", first: "Juanita", team: "A", priorityRank: 2, preferredBenches: "hardware", restrictedBenches: "packing", rosterIndex: 7 },
-      { key: "maged", name: "Maged Ba Suliman", first: "Maged", team: "D", priorityRank: 4, preferredBenches: "assembly, packing", restrictedBenches: "", rosterIndex: 8 },
-      { key: "mark", name: "Mark Malonzo", first: "Mark", team: "IGNORE", priorityRank: 50, preferredBenches: "", restrictedBenches: "", rosterIndex: 9 },
-      { key: "rajni", name: "Rajni Rana", first: "Rajni", team: "IGNORE", priorityRank: 50, preferredBenches: "", restrictedBenches: "", rosterIndex: 10 },
-      { key: "ramesh", name: "Ramesh Kshetry", first: "Ramesh", team: "C", priorityRank: 3, preferredBenches: "testing", restrictedBenches: "", rosterIndex: 11 },
-      { key: "rupesh", name: "Rupesh Limbu", first: "Rupesh", team: "B", priorityRank: 2, preferredBenches: "hardware", restrictedBenches: "", rosterIndex: 12 }
+      { key: "aarzoo", name: "Aarzoo Aarzoo", first: "Aarzoo", inProduction: true, skills: { subAssembly: 3, assembly: 3, testing: 0, hardware: 2, packing: 2 }, priorityRank: 3, rosterIndex: 0 },
+      { key: "ethan", name: "Ethan Merrey", first: "Ethan", inProduction: true, skills: { subAssembly: 2, assembly: 3, testing: 0, hardware: 3, packing: 2 }, priorityRank: 4, rosterIndex: 1 },
+      { key: "fares", name: "Fares Jaber", first: "Fares", inProduction: true, skills: { subAssembly: 0, assembly: 0, testing: 3, hardware: 2, packing: 2 }, priorityRank: 4, rosterIndex: 2 },
+      { key: "hansen", name: "Hansen", first: "Hansen", inProduction: true, skills: { subAssembly: 2, assembly: 3, testing: 0, hardware: 2, packing: 3 }, priorityRank: 5, rosterIndex: 3 },
+      { key: "jashan", name: "Jashanpreet Kaur", first: "Jashan", inProduction: true, skills: { subAssembly: 1, assembly: 2, testing: 0, hardware: 3, packing: 1 }, priorityRank: 1, rosterIndex: 4 },
+      { key: "john", name: "John Alimasi", first: "John", inProduction: true, skills: { subAssembly: 2, assembly: 3, testing: 0, hardware: 3, packing: 2 }, priorityRank: 6, rosterIndex: 5 },
+      { key: "jose", name: "Jose Miguel", first: "Jose", inProduction: false, skills: { subAssembly: 0, assembly: 0, testing: 0, hardware: 0, packing: 0 }, priorityRank: 50, rosterIndex: 6 },
+      { key: "juanita", name: "Juanita Rhenals", first: "Juanita", inProduction: true, skills: { subAssembly: 2, assembly: 2, testing: 0, hardware: 3, packing: 0 }, priorityRank: 2, rosterIndex: 7 },
+      { key: "maged", name: "Maged Ba Suliman", first: "Maged", inProduction: true, skills: { subAssembly: 0, assembly: 3, testing: 0, hardware: 0, packing: 3 }, priorityRank: 4, rosterIndex: 8 },
+      { key: "mark", name: "Mark Malonzo", first: "Mark", inProduction: false, skills: { subAssembly: 0, assembly: 0, testing: 0, hardware: 0, packing: 0 }, priorityRank: 50, rosterIndex: 9 },
+      { key: "rajni", name: "Rajni Rana", first: "Rajni", inProduction: false, skills: { subAssembly: 0, assembly: 0, testing: 0, hardware: 0, packing: 0 }, priorityRank: 50, rosterIndex: 10 },
+      { key: "ramesh", name: "Ramesh Kshetry", first: "Ramesh", inProduction: true, skills: { subAssembly: 0, assembly: 0, testing: 3, hardware: 0, packing: 0 }, priorityRank: 3, rosterIndex: 11 },
+      { key: "rupesh", name: "Rupesh Limbu", first: "Rupesh", inProduction: true, skills: { subAssembly: 0, assembly: 0, testing: 2, hardware: 3, packing: 2 }, priorityRank: 2, rosterIndex: 12 }
     ];
 
     let workerMap = loadWorkerConfig();
@@ -1920,6 +1922,7 @@
         arrowResizeTimer = setTimeout(drawWorkerArrows, 120);
       });
 
+      document.getElementById("workerAdminBody").addEventListener("click", onSkillDotClick);
       document.getElementById("workerAdminBackdrop").addEventListener("click", event => {
         if (event.target.id === "workerAdminBackdrop") closeWorkerAdmin();
       });
@@ -1940,7 +1943,7 @@
     }
 
     function cloneDefaultWorkers() {
-      return DEFAULT_WORKERS.map(worker => ({ ...worker }));
+      return DEFAULT_WORKERS.map(worker => ({ ...worker, skills: { ...worker.skills } }));
     }
 
     /* ============================================================
@@ -1964,30 +1967,15 @@
     function normalizeWorkerConfig(worker, index) {
       const name = String(worker.name || `Worker ${index + 1}`).trim();
       const key = String(worker.key || makeWorkerKey(name, index)).trim();
-      const team = ["A", "B", "C", "D", "IGNORE"].includes(String(worker.team || "A").toUpperCase())
-        ? String(worker.team || "A").toUpperCase()
-        : "A";
-
       return {
         key,
         name,
         first: String(worker.first || name.split(/\s+/)[0] || name),
-        team,
+        inProduction: window.PlannerSkills.inProduction(worker),
+        skills: window.PlannerSkills.skillsOf(worker, key),
         priorityRank: Math.max(1, Number(worker.priorityRank) || 50),
-        preferredBenches: dropRetiredBenchNames(worker.preferredBenches),
-        restrictedBenches: dropRetiredBenchNames(worker.restrictedBenches),
         rosterIndex: Number.isInteger(worker.rosterIndex) ? worker.rosterIndex : null
       };
-    }
-
-    /* Bench names from jobs that no longer exist. Settings saved by older
-       versions of the app are cleaned so they do not show in Worker Admin.
-       (Kept inside the function: worker settings load before later consts exist.) */
-    function dropRetiredBenchNames(value) {
-      const retired = new Set(["required support", "support", "baseboard testing", "baseboard", "pcb testing", "kitting"]);
-      const items = String(value || "").split(/[;,|]/).map(item => item.trim()).filter(Boolean);
-      const kept = items.filter(item => !retired.has(item.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()));
-      return kept.length === items.length ? String(value || "") : kept.join(", ");
     }
 
     function makeWorkerKey(name, index = Date.now()) {
@@ -2026,10 +2014,12 @@
           key: person.key,
           name: person.name,
           first: person.firstName,
-          team: person.team,
-          priorityRank: person.priorityRank,
-          preferredBenches: person.preferredBenches,
+          skills: person.skills,
+          inProduction: person.inProduction,
+          team: person.team,                          // older records only
+          preferredBenches: person.preferredBenches,  // older records only
           restrictedBenches: person.restrictedBenches,
+          priorityRank: person.priorityRank,
           rosterIndex: Number.isInteger(person.rosterRow) ? person.rosterRow : null
         }, index))
         .sort(compareByRosterThenPriority);
@@ -2072,26 +2062,34 @@
       document.getElementById("workerAdminBackdrop").classList.remove("open");
     }
 
+    function skillDotsHtml(skill, level) {
+      return `<span class="dots" data-skill="${skill}" data-level="${level}" aria-label="${escapeHtml(window.PlannerSkills.SKILL_LABELS[skill])}: ${level} of 3">${[1, 2, 3]
+        .map(n => `<button type="button" class="dot ${level >= n ? "on" : ""}" data-dot="${n}" aria-label="${n}"></button>`).join("")}</span>`;
+    }
+
     function renderWorkerAdminTable() {
       const body = document.getElementById("workerAdminBody");
       if (!body) return;
 
       body.innerHTML = workerMap.map(worker => `
-        <tr data-worker-key="${safeAttr(worker.key)}" data-roster-index="${worker.rosterIndex === null ? "" : worker.rosterIndex}">
-          <td><input class="name-input" data-field="name" type="text" value="${safeAttr(worker.name)}" /></td>
-          <td>
-            <select data-field="team">
-              ${["A", "B", "C", "D", "IGNORE"].map(team => `
-                <option value="${team}" ${worker.team === team ? "selected" : ""}>${team === "IGNORE" ? "Ignore" : team}</option>
-              `).join("")}
-            </select>
-          </td>
-          <td><input data-field="priorityRank" type="number" min="1" step="1" value="${Number(worker.priorityRank) || 50}" /></td>
-          <td><input class="bench-input" data-field="preferredBenches" type="text" value="${safeAttr(worker.preferredBenches)}" placeholder="hardware, testing" /></td>
-          <td><input class="bench-input" data-field="restrictedBenches" type="text" value="${safeAttr(worker.restrictedBenches)}" placeholder="packing" /></td>
-          <td><button class="danger" onclick="removeAdminWorker('${safeJs(worker.key)}')">Remove Worker</button></td>
+        <tr data-worker-key="${safeAttr(worker.key)}" data-roster-index="${worker.rosterIndex === null ? "" : worker.rosterIndex}" class="${worker.inProduction ? "" : "off"}">
+          <td><input class="name-input" data-field="name" type="text" value="${safeAttr(worker.name)}" aria-label="Name" /></td>
+          <td class="center"><input type="checkbox" data-field="inProduction" ${worker.inProduction ? "checked" : ""} aria-label="In production" /></td>
+          ${window.PlannerSkills.SKILL_KEYS.map(skill => `<td class="center">${skillDotsHtml(skill, worker.skills[skill])}</td>`).join("")}
+          <td><button class="danger icon-button" onclick="removeAdminWorker('${safeJs(worker.key)}')" aria-label="Remove ${safeAttr(worker.name)}">✕</button></td>
         </tr>
       `).join("");
+    }
+
+    // Tap a dot to set that many; tap the top one again to go down one.
+    function onSkillDotClick(event) {
+      const dot = event.target.closest(".dot[data-dot]");
+      if (!dot) return;
+      const holder = dot.closest(".dots");
+      const n = Number(dot.dataset.dot);
+      const level = Number(holder.dataset.level) === n ? n - 1 : n;
+      holder.dataset.level = String(level);
+      holder.querySelectorAll(".dot").forEach(item => item.classList.toggle("on", Number(item.dataset.dot) <= level));
     }
 
     function addAdminWorker() {
@@ -2099,10 +2097,9 @@
         key: makeWorkerKey("new-worker"),
         name: "New Worker",
         first: "New",
-        team: "A",
+        inProduction: true,
+        skills: { subAssembly: 0, assembly: 0, testing: 0, hardware: 0, packing: 0 },
         priorityRank: 50,
-        preferredBenches: "",
-        restrictedBenches: "",
         rosterIndex: null
       };
 
@@ -2126,14 +2123,18 @@
         const name = row.querySelector('[data-field="name"]').value.trim() || `Worker ${index + 1}`;
         const rosterIndexText = row.dataset.rosterIndex;
 
+        const skills = {};
+        row.querySelectorAll(".dots[data-skill]").forEach(holder => {
+          skills[holder.dataset.skill] = Number(holder.dataset.level) || 0;
+        });
+
         updated.push(normalizeWorkerConfig({
           key,
           name,
           first: name.split(/\s+/)[0],
-          team: row.querySelector('[data-field="team"]').value,
-          priorityRank: row.querySelector('[data-field="priorityRank"]').value,
-          preferredBenches: row.querySelector('[data-field="preferredBenches"]').value,
-          restrictedBenches: row.querySelector('[data-field="restrictedBenches"]').value,
+          inProduction: row.querySelector('[data-field="inProduction"]').checked,
+          skills,
+          priorityRank: old.priorityRank,
           rosterIndex: rosterIndexText === "" ? old.rosterIndex ?? null : Number(rosterIndexText)
         }, index));
       });
@@ -2312,13 +2313,12 @@
       document.getElementById("singleWorkModeButton")?.classList.toggle("active", workDayMode === "single");
       document.getElementById("mixedWorkModeButton")?.classList.toggle("active", workDayMode === "mixed");
       document.getElementById("mixedWorkCard")?.classList.toggle("hidden", workDayMode !== "mixed");
-      document.getElementById("mixedHeaderSummary")?.classList.toggle("hidden", workDayMode !== "mixed");
+      document.getElementById("mixedHeaderSummary")?.classList.toggle("hidden", true);
+      document.querySelector(".header-card")?.classList.toggle("hidden", workDayMode === "mixed");
 
       const summary = document.getElementById("workModeSummary");
       if (summary) {
-        summary.textContent = workDayMode === "mixed"
-          ? "Multiple customers / products / networks in one day"
-          : "One product / network setup";
+        summary.textContent = "";
       }
 
       updateActiveUnitBadge();
@@ -2574,7 +2574,7 @@
 
     function populateWorkerControls() {
       const workerOptions = workerMap
-        .filter(worker => worker.team !== "IGNORE")
+        .filter(worker => window.PlannerSkills.inProduction(worker))
         .sort(compareByRosterThenPriority)
         .map(worker => `<option value="${safeAttr(worker.key)}">${escapeHtml(worker.first)}</option>`)
         .join("");
@@ -2590,11 +2590,6 @@
       document.querySelectorAll(".phase-toggle[data-phase]").forEach(button => {
         button.classList.toggle("active", button.dataset.phase === normalized);
       });
-
-      const hint = document.getElementById("stationPhaseHint");
-      if (hint) {
-        hint.textContent = `${phaseLabel(normalized)} can contain multiple simultaneous jobs. A worker can hold one job in this phase.`;
-      }
 
       renderStationOptions();
       updateStationAssignmentHint();
@@ -2731,7 +2726,7 @@
     }
 
     function plannableWorkers() {
-      return workerMap.filter(worker => worker.team !== "IGNORE").sort(compareByRosterThenPriority);
+      return workerMap.filter(worker => window.PlannerSkills.inProduction(worker)).sort(compareByRosterThenPriority);
     }
 
     function awayKeysFromRoster(roster) {
@@ -2880,10 +2875,6 @@
 
       const title = document.getElementById("attendanceTitle");
       const saveState = document.getElementById("attendanceSaveState");
-      const ignored = workerMap.filter(worker => worker.team === "IGNORE");
-      document.getElementById("attendanceIgnored").textContent = ignored.length
-        ? `Not planned (team "Ignore" in Worker Admin): ${ignored.map(worker => worker.name).join(", ")}.`
-        : "";
 
       if (!attendanceReady()) {
         const failed = currentPlanState.status === "error" && currentPlanState.date === date;
@@ -3374,29 +3365,7 @@
     }
 
     function mixedWorkerEligible(worker, station) {
-      if (!worker || worker.team === "IGNORE") return false;
-
-      if (station === "subAssembly") {
-        return worker.team === "A" && !workerRestricted(worker, "subAssembly");
-      }
-
-      if (station === "assembly") {
-        return (worker.team === "A" || worker.team === "D") && !workerRestricted(worker, "assembly");
-      }
-
-      if (station === "testing") {
-        return (worker.team === "B" || worker.team === "C") && !workerRestricted(worker, "testing");
-      }
-
-      if (station === "hardware") {
-        return (worker.team === "A" || worker.team === "B") && !workerRestricted(worker, "hardware");
-      }
-
-      if (station === "packing") {
-        return (worker.team === "A" || worker.team === "B" || worker.team === "D") && !workerRestricted(worker, "packing");
-      }
-
-      return false;
+      return canWorkerDoStation(worker, station);
     }
 
     function mixedStationCandidateScore(worker, station) {
@@ -3480,7 +3449,55 @@
         assignment[slots[slotIndex].station].push(workers[workerIndex]);
       });
 
+      improveByDots(assignment, workers);
       return assignment;
+    }
+
+    /* The matcher above only finds a layout that works. Swap people between
+       jobs (or with someone not used this phase) while it gives more dots
+       overall, so people go where they're rated highest. */
+    function improveByDots(assignment, workers) {
+      // On a tie, the higher-rated person goes to the job fewer people
+      // cover (one Sub Assembly holds up every Assembly bench).
+      const importance = { subAssembly: 10, testing: 5, hardware: 3, packing: 2, assembly: 1 };
+      const weight = (worker, station) => {
+        if (!mixedWorkerEligible(worker, station)) return -Infinity;
+        const level = skillLevel(worker, station);
+        return level * 1000 + level * (importance[station] || 0) - (Number(worker.priorityRank) || 50);
+      };
+      const stations = Object.keys(assignment);
+
+      for (let round = 0; round < 60; round++) {
+        const placed = stations.flatMap(station => assignment[station].map((worker, index) => ({ station, index, worker })));
+        let changed = false;
+
+        for (let i = 0; i < placed.length && !changed; i++) {
+          for (let j = i + 1; j < placed.length && !changed; j++) {
+            const a = placed[i];
+            const b = placed[j];
+            if (a.station === b.station) continue;
+            if (weight(a.worker, b.station) + weight(b.worker, a.station) > weight(a.worker, a.station) + weight(b.worker, b.station)) {
+              assignment[a.station][a.index] = b.worker;
+              assignment[b.station][b.index] = a.worker;
+              changed = true;
+            }
+          }
+        }
+
+        if (!changed) {
+          const used = new Set(placed.map(item => item.worker.key));
+          for (const item of placed) {
+            const better = workers.find(worker => !used.has(worker.key) && weight(worker, item.station) > weight(item.worker, item.station));
+            if (better) {
+              assignment[item.station][item.index] = better;
+              changed = true;
+              break;
+            }
+          }
+        }
+
+        if (!changed) return;
+      }
     }
 
     function generateMixedPhaseConfigs(workers, batches) {
@@ -4174,18 +4191,6 @@
       ).join(" + ");
 
       const warnings = [];
-      if (testingNetworks.length > 1) {
-        const simultaneousPhases = testingEvaluation.states.filter(state => state === "both").length;
-        if (eligibleTesterCount === 1) {
-          warnings.push("Only one eligible Testing worker is available. Verizon and Global are therefore scheduled in separate phases; they cannot run simultaneously.");
-        } else if (simultaneousPhases > 0) {
-          warnings.push(`Verizon and Global testing run simultaneously in ${simultaneousPhases} phase${simultaneousPhases === 1 ? "" : "s"}, using separate network setups.`);
-        } else {
-          warnings.push("Verizon and Global testing are scheduled in separate phases under the recommended staffing plan.");
-        }
-        warnings.push("A Testing setup may change between production phases. The calculator does not deduct changeover minutes because no changeover-time allowance has been defined yet.");
-      }
-      warnings.push("Testing maximum capacity requires two active Testing phases. The preferred automatic workflow uses Start Phase and Second Phase; extra Testing phases do not increase the agreed maximum.");
 
       return {
         possible: true,
@@ -4336,49 +4341,28 @@
       }
 
       const completed = mixed.realisticOutput >= mixed.totalRequested;
-      let bottleneckText = completed
-        ? `No output bottleneck — the current roster covers all ${mixed.totalRequested} requested units under the current workflow.`
-        : `Bottleneck: ${mixed.bottleneckName} — requested ${mixed.totalRequested}, realistic finished output ${mixed.realisticOutput}.`;
-
-      if (!completed && mixed.bottleneckStages.includes("testing") && mixed.testing?.limitingNetworks?.length) {
-        bottleneckText += ` ${mixed.testing.limitingNetworks.map(mixedTestingNetworkLabel).join(" + ")} testing setup is limiting the testing stage.`;
-      }
+      const bottleneckText = completed ? "No bottleneck" : `Limited by ${mixed.bottleneckName}`;
 
       const testingDemand = mixed.testing?.demandUnits || { verizon: 0, global: 0 };
       const testingCovered = mixed.testing?.capacityUnits || { verizon: 0, global: 0 };
-      const testingRatios = mixed.testing?.networkRatios || { verizon: 1, global: 1 };
-      const approvalHtml = mixed.approvalRequired
-        ? `
-          <div class="capacity-approval-banner">
-            <strong>Management Approval Required</strong>
-            This work plan is above standard capacity and should be reviewed before it is accepted.
-            ${mixed.approvalReasons?.length ? `<div style="margin-top:7px;">${mixed.approvalReasons.map(reason => escapeHtml(reason)).join("<br>")}</div>` : ""}
-          </div>
-        `
-        : "";
 
       return `
         <div class="grid">
           <div class="card mixed-capacity-result">
             <h3 class="section-title">Requested Work</h3>
             <div class="capacity-big-number">${mixed.totalRequested}</div>
-            <div class="result-label">units requested for ${capitalize(day)}</div>
           </div>
 
           <div class="card mixed-capacity-result">
             <h3 class="section-title">Max Capacity</h3>
             <div class="capacity-big-number ${completed ? "" : "shortfall"}">${mixed.realisticOutput}</div>
-            <div class="result-label">standard finished-unit capacity under the current workflow</div>
           </div>
 
           <div class="card mixed-capacity-result">
             <h3 class="section-title">Above Capacity</h3>
             <div class="capacity-big-number ${mixed.shortfall > 0 ? "shortfall" : ""}">${mixed.shortfall}</div>
-            <div class="result-label">requested units above standard capacity</div>
           </div>
         </div>
-
-        ${approvalHtml}
 
         <div class="card">
           <h2 class="section-title">Mixed Capacity Summary</h2>
@@ -4394,17 +4378,14 @@
             <div class="testing-network-card">
               <span class="small">Verizon Testing</span>
               <strong>${testingCovered.verizon} / ${testingDemand.verizon} units</strong>
-              <span class="small">${testingDemand.verizon > 0 ? `${Math.round(testingRatios.verizon * 100)}% of requested Verizon testing covered` : "No Verizon work requested"}</span>
             </div>
             <div class="testing-network-card">
               <span class="small">Global Testing</span>
               <strong>${testingCovered.global} / ${testingDemand.global} units</strong>
-              <span class="small">${testingDemand.global > 0 ? `${Math.round(testingRatios.global * 100)}% of requested Global testing covered` : "No Global work requested"}</span>
             </div>
             <div class="testing-network-card">
-              <span class="small">Eligible Testing Workers</span>
+              <span class="small">Testers in</span>
               <strong>${mixed.testing?.eligibleTesterCount || 0}</strong>
-              <span class="small">A tester is configured for one network for the full phase.</span>
             </div>
           </div>
 
@@ -4446,7 +4427,6 @@
 
         <div class="card">
           <h2 class="section-title">Current Phase Capacity Allocation</h2>
-          <p class="small">Each row is one equal-length production phase. The table reflects the current workflow, including manual phase assignments. Testing workers stay on one network setup for the complete phase.</p>
           <div class="table-scroll">
             <table class="phase-capacity-table">
               <thead>
@@ -4473,142 +4453,26 @@
               </tbody>
             </table>
           </div>
-          <div class="testing-setup-note">
-            Global includes AT&amp;T, Fusion NA and Telstra. They share the Global testing setup. Verizon requires a separate setup. The agreed Testing maximum requires two active Testing phases, with Start Phase + Second Phase used by default. If both networks run simultaneously, separate testing workers are assigned to each setup.
-          </div>
         </div>
       `;
     }
 
     /* ============================================================
-       14. WORKER ELIGIBILITY / ADMIN PRIORITIES
+       14. SKILLS: WHO CAN DO WHICH JOB
+       Each person has 0–3 dots per job (js/skills.js and Worker Admin).
+       0 = can't do it; more dots = picked first.
        ============================================================ */
-    function normalizeBenchToken(value) {
-      const token = String(value || "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
-
-      const aliases = {
-        "sub assembly": "subAssembly",
-        "subassembly": "subAssembly",
-        "assembly": "assembly",
-        "testing": "testing",
-        "test": "testing",
-        "hardware": "hardware",
-        "hardware check": "hardware",
-        "packing": "packing",
-        "pack": "packing"
-      };
-
-      return aliases[token] || token;
-    }
-
-    function parseBenchList(value) {
-      return String(value || "")
-        .split(/[;,|]/)
-        .map(item => normalizeBenchToken(item))
-        .filter(Boolean);
-    }
-
-    function workerPrefers(worker, station) {
-      return parseBenchList(worker.preferredBenches).includes(station);
-    }
-
-    function workerRestricted(worker, station) {
-      return parseBenchList(worker.restrictedBenches).includes(station);
+    function skillLevel(worker, station) {
+      return window.PlannerSkills.levelFor(worker, station, worker?.key);
     }
 
     function canWorkerDoStation(worker, station) {
-      if (!worker || worker.team === "IGNORE" || workerRestricted(worker, station)) return false;
-
-      if (station === "subAssembly") {
-        return worker.team === "A";
-      }
-
-      if (station === "assembly") {
-        return worker.team === "A" || worker.team === "D";
-      }
-
-      if (station === "testing") {
-        return worker.team === "B" || worker.team === "C";
-      }
-
-      if (station === "hardware") {
-        return worker.team === "A" || worker.team === "B";
-      }
-
-      if (station === "packing") {
-        return worker.team === "A" || worker.team === "B" || worker.team === "D";
-      }
-
-      return false;
+      return skillLevel(worker, station) > 0;
     }
 
+    // Lower is better: more dots first, then the saved priority order.
     function workerStationScore(worker, station) {
-      let score = Number(worker.priorityRank) || 50;
-
-      if (workerPrefers(worker, station)) score -= 1000;
-
-      /* Requirement 9C: Jashan is the first Hardware candidate and a last-resort Packing candidate. */
-      if (worker.key === "jashan" && station === "hardware") score -= 10000;
-      if (worker.key === "jashan" && station === "packing") score += 10000;
-
-      return score;
-    }
-
-    function sortWorkersForStation(workers, station) {
-      return [...workers]
-        .filter(worker => canWorkerDoStation(worker, station))
-        .sort((a, b) => {
-          const scoreDiff = workerStationScore(a, station) - workerStationScore(b, station);
-          if (scoreDiff !== 0) return scoreDiff;
-          return compareByRosterThenPriority(a, b);
-        });
-    }
-
-    function selectWorkersForStation(workers, station, count) {
-      return sortWorkersForStation(workers, station).slice(0, Math.max(0, count));
-    }
-
-    function choosePriorityTeamAWorker(teamA) {
-      const eligible = sortWorkersForStation(teamA, "subAssembly");
-      const aarzoo = eligible.find(worker => worker.key === "aarzoo");
-      if (aarzoo) return aarzoo;
-
-      const nonJashan = eligible.find(worker => worker.key !== "jashan");
-      return nonJashan || eligible[0] || null;
-    }
-
-    function chooseHardwareAWorkers(teamA, hardwareARequired, packingARequired) {
-      const eligibleHardware = sortWorkersForStation(teamA, "hardware");
-      const eligiblePackingKeys = new Set(sortWorkersForStation(teamA, "packing").map(worker => worker.key));
-      const selected = [];
-
-      const jashan = eligibleHardware.find(worker => worker.key === "jashan");
-      if (jashan && selected.length < hardwareARequired) selected.push(jashan);
-
-      const already = new Set(selected.map(worker => worker.key));
-      const remaining = eligibleHardware.filter(worker => !already.has(worker.key));
-
-      /* Preserve enough non-Jashan packing-capable workers whenever possible. */
-      for (const worker of remaining) {
-        if (selected.length >= hardwareARequired) break;
-
-        const unselectedPackingCapable = remaining
-          .filter(candidate => candidate.key !== worker.key && !selected.some(item => item.key === candidate.key))
-          .filter(candidate => eligiblePackingKeys.has(candidate.key) && candidate.key !== "jashan").length;
-
-        const canSpareWorker = !eligiblePackingKeys.has(worker.key) || unselectedPackingCapable >= packingARequired;
-        if (canSpareWorker) selected.push(worker);
-      }
-
-      for (const worker of remaining) {
-        if (selected.length >= hardwareARequired) break;
-        if (!selected.some(item => item.key === worker.key)) selected.push(worker);
-      }
-
-      return selected.slice(0, hardwareARequired);
+      return (3 - skillLevel(worker, station)) * 1000 + (Number(worker.priorityRank) || 50);
     }
 
     function compareByRosterThenPriority(a, b) {
@@ -4622,114 +4486,91 @@
     }
 
     /* ============================================================
-       15. AUTOMATIC ALLOCATION SEARCH
+       15. AUTOMATIC ALLOCATION SEARCH (SINGLE BUILD)
+       Start phase: one Sub Assembly and as many Assembly benches as
+       possible (up to 6). Testing: 2–3 testers for the first two phases.
+       Second phase: Hardware Check and Packing from everyone who isn't
+       testing. Every pair / trio of testers is tried, people are matched
+       to benches by their dots, and the layout with the best output wins
+       (ties go to more benches, then more dots).
        ============================================================ */
-    function findBestAllocation(teamA, teamB, teamC, teamD, commsType, unitType) {
-      const A = teamA.length;
-      const B = teamB.length;
-      const C = teamC.length;
-      const D = teamD.length;
-      const packingEligibleA = teamA.filter(worker => canWorkerDoStation(worker, "packing")).length;
-      const subEligibleA = teamA.filter(worker => canWorkerDoStation(worker, "subAssembly")).length;
+    function findBestAllocation(usableWorkers, commsType, unitType) {
+      const workers = usableWorkers.filter(worker => window.PlannerSkills.inProduction(worker));
       const maxPackingBenches = isTapUnit(unitType) ? 2 : 3;
 
-      if (subEligibleA < 1) {
-        return { possible: false, reason: "No suitable worker is available for the required Sub Assembly bench." };
+      if (!workers.some(worker => canWorkerDoStation(worker, "subAssembly"))) {
+        return { possible: false, reason: "Nobody who can do Sub Assembly is in." };
       }
 
-      const testerCount = teamB.filter(worker => canWorkerDoStation(worker, "testing")).length +
-        teamC.filter(worker => canWorkerDoStation(worker, "testing")).length;
-
-      if (testerCount < 2) {
-        return { possible: false, reason: "At least 2 Testing benches must be filled, but fewer than 2 eligible testers are available." };
-      }
-
-      const maxAssemblyBenches = Math.min(
-        6,
-        teamA.filter(worker => canWorkerDoStation(worker, "assembly")).length - 1 +
-          teamD.filter(worker => canWorkerDoStation(worker, "assembly")).length
-      );
-
-      if (maxAssemblyBenches <= 0) {
-        return { possible: false, reason: "Sub Assembly can be filled, but no Assembly bench can be staffed." };
+      const testers = workers
+        .filter(worker => canWorkerDoStation(worker, "testing"))
+        .sort((a, b) => workerStationScore(a, "testing") - workerStationScore(b, "testing") || compareByRosterThenPriority(a, b));
+      if (testers.length < 2) {
+        return { possible: false, reason: "At least 2 people who can test are needed." };
       }
 
       let best = null;
+      testerGroups(testers).forEach(testingWorkers => {
+        const testingKeys = new Set(testingWorkers.map(worker => worker.key));
+        const others = workers.filter(worker => !testingKeys.has(worker.key));
 
-      for (let assemblyA = 0; assemblyA <= Math.min(A - 1, maxAssemblyBenches); assemblyA++) {
-        const assemblyD = maxAssemblyBenches - assemblyA;
-        if (assemblyD < 0 || assemblyD > D) continue;
+        let early = null;
+        for (let assembly = Math.min(6, others.length - 1); assembly >= 1 && !early; assembly--) {
+          early = findMixedPhaseAssignment(others, { subAssembly: true, assemblyBenches: assembly, testingBenches: 0, hardwareBenches: 0, packingBenches: 0 });
+        }
+        if (!early) return;
 
-        for (let testingB = 0; testingB <= Math.min(3, B); testingB++) {
-          for (let testingC = 0; testingC <= Math.min(3 - testingB, C); testingC++) {
-            const testingBenches = testingB + testingC;
-            if (testingBenches < 2 || testingBenches > 3) continue;
+        for (let hardware = 0; hardware <= 4; hardware++) {
+          for (let packing = 0; packing <= maxPackingBenches; packing++) {
+            const late = hardware + packing === 0
+              ? { hardware: [], packing: [] }
+              : findMixedPhaseAssignment(others, { subAssembly: false, assemblyBenches: 0, testingBenches: 0, hardwareBenches: hardware, packingBenches: packing });
+            if (!late) continue;
 
-            const freeB = B - testingB;
-            const testingMoveAllowed = !isTapUnit(unitType);
-            const movedB = testingMoveAllowed && testingB > 0 ? 1 : 0;
-
-            for (let hardwareA = 0; hardwareA <= Math.min(4, A); hardwareA++) {
-              for (let packingA = 0; packingA <= Math.min(maxPackingBenches, A - hardwareA, packingEligibleA); packingA++) {
-                const maxHardwareB = freeB + (testingMoveAllowed && isVerizonComms(commsType) ? movedB : 0);
-
-                for (let hardwareB = 0; hardwareB <= Math.min(4 - hardwareA, maxHardwareB); hardwareB++) {
-                  const movedBToHardware = testingMoveAllowed ? Math.max(0, hardwareB - freeB) : 0;
-                  const freeBRemainingAfterHardware = Math.max(0, freeB - hardwareB);
-                  const movedBRemainingAfterHardware = testingMoveAllowed ? movedB - movedBToHardware : 0;
-                  const maxPackingB = freeBRemainingAfterHardware + movedBRemainingAfterHardware;
-
-                  for (let packingB = 0; packingB <= Math.min(maxPackingBenches - packingA, maxPackingB); packingB++) {
-                    const movedBToPacking = testingMoveAllowed ? Math.max(0, packingB - freeBRemainingAfterHardware) : 0;
-                    const movedBUsed = movedBToHardware + movedBToPacking;
-
-                    for (let packingD = 0; packingD <= Math.min(maxPackingBenches - packingA - packingB, D); packingD++) {
-                      const candidate = {
-                        possible: true,
-                        commsType,
-                        unitType,
-                        subA: 1,
-                        assemblyA,
-                        assemblyD,
-                        assemblyBenches: maxAssemblyBenches,
-                        testingB,
-                        testingC,
-                        testingBenches,
-                        hardwareA,
-                        hardwareB,
-                        packingA,
-                        packingB,
-                        packingD,
-                        movedBUsed,
-                        movedBToHardware,
-                        movedBToPacking
-                      };
-
-                      candidate.names = assignWorkerNames(candidate, teamA, teamB, teamC, teamD);
-                      recalculateResultFromNames(candidate, commsType, unitType);
-
-                      const score =
-                        candidate.finalOutput * 1000000 +
-                        candidate.checkedUnits * 10000 +
-                        candidate.packedUnits * 1000 +
-                        candidate.testingBenches * 100 +
-                        candidate.hardwareBenches * 10 +
-                        candidate.packingBenches -
-                        movedBUsed;
-
-                      candidate.score = score;
-                      if (!best || candidate.score > best.score) best = candidate;
-                    }
-                  }
-                }
+            const candidate = {
+              possible: true,
+              commsType,
+              unitType,
+              names: {
+                ...emptyNameSet(),
+                subAssembly: early.subAssembly,
+                assembly: early.assembly,
+                testing: [...testingWorkers],
+                hardware: late.hardware,
+                packing: late.packing
               }
-            }
+            };
+            recalculateResultFromNames(candidate, commsType, unitType);
+
+            const dots = ["subAssembly", "assembly", "testing", "hardware", "packing"]
+              .reduce((sum, station) => sum + candidate.names[station].reduce((inner, worker) => inner + skillLevel(worker, station), 0), 0);
+            candidate.score =
+              candidate.finalOutput * 1000000 +
+              candidate.checkedUnits * 10000 +
+              candidate.packedUnits * 1000 +
+              candidate.testingBenches * 100 +
+              candidate.hardwareBenches * 10 +
+              candidate.packingBenches +
+              dots / 1000;
+            if (!best || candidate.score > best.score) best = candidate;
           }
         }
-      }
+      });
 
-      if (!best) return { possible: false, reason: "No valid allocation was found." };
+      if (!best) return { possible: false, reason: "Sub Assembly can be filled, but no Assembly bench can be staffed." };
       return best;
+    }
+
+    // Every pair and trio of testers.
+    function testerGroups(testers) {
+      const groups = [];
+      for (let a = 0; a < testers.length; a++) {
+        for (let b = a + 1; b < testers.length; b++) {
+          groups.push([testers[a], testers[b]]);
+          for (let c = b + 1; c < testers.length; c++) groups.push([testers[a], testers[b], testers[c]]);
+        }
+      }
+      return groups;
     }
 
     function emptyNameSet() {
@@ -4743,60 +4584,6 @@
         movedBHardware: [],
         movedBPacking: []
       };
-    }
-
-    function assignWorkerNames(plan, teamA, teamB, teamC, teamD) {
-      const names = emptyNameSet();
-
-      const subWorker = choosePriorityTeamAWorker(teamA);
-      names.subAssembly = subWorker ? [subWorker] : [];
-
-      const earlyA = teamA.filter(worker => !subWorker || worker.key !== subWorker.key);
-      names.assembly = [
-        ...selectWorkersForStation(earlyA, "assembly", plan.assemblyA),
-        ...selectWorkersForStation(teamD, "assembly", plan.assemblyD)
-      ];
-
-      const testingBWorkers = selectWorkersForStation(teamB, "testing", plan.testingB);
-      const testingCWorkers = selectWorkersForStation(teamC, "testing", plan.testingC);
-      names.testing = [...testingBWorkers, ...testingCWorkers];
-
-      const testingMoveAllowed = !isTapUnit(plan.unitType);
-      const movedFromTesting = testingMoveAllowed
-        ? testingBWorkers.filter(worker => canWorkerDoStation(worker, "hardware") || canWorkerDoStation(worker, "packing")).slice(0, plan.movedBUsed)
-        : [];
-      names.movedB = [...movedFromTesting];
-
-      let lateA = [...teamA];
-      const hardwareAWorkers = chooseHardwareAWorkers(lateA, plan.hardwareA, plan.packingA);
-      lateA = lateA.filter(worker => !hardwareAWorkers.some(selected => selected.key === worker.key));
-
-      const freeBForLate = teamB.filter(worker => !testingBWorkers.some(tester => tester.key === worker.key));
-      const movedBForLate = [...movedFromTesting];
-
-      const hardwareBFromFree = sortWorkersForStation(freeBForLate, "hardware")
-        .slice(0, Math.min(plan.hardwareB, freeBForLate.length));
-      const remainingHardwareB = Math.max(0, plan.hardwareB - hardwareBFromFree.length);
-      const hardwareBFromMoved = testingMoveAllowed
-        ? sortWorkersForStation(movedBForLate, "hardware").slice(0, remainingHardwareB)
-        : [];
-
-      names.movedBHardware = [...hardwareBFromMoved];
-      names.hardware = [...hardwareAWorkers, ...hardwareBFromFree, ...hardwareBFromMoved];
-
-      const hardwareBKeys = new Set(names.hardware.map(worker => worker.key));
-      const freeBRemaining = freeBForLate.filter(worker => !hardwareBKeys.has(worker.key));
-      const movedBRemaining = movedBForLate.filter(worker => !hardwareBKeys.has(worker.key));
-
-      const packingAWorkers = sortWorkersForStation(lateA, "packing").slice(0, plan.packingA);
-      const packingBPool = [...freeBRemaining, ...movedBRemaining];
-      const packingBWorkers = sortWorkersForStation(packingBPool, "packing").slice(0, plan.packingB);
-      const packingDWorkers = selectWorkersForStation(teamD, "packing", plan.packingD);
-
-      names.movedBPacking = packingBWorkers.filter(worker => movedBForLate.some(moved => moved.key === worker.key));
-      names.packing = [...packingAWorkers, ...packingBWorkers, ...packingDWorkers];
-
-      return names;
     }
 
     /* ============================================================
@@ -4839,7 +4626,7 @@
 
     function workflowWorkerEligible(worker, station) {
       const normalized = normalizeWorkflowStation(station);
-      if (!worker || worker.team === "IGNORE") return false;
+      if (!worker || !window.PlannerSkills.inProduction(worker)) return false;
       if (normalized === "custom" || normalized === "finalPackaging") return true;
       if (normalized === "subAssembly") return mixedWorkerEligible(worker, "subAssembly");
       if (normalized === "assembly" || normalized === "assemblyGen4" || normalized === "assemblyTap") {
@@ -5454,18 +5241,7 @@
       const approvalRequired = overallRatio < 0.9999 || approvalReasons.length > 0;
 
       const warnings = [...model.warnings];
-      if (approvalRequired) {
-        warnings.unshift("Management approval is required before accepting this plan because the requested work exceeds standard capacity.");
-      }
-      if (stationAdjustments.length > 0) {
-        warnings.push("Capacity is recalculated from the current manual phase assignments. Reset to Suggested Workflow to return to the suggested starting plan.");
-      }
       const networks = mixedTestingNetworksNeeded(requestedBatches);
-      if (networks.length > 1) {
-        const simultaneous = states.filter(state => state === "both").length;
-        if (simultaneous > 0) warnings.push(`Verizon and Global testing run simultaneously in ${simultaneous} phase${simultaneous === 1 ? "" : "s"}, using separate testers.`);
-        else warnings.push("Verizon and Global testing are separated across phases in the current workflow.");
-      }
 
       return {
         possible: true,
@@ -5679,17 +5455,13 @@
       const commsType = document.getElementById("commsType").value;
       const unitType = document.getElementById("unitType").value;
       const workers = rosterWorkersByDay[day] || [];
-      const usableWorkers = workers.filter(worker => worker.team !== "IGNORE");
+      const usableWorkers = workers.filter(worker => window.PlannerSkills.inProduction(worker));
       renderAttendance();
 
-      const teamA = usableWorkers.filter(worker => worker.team === "A");
-      const teamB = usableWorkers.filter(worker => worker.team === "B");
-      const teamC = usableWorkers.filter(worker => worker.team === "C");
-      const teamD = usableWorkers.filter(worker => worker.team === "D");
 
       document.getElementById("plannerToolsCard").classList.remove("hidden");
 
-      const result = findBestAllocation(teamA, teamB, teamC, teamD, commsType, unitType);
+      const result = findBestAllocation(usableWorkers, commsType, unitType);
       if (result.possible) {
         result.usableWorkers = usableWorkers;
         result.unassignedWorkers = getUnassignedWorkers(usableWorkers, result.names);
@@ -6142,7 +5914,6 @@
           <div class="card">
             <h3 class="section-title">Daily Capacity Result</h3>
             <div class="result-number">${workflowCapacity.finalOutput}</div>
-            <div class="result-label">Maximum finished units from the current three-phase workflow</div>
             <div class="small" style="margin-top:10px;">${unitTypeLabel(unitType)} &middot; ${commsLabel}</div>
           </div>
 
@@ -6157,8 +5928,7 @@
               <div class="mini">Potential WIP<strong>${wip}</strong></div>
             </div>
             <div class="bottleneck-banner">
-              Bottleneck: ${escapeHtml(workflowCapacity.bottleneck.name)} (limiting output to ${workflowCapacity.bottleneck.capacity} units)
-              ${workflowCapacity.manual ? '<span class="cap-note">Manual phase assignments are included in this capacity.</span>' : ''}
+              Limited by ${escapeHtml(workflowCapacity.bottleneck.name)}
             </div>
           </div>
         </div>
@@ -6167,7 +5937,6 @@
 
         <div class="card">
           <h2 class="section-title">Recommended Starting Bench Allocation</h2>
-          <p class="small">This is the automatic starting allocation. Planning Tools can move workers between any of the three phases; the capacity summary and workflow map above/below recalculate from those phase assignments.</p>
           <div class="table-scroll">
             <table>
               <thead>
@@ -6421,17 +6190,11 @@
       const plan = getPlanInfo(result, day, commsType, unitType);
       const phaseTasks = Object.fromEntries(WORKFLOW_PHASES.map(phase => [phase, buildWorkflowTasksForPhase(model, mixed, phase)]));
       const workflowNotes = buildWorkflowNotesHtml(result);
-      const workflowPlanNote = workDayMode === "mixed"
-        ? "Preferred flow: Assembly + Testing in Start Phase; Testing continues with Hardware after the first break; Packing / Final Packaging runs in Finish. Hardware is not scheduled in Finish unless you move it there manually."
-        : "Preferred flow: Assembly + Testing in Start Phase; Testing continues after the first break with Hardware / Packing. Hardware is not scheduled in Finish unless you move it there manually.";
-      const approvalStrip = workDayMode === "mixed" && mixed?.approvalRequired
-        ? '<div class="plan-approval-banner">MANAGEMENT APPROVAL REQUIRED — TARGET EXCEEDS STANDARD CAPACITY</div>'
-        : "";
+      const approvalStrip = "";
 
       section.innerHTML = `
         <div class="workflow-shell">
           <h2 class="section-title">Workflow Map</h2>
-          <div class="workflow-plan-note">${escapeHtml(workflowPlanNote)}</div>
           <div class="workflow-actions">
             <button onclick="createWorkflowJpeg()">Open JPEG Preview</button>
             <button onclick="downloadWorkflowJpeg()">Download JPEG</button>
@@ -6590,14 +6353,10 @@
 
       if (workDayMode === "mixed" && result.mixedCapacity?.possible) {
         const mixed = result.mixedCapacity;
-        automaticLines.push(`Requested ${mixed.totalRequested}; max capacity ${mixed.realisticOutput}; bottleneck ${mixed.bottleneckName}.`);
-        if (mixed.approvalRequired) automaticLines.push("Management approval required before accepting this plan.");
+        automaticLines.push(`Requested ${mixed.totalRequested} · max ${mixed.realisticOutput} · limited by ${mixed.bottleneckName}`);
       } else if (result.workflowCapacity) {
-        automaticLines.push(`Current workflow capacity: ${result.workflowCapacity.finalOutput} finished units; bottleneck ${result.workflowCapacity.bottleneck.name}.`);
+        automaticLines.push(`Max ${result.workflowCapacity.finalOutput} · limited by ${result.workflowCapacity.bottleneck.name}`);
       }
-
-      if (stationAdjustments.length > 0) automaticLines.push("Manual phase assignments are active and included in the capacity calculation.");
-      if (workflowHasTapDemand()) automaticLines.push("Tap rule active: Testing workers stay on Testing and are not moved into Hardware/Packing.");
 
       const unassignedByPhase = WORKFLOW_PHASES.map(phase => {
         const assigned = new Set([...(model?.phases?.[phase]?.keys() || [])]);
@@ -6606,10 +6365,10 @@
       }).filter(Boolean);
 
       let html = '<div class="workflow-footer-note">';
-      if (automaticLines.length) html += `<strong>Workflow Handover:</strong><br>${escapeHtml(automaticLines.join(" "))}<br>`;
-      if (notesText) html += `<br><strong>Notes & Instructions:</strong><br>${escapeHtml(notesText)}<br>`;
-      if (unassignedByPhase.length) html += `<br><strong>Unassigned by Phase:</strong><br>${escapeHtml(unassignedByPhase.join(" | "))}<br>`;
-      if (lastStationIssues.length > 0) html += `<br><strong>Phase assignment warnings:</strong><br>${escapeHtml(lastStationIssues.join(" | "))}`;
+      if (automaticLines.length) html += `${escapeHtml(automaticLines.join(" "))}<br>`;
+      if (notesText) html += `<br><strong>Notes:</strong><br>${escapeHtml(notesText)}<br>`;
+      if (unassignedByPhase.length) html += `<br><strong>Unassigned:</strong><br>${escapeHtml(unassignedByPhase.join(" | "))}<br>`;
+      if (lastStationIssues.length > 0) html += `<br><strong>Warnings:</strong><br>${escapeHtml(lastStationIssues.join(" | "))}`;
       html += "</div>";
       return html;
     }

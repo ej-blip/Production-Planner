@@ -177,8 +177,8 @@
 
   <main>
     <section id="emptyState" class="card hidden">
-      <h2>No released plan for this day</h2>
-      <p class="hint" id="emptyMessage">The board fills in as soon as management releases the plan.</p>
+      <h2>No plan</h2>
+      <p class="hint" id="emptyMessage">Not released yet.</p>
       <p class="hint hidden" id="nextPlan"></p>
     </section>
 
@@ -187,7 +187,7 @@
 
       <section class="everyone">
         <div class="everyone-head">
-          <h2>Notes for everyone</h2>
+          <h2>For everyone</h2>
           <button type="button" class="secondary" id="addEveryoneNote">+ Note for everyone</button>
         </div>
         <div class="pinned-row" id="everyoneNotes"></div>
@@ -355,10 +355,8 @@
 
     function renderEmpty() {
       $("emptyMessage").textContent = state.reachable
-        ? (state.role === "management"
-          ? "The board fills in when this day's plan is released from Planning."
-          : "The board fills in as soon as management releases the plan.")
-        : "The database can't be reached. Check the internet connection.";
+        ? "Not released yet."
+        : "Offline: can't reach the database.";
       const next = state.nextPlan;
       const holder = $("nextPlan");
       const show = Boolean(next && next.from === state.date && state.reachable);
@@ -391,16 +389,16 @@
       $("strip").innerHTML = `
         <div class="stat"><div class="label">Day target</div>
           <div class="value ${current < planned ? "down" : ""}">${current}</div>
-          <div class="note">${current < planned ? `Down from ${planned}` : "As planned"}</div></div>
-        <div class="stat"><div class="label">Packed (finished batches)</div>
+          <div class="note">${current < planned ? `Down from ${planned}` : ""}</div></div>
+        <div class="stat"><div class="label">Packed</div>
           <div class="value">${packed}</div>
-          <div class="note">${packingFinished} of ${batches.length} batch${batches.length === 1 ? "" : "es"} done at Packing</div></div>`;
+          <div class="note">${packingFinished} of ${batches.length} batch${batches.length === 1 ? "" : "es"}</div></div>`;
     }
 
     function renderEveryone() {
       const notes = state.notes.filter(note => note.bench === "all");
       $("everyoneNotes").innerHTML = notes.map(note => pinnedNoteHtml(note, state.role)).join("")
-        || '<span class="empty">Nothing pinned for everyone.</span>';
+        || "";
     }
 
     function magnetsFor(bench) {
@@ -539,7 +537,7 @@
     async function start() {
       state.role = await ensureAccess({
         title: "Floor board",
-        intro: "Enter the management or bench PIN to open the floor board.",
+        intro: "Enter the management or bench PIN.",
         pinLabel: "PIN",
         allowed: ["management", "bench"],
         wrongRoleMessage: "That PIN isn't right."

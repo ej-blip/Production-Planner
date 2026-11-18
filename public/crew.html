@@ -72,7 +72,8 @@
     .crew-card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
     .crew-card.ghost { position: fixed; pointer-events: none; z-index: 1000; width: 230px; opacity: 0.95; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
     .avatar { grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 15px; color: #0b1220; }
-    .team-A { background: #fcd34d; } .team-B { background: #93c5fd; } .team-C { background: #c4b5fd; } .team-D { background: #86efac; } .team-other { background: #cbd5e1; }
+    .kind-assembly { background: #fcd34d; } .kind-testing { background: #93c5fd; } .kind-hardware { background: #c4b5fd; }
+    .kind-packing { background: #86efac; } .kind-none { background: #cbd5e1; }
     .who { min-width: 0; }
     .who b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .who span { font-size: 12px; color: var(--muted); font-weight: 700; }
@@ -150,12 +151,12 @@
             <div class="roster zone" data-zone="free" id="roster"></div>
           </div>
           <div class="panel detail" id="detail">
-            <div class="panel-head"><h2>Worker</h2><span>Tap a card to see their skills</span></div>
-            <div id="detailBody" class="empty">Nobody selected.</div>
+            <div class="panel-head"><h2>Worker</h2></div>
+            <div id="detailBody" class="empty">—</div>
           </div>
         </section>
         <section class="panel">
-          <div class="panel-head"><h2>Stations</h2><span>Drag someone onto a station, or tap them then tap the station</span></div>
+          <div class="panel-head"><h2>Stations</h2></div>
           <div class="stations" id="stations"></div>
         </section>
       </div>
@@ -163,21 +164,18 @@
   </main>
 
   <script src="js/drag-board.js"></script>
+  <script src="js/skills.js"></script>
   <script type="module">
     import { collection, doc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, friendlyError } from "./js/session.js";
 
-    // ------------------------------------------------------------------
-    // Skills: the same team rules as the rest of the app. A skill is
-    // 3 dots when it's in someone's preferred benches, 2 when their team
-    // can do it, and crossed out when their team can't or it's restricted.
-    // ------------------------------------------------------------------
+    // Skills: 0–3 dots per job from Worker Admin (js/skills.js).
     const SKILLS = [
-      { key: "subAssembly", short: "SA", label: "Sub Assembly", teams: ["A"], kind: "assembly" },
-      { key: "assembly", short: "AS", label: "Assembly", teams: ["A", "D"], kind: "assembly" },
-      { key: "testing", short: "TE", label: "Testing", teams: ["B", "C"], kind: "testing" },
-      { key: "hardware", short: "HW", label: "Hardware", teams: ["A", "B"], kind: "hardware" },
-      { key: "packing", short: "PK", label: "Packing", teams: ["A", "B", "D"], kind: "packing" }
+      { key: "subAssembly", short: "SA", label: "Sub Assembly", kind: "assembly" },
+      { key: "assembly", short: "AS", label: "Assembly", kind: "assembly" },
+      { key: "testing", short: "TE", label: "Testing", kind: "testing" },
+      { key: "hardware", short: "HW", label: "Hardware", kind: "hardware" },
+      { key: "packing", short: "PK", label: "Packing", kind: "packing" }
     ];
     const STATIONS = {
       subAssembly:    { label: "Sub Assembly", skill: "subAssembly", kind: "assembly", icon: "SA", min: 1 },
@@ -219,22 +217,21 @@
       document.body.appendChild(element);
       setTimeout(() => element.remove(), 3500);
     }
-    function token(value) {
-      const text = String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      return { "sub assembly": "subAssembly", subassembly: "subAssembly", test: "testing", "hardware check": "hardware", pack: "packing" }[text] || text;
-    }
-    const list = value => String(value || "").split(/[;,|]/).map(token).filter(Boolean);
-
     function skillLevel(person, skillKey) {
-      if (!skillKey) return 1;   // anyone can do final packaging
-      const skill = SKILLS.find(item => item.key === skillKey);
-      if (!person || !skill || !skill.teams.includes(person.team)) return 0;
-      if (list(person.restrictedBenches).includes(skillKey)) return 0;
-      return list(person.preferredBenches).includes(skillKey) ? 3 : 2;
+      if (!skillKey) return person && window.PlannerSkills.inProduction(person) ? 1 : 0;   // final packaging: anyone
+      return window.PlannerSkills.levelFor(person, skillKey);
     }
     const stationLevel = (key, station) => skillLevel(state.staff.get(key), STATIONS[station]?.skill);
     const initials = name => String(name || "?").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
-    const teamClass = team => (["A", "B", "C", "D"].includes(team) ? `team-${team}` : "team-other");
+    // Avatar colour: the job they're rated highest for.
+    function avatarKind(person) {
+      let best = null;
+      SKILLS.forEach(skill => {
+        const level = skillLevel(person, skill.key);
+        if (level > 0 && (!best || level > best.level)) best = { level, kind: skill.kind };
+      });
+      return best ? `kind-${best.kind}` : "kind-none";
+    }
 
     // ------------------------------------------------------------------
     // Output: the agreed single-build rules, per phase.
@@ -354,8 +351,8 @@
       state.layout = Object.fromEntries(PHASES.map(phase => [phase, new Map(start[phase])]));
       const dayName = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
       $("notice").textContent = plan.status === "none"
-        ? `No saved plan for ${dayName}, so everyone starts free (a Gen4 · Verizon day is assumed). Drag people onto stations to try it out. Save a draft on the Management screen to start from the calculator's layout instead.`
-        : `${plan.status === "released" ? "Released plan" : "Draft plan"} for ${dayName}. Try moves here; nothing is saved.`;
+        ? `${dayName} · no saved plan (Gen4 · Verizon)`
+        : `${dayName} · ${plan.status === "released" ? "released plan" : "draft plan"}`;
       $("area").classList.remove("hidden");
       render();
     }
@@ -388,8 +385,8 @@
       const selected = board?.selected?.staffKey === key;
       return `
         <div class="crew-card ${away ? "away" : "chip"} ${selected ? "selected" : ""}" data-staff="${escapeHtml(key)}" data-zone="${escapeHtml(zone)}" data-card="${escapeHtml(key)}">
-          <div class="avatar ${teamClass(person.team)}">${escapeHtml(initials(person.name))}</div>
-          <div class="who"><b>${escapeHtml(person.name)}</b><span>Team ${escapeHtml(person.team || "?")} · ${escapeHtml(status)}</span></div>
+          <div class="avatar ${avatarKind(person)}">${escapeHtml(initials(person.name))}</div>
+          <div class="who"><b>${escapeHtml(person.name)}</b><span>${escapeHtml(status)}</span></div>
           <div class="skills">${skillTags(key)}</div>
           <div class="day-pips">${dayPips(key)}</div>
         </div>`;
@@ -405,10 +402,10 @@
 
       document.querySelectorAll("#phaseTabs button").forEach(button => button.classList.toggle("active", button.dataset.phase === state.phase));
 
-      const people = [...state.staff.entries()].filter(([, person]) => person.team !== "IGNORE");
+      const people = [...state.staff.entries()].filter(([, person]) => window.PlannerSkills.inProduction(person));
       const free = people.filter(([key]) => !state.layout[state.phase].has(key))
         .sort(([a, pa], [b, pb]) => Number(state.away.has(a)) - Number(state.away.has(b)) || pa.name.localeCompare(pb.name));
-      $("roster").innerHTML = free.map(([key]) => card(key, "free")).join("") || '<span class="empty">Everyone is on a station this phase.</span>';
+      $("roster").innerHTML = free.map(([key]) => card(key, "free")).join("") || '<span class="empty">—</span>';
       $("crewCount").textContent = `${free.filter(([key]) => !state.away.has(key)).length} free · ${state.away.size} away`;
 
       $("stations").innerHTML = stationsForPlan().map(station => {
@@ -437,8 +434,8 @@
       const estimate = dayEstimate();
       const planned = state.plan.plannedTarget ?? state.plan.snapshot?.capacity?.realistic ?? null;
       $("estimate").innerHTML = `
-        <div class="stat"><div class="label">Day estimate with this crew</div>
-          <div class="value">${estimate ? `${estimate.units} <small>limited by ${escapeHtml(estimate.limitName)}</small>` : "<small>Single-build days only</small>"}</div></div>
+        <div class="stat"><div class="label">Day estimate</div>
+          <div class="value">${estimate ? `${estimate.units} <small>limited by ${escapeHtml(estimate.limitName)}</small>` : "<small>—</small>"}</div></div>
         <div class="stat"><div class="label">Plan target</div><div class="value">${planned ?? "–"}</div></div>`;
 
       renderDetail();
@@ -450,14 +447,13 @@
       const person = key ? state.staff.get(key) : null;
       if (!person) {
         $("detailBody").className = "empty";
-        $("detailBody").textContent = "Nobody selected.";
+        $("detailBody").textContent = "—";
         return;
       }
       $("detailBody").className = "detail-body";
       $("detailBody").innerHTML = `
-        <div class="avatar ${teamClass(person.team)}">${escapeHtml(initials(person.name))}</div>
-        <div><h3>${escapeHtml(person.name)}</h3><p>Team ${escapeHtml(person.team || "?")}${state.away.has(key) ? " · away today" : ""}</p>
-          <p>${person.preferredBenches ? `Prefers ${escapeHtml(person.preferredBenches)}` : "No preferred benches"}${person.restrictedBenches ? ` · not ${escapeHtml(person.restrictedBenches)}` : ""}</p></div>
+        <div class="avatar ${avatarKind(person)}">${escapeHtml(initials(person.name))}</div>
+        <div><h3>${escapeHtml(person.name)}</h3><p>${state.away.has(key) ? "Away today" : "In today"}</p></div>
         <div class="skill-list">${SKILLS.map(skill => {
           const level = skillLevel(person, skill.key);
           return `<div class="skill-row"><span>${escapeHtml(skill.label)}</span><span class="dots">${level ? [1, 2, 3].map(n => `<i class="${level >= n ? "on" : ""}"></i>`).join("") : "Can't"}</span></div>`;

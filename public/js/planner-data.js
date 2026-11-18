@@ -44,17 +44,18 @@ async function saveStaff(workers) {
   const keep = new Set(workers.map(worker => worker.key));
   const batch = writeBatch(db);
   workers.forEach(worker => {
+    // Replaces the whole record, so older fields (team letters, preferred /
+    // restricted benches) are dropped once the dots are saved.
     batch.set(doc(db, "staff", worker.key), {
       name: worker.name,
       firstName: worker.first,
-      team: worker.team,
+      inProduction: worker.inProduction !== false,
+      skills: { ...worker.skills },
       priorityRank: Number(worker.priorityRank) || 50,
-      preferredBenches: worker.preferredBenches || "",
-      restrictedBenches: worker.restrictedBenches || "",
       rosterRow: Number.isInteger(worker.rosterIndex) ? worker.rosterIndex : null,
       active: true,
       updatedAt: serverTimestamp()
-    }, { merge: true });
+    });
   });
   existing.docs.forEach(entry => {
     if (!keep.has(entry.id)) batch.delete(entry.ref);
@@ -179,7 +180,7 @@ window.plannerData = {
   async start() {
     await ensureAccess({
       title: "Production Planner",
-      intro: "Management screen. Enter the management PIN to continue.",
+      intro: "Enter the management PIN.",
       pinLabel: "Management PIN",
       allowed: ["management"],
       wrongRoleMessage: "That's the bench PIN. This screen needs the management PIN."

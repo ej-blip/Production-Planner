@@ -334,14 +334,13 @@
 
   <main>
     <section id="chooser" class="card hidden">
-      <h2>Which bench is this screen for?</h2>
+      <h2>Pick a bench</h2>
       <div class="chooser-grid" id="chooserLinks"></div>
-      <p class="hint">On an iPad: open the bench, tap <strong>Share</strong> → <strong>Add to Home Screen</strong>. The icon then opens straight to that bench, full screen. Each screen asks for the bench PIN once.</p>
     </section>
 
     <section id="emptyState" class="card hidden">
-      <h2>No plan for this day yet</h2>
-      <p class="hint" id="emptyMessage">Plans appear here as soon as management releases them.</p>
+      <h2>No plan</h2>
+      <p class="hint" id="emptyMessage">Not released yet.</p>
       <div class="next-plan hidden" id="nextPlan"></div>
     </section>
 
@@ -350,7 +349,6 @@
 
       <section class="card" id="batchesCard">
         <h2 id="batchesTitle">Your batches</h2>
-        <p class="hint" id="batchesHint"></p>
         <div class="batch-status-grid" id="batchStatuses"></div>
       </section>
 
@@ -374,7 +372,6 @@
 
       <section class="card" id="boardCard">
         <h2 id="boardTitle">Who's on this bench</h2>
-        <p class="hint" id="boardHint"></p>
         <div class="phase-tabs" id="phaseTabs" role="tablist"></div>
         <div class="board" id="board"></div>
       </section>
@@ -387,6 +384,7 @@
   </main>
 
   <script src="js/drag-board.js"></script>
+  <script src="js/skills.js"></script>
   <script type="module">
     import {
       collection, doc, getDoc, getDocs, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc,
@@ -398,21 +396,19 @@
       watchFloor, setBatchStatus, askUnitsDone, askNote, addNote, editNote, removeNote, showPhoto
     } from "./js/floor.js";
 
-    // ------------------------------------------------------------------
-    // Jobs: who can do them (Worker Admin teams) and the word used for
-    // them in "restricted benches". Same rules as the Management screen.
-    // ------------------------------------------------------------------
+    // Jobs on the bench screens. Who can do each one comes from their
+    // skill dots in Worker Admin (js/skills.js).
     const STATIONS = {
-      subAssembly:    { label: "Sub Assembly",    teams: ["A"],           token: "subAssembly" },
-      assembly:       { label: "Assembly",        teams: ["A", "D"],      token: "assembly" },
-      assemblyGen4:   { label: "Gen4 Assembly",   teams: ["A", "D"],      token: "assembly" },
-      assemblyTap:    { label: "Tap Assembly",    teams: ["A", "D"],      token: "assembly" },
-      testing:        { label: "Testing",         teams: ["B", "C"],      token: "testing" },
-      testingVerizon: { label: "Verizon Testing", teams: ["B", "C"],      token: "testing", network: "verizon" },
-      testingGlobal:  { label: "Global Testing",  teams: ["B", "C"],      token: "testing", network: "global" },
-      hardware:       { label: "Hardware Check",  teams: ["A", "B"],      token: "hardware" },
-      packing:        { label: "Packing",         teams: ["A", "B", "D"], token: "packing" },
-      finalPackaging: { label: "Final Packaging", teams: null,            token: null }
+      subAssembly:    { label: "Sub Assembly" },
+      assembly:       { label: "Assembly" },
+      assemblyGen4:   { label: "Gen4 Assembly" },
+      assemblyTap:    { label: "Tap Assembly" },
+      testing:        { label: "Testing" },
+      testingVerizon: { label: "Verizon Testing", network: "verizon" },
+      testingGlobal:  { label: "Global Testing", network: "global" },
+      hardware:       { label: "Hardware Check" },
+      packing:        { label: "Packing" },
+      finalPackaging: { label: "Final Packaging" }
     };
 
     // Each bench screen: its jobs, and which batch details it shows.
@@ -540,22 +536,14 @@
       return Boolean(bench?.stations.includes(station));
     }
 
-    function benchToken(value) {
-      const token = String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      const aliases = {
-        "sub assembly": "subAssembly", "subassembly": "subAssembly", "assembly": "assembly",
-        "testing": "testing", "test": "testing", "hardware": "hardware", "hardware check": "hardware",
-        "packing": "packing", "pack": "packing"
-      };
-      return aliases[token] || token;
+    // 0 dots = can't do it. Not in production = can't do anything.
+    function canDo(person, station) {
+      return Boolean(STATIONS[station]) && window.PlannerSkills.levelFor(person, station) > 0;
     }
 
-    function canDo(person, station) {
-      const job = STATIONS[station];
-      if (!person || !job || person.team === "IGNORE") return false;
-      if (job.teams && !job.teams.includes(person.team)) return false;
-      const restricted = String(person.restrictedBenches || "").split(/[;,|]/).map(benchToken);
-      return !job.token || !restricted.includes(job.token);
+    // Best rating this person has for any job on this bench.
+    function benchLevel(person) {
+      return Math.max(0, ...benchJobs().map(job => window.PlannerSkills.levelFor(person, job.station)));
     }
 
     // The jobs this bench can move people between.
@@ -619,8 +607,8 @@
         .filter(([, person]) => jobs.some(job => canDo(person, job.station)))
         .filter(([key]) => entries?.[key]?.available !== false)   // in unless marked away
         .filter(([key]) => !busy.has(key) && !sent.has(key))
-        .map(([key]) => key)
-        .sort((a, b) => staffName(a).localeCompare(staffName(b)));
+        .sort(([a, pa], [b, pb]) => benchLevel(pb) - benchLevel(pa) || staffName(a).localeCompare(staffName(b)))
+        .map(([key]) => key);
     }
 
     // ------------------------------------------------------------------
@@ -867,8 +855,8 @@
 
     function renderEmpty() {
       $("emptyMessage").textContent = state.reachable
-        ? "Plans appear here as soon as management releases them."
-        : "The database can't be reached. Check the internet connection.";
+        ? "Not released yet."
+        : "Offline: can't reach the database.";
       const next = state.nextPlan;
       const holder = $("nextPlan");
       const show = Boolean(next && next.from === state.date && state.reachable);
@@ -900,7 +888,7 @@
         <div class="stat">
           <div class="label">Day target</div>
           <div class="value ${current < planned ? "down" : ""}">${current}</div>
-          <div class="note">${current < planned ? `Down from ${planned} after bench changes` : "As planned"}</div>
+          <div class="note">${current < planned ? `Down from ${planned}` : ""}</div>
         </div>`;
 
       let middle;
@@ -913,7 +901,6 @@
           <div class="stat">
             <div class="label">Units to test</div>
             <div class="value small-value">${escapeHtml(byNetwork.join(" · ") || "None")}</div>
-            <div class="note">Planned units by network</div>
           </div>`;
       } else {
         middle = `
@@ -941,9 +928,6 @@
       const cage = benchKey === "cage";
       const batches = floorBatches(state.plan);
       $("batchesTitle").textContent = cage ? "Release status" : "Your batches";
-      $("batchesHint").textContent = cage
-        ? "Tap Releasing when you start pulling parts for a batch, then Released. If you can only release part of it, enter how many units it covers."
-        : "Tap Start when you begin a batch, then Hit target when it's done, or enter how many you did. The next benches and management see it straight away.";
       $("batchStatuses").innerHTML = batches.map(batch => {
         const item = progressOf(state.progress, benchKey, batch);
         const buttons = [];
@@ -964,7 +948,7 @@
     function renderPinned() {
       const notes = state.notes.filter(note => note.bench === benchKey || note.bench === "all");
       $("pinnedNotes").innerHTML = notes.map(note => pinnedNoteHtml(note, state.role)).join("")
-        || '<p class="empty">Nothing pinned. Pin a note or photo for this bench, or ask management to.</p>';
+        || '<p class="empty">Nothing pinned.</p>';
     }
 
     async function setStatus(batchKey, status) {
@@ -1124,7 +1108,6 @@
       if (!hasBoard) return;
 
       $("boardTitle").textContent = `Who's on ${bench.label}`;
-      $("boardHint").innerHTML = `Drag a name to move someone, or tap a name and then tap where they should go. Moving someone to <strong>Not on ${escapeHtml(bench.label)}</strong> asks for the reason, and management sees every change straight away.`;
       $("phaseTabs").innerHTML = PHASES.map(([phase, label]) => {
         const count = benchPeople(phase).length;
         return `<button type="button" role="tab" data-phase="${phase}" class="${phase === state.phase ? "active" : ""}" aria-selected="${phase === state.phase}">${label} (${count})</button>`;
@@ -1144,8 +1127,8 @@
         return `
           <div class="zone job bench-${benchKey} ${NETWORKS[job.network]?.cls || ""} ${tapReady}" data-zone="${escapeHtml(job.station)}">
             <h3>${escapeHtml(job.label)}</h3>
-            <div class="zone-detail">${escapeHtml(detail || (people.length ? "" : "No one on this job"))}</div>
-            <div class="chips">${people.map(key => chip(key, job.station)).join("") || '<span class="empty">Drop a name here</span>'}</div>
+            <div class="zone-detail">${escapeHtml(detail)}</div>
+            <div class="chips">${people.map(key => chip(key, job.station)).join("") || '<span class="empty">—</span>'}</div>
           </div>`;
       }).join("");
 
@@ -1153,7 +1136,6 @@
       const offZone = `
         <div class="zone off ${tapReady}" data-zone="off">
           <h3>Not on ${escapeHtml(bench.label)}</h3>
-          <div class="zone-detail">People who are in, free this phase and can do these jobs</div>
           <div class="chips">${available.map(key => chip(key, "off")).join("") || '<span class="empty">Nobody free</span>'}</div>
         </div>`;
 
@@ -1236,7 +1218,7 @@
       const phaseName = phaseLabel(phase).toLowerCase();
 
       if (to !== "off" && !canDo(state.staff.get(staffKey), to)) {
-        toast(`${name} can't do ${jobLabel(to)} (Worker Admin teams and restrictions).`, true);
+        toast(`${name} can't do ${jobLabel(to)}.`, true);
         render();
         return;
       }
@@ -1369,7 +1351,7 @@
       $("benchTitle").textContent = "Bench screens";
       $("dateLabel").textContent = "Production Planner";
       $("chooserLinks").innerHTML = Object.entries(BENCHES)
-        .map(([key, item]) => `<a href="bench.html?bench=${key}">${escapeHtml(item.label)}<span>${escapeHtml(item.blurb)}</span></a>`)
+        .map(([key, item]) => `<a href="bench.html?bench=${key}">${escapeHtml(item.label)}</a>`)
         .join("");
       $("chooser").classList.remove("hidden");
     }
@@ -1383,7 +1365,7 @@
 
       state.role = await ensureAccess({
         title: bench.label,
-        intro: "Enter the bench PIN to open this screen.",
+        intro: "Enter the bench PIN.",
         pinLabel: "Bench PIN",
         allowed: ["bench", "management"],
         wrongRoleMessage: "That PIN isn't right."

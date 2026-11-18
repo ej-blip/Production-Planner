@@ -127,8 +127,7 @@
 </head>
 <body>
   <main class="container">
-    <h1>Production Planner setup</h1>
-    <p class="subtitle">Load the starter data and manage the bench and management PINs. The full steps are in SETUP.md.</p>
+    <h1>Setup</h1>
 
     <section id="configCard" class="card hidden">
       <h2>Connect the app first</h2>
@@ -156,7 +155,6 @@
 
       <section class="card">
         <h2>1. Starter data</h2>
-        <p>Adds the 13 staff from Worker Admin and the 8 configuration colours. Anything already there is left as it is.</p>
         <div class="stats">Staff in the database: <strong id="staffCount">–</strong> · Colours: <strong id="presetCount">–</strong></div>
         <button id="loadStarter" type="button">Load starter data</button>
         <p id="starterMessage" class="message" role="status"></p>
@@ -164,7 +162,6 @@
 
       <section class="card">
         <h2>2. PINs</h2>
-        <p>Bench screens use the bench PIN; this page and the management screens use the management PIN. Changing a PIN makes every screen using the old one ask for the new one.</p>
 
         <h3>Bench PIN</h3>
         <div class="pin-row">
@@ -173,7 +170,7 @@
         </div>
         <form id="benchPinForm" class="inline-form">
           <div>
-            <label for="benchPinInput">New bench PIN (at least 6 characters)</label>
+            <label for="benchPinInput">New bench PIN (6+ characters)</label>
             <input id="benchPinInput" type="text" autocomplete="off" required />
           </div>
           <button type="submit">Set bench PIN</button>
@@ -186,7 +183,7 @@
         </div>
         <form id="managementPinForm" class="inline-form">
           <div>
-            <label for="managementPinInput">New management PIN (at least 8 characters)</label>
+            <label for="managementPinInput">New management PIN (8+ characters)</label>
             <input id="managementPinInput" type="text" autocomplete="off" required />
           </div>
           <button type="submit">Change management PIN</button>
