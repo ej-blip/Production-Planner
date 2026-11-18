@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crew board (test) · Production Planner</title>
+  <link rel="icon" type="image/png" href="icons/planner.png" />
+  <style>
+    :root {
+      --page: #0b1220;
+      --panel: #111a2e;
+      --panel-2: #0d1526;
+      --line: #263452;
+      --text: #eef2ff;
+      --muted: #8ea0c4;
+      --accent: #5eead4;
+      --warn: #fbbf24;
+      --bad: #f87171;
+      --skill-assembly: #f59e0b;
+      --skill-testing: #3b82f6;
+      --skill-hardware: #a855f7;
+      --skill-packing: #22c55e;
+      --skill-final: #64748b;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--page); color: var(--text); min-height: 100vh; }
+    button { font: inherit; cursor: pointer; }
+    .hidden { display: none !important; }
+
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--line); background: #0a101d; position: sticky; top: 0; z-index: 10; }
+    .top h1 { margin: 0; font-size: 24px; letter-spacing: 0.02em; }
+    .test-badge { display: inline-block; margin-left: 10px; padding: 4px 10px; border-radius: 999px; background: #3b2a05; color: var(--warn); font-size: 12px; font-weight: 800; vertical-align: middle; }
+    .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .controls input[type="date"] { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-size: 15px; font-weight: 700; }
+    .btn { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: #1a2540; color: var(--text); font-weight: 800; }
+    .btn.primary { background: var(--accent); color: #042f2e; border-color: var(--accent); }
+    .phases { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    .phases button { padding: 9px 14px; border: none; background: var(--panel-2); color: var(--muted); font-weight: 800; }
+    .phases button.active { background: var(--accent); color: #042f2e; }
+
+    main { padding: 14px 18px 40px; }
+    .estimate { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .estimate .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; }
+    .estimate .label { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+    .estimate .value { font-size: 24px; font-weight: 900; }
+    .estimate .value small { font-size: 13px; color: var(--muted); font-weight: 700; }
+    .notice { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+
+    .layout { display: grid; grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.6fr); gap: 14px; align-items: start; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+    .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .panel-head h2 { margin: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 0.08em; color: #c7d2fe; }
+    .panel-head span { color: var(--muted); font-size: 12px; font-weight: 700; }
+
+    /* Crew roster */
+    .roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; min-height: 140px; border-radius: 10px; padding: 4px; }
+    .crew-card {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 4px 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      color: var(--text);
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .crew-card.away { opacity: 0.45; cursor: default; }
+    .crew-card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+    .crew-card.ghost { position: fixed; pointer-events: none; z-index: 1000; width: 230px; opacity: 0.95; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+    .avatar { grid-row: span 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 15px; color: #0b1220; }
+    .team-A { background: #fcd34d; } .team-B { background: #93c5fd; } .team-C { background: #c4b5fd; } .team-D { background: #86efac; } .team-other { background: #cbd5e1; }
+    .who { min-width: 0; }
+    .who b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .who span { font-size: 12px; color: var(--muted); font-weight: 700; }
+    .skills { display: flex; gap: 4px; flex-wrap: wrap; }
+    .skill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; border-radius: 6px; font-size: 10px; font-weight: 900; background: #0a101d; border: 1px solid var(--line); }
+    .skill i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #334155; }
+    .skill i.on { background: currentColor; }
+    .skill.none { opacity: 0.35; text-decoration: line-through; }
+    .skill.k-assembly { color: var(--skill-assembly); } .skill.k-testing { color: var(--skill-testing); }
+    .skill.k-hardware { color: var(--skill-hardware); } .skill.k-packing { color: var(--skill-packing); }
+    .day-pips { grid-column: 2; display: flex; gap: 3px; margin-top: 2px; }
+    .day-pips i { width: 22px; height: 5px; border-radius: 3px; background: #1e293b; }
+
+    /* Stations */
+    .stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+    .station { border-radius: 12px; background: var(--panel-2); border: 2px solid var(--line); padding: 10px; min-height: 150px; transition: border-color 0.12s, background 0.12s, opacity 0.12s; }
+    .station-head { display: flex; align-items: center; gap: 8px; }
+    .station-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 900; color: #0b1220; flex: none; }
+    .station-head b { font-size: 15px; }
+    .station-state { font-size: 12px; font-weight: 800; margin: 6px 0 8px; color: var(--muted); }
+    .station-state.ok { color: var(--accent); }
+    .station-state.short { color: var(--warn); }
+    .slots { display: flex; flex-direction: column; gap: 6px; }
+    .slots .crew-card { grid-template-columns: 34px 1fr; padding: 6px 8px; }
+    .slots .avatar { width: 34px; height: 34px; font-size: 12px; }
+    .slots .skills, .slots .day-pips { display: none; }
+    .slot-empty { border: 1px dashed #334155; border-radius: 10px; padding: 10px; text-align: center; color: #475569; font-size: 12px; font-weight: 800; }
+    .station.fit-3 { border-color: var(--accent); background: #0c2a2a; }
+    .station.fit-2 { border-color: #3b82f6; }
+    .station.fit-0 { opacity: 0.35; }
+    .station.drop-target, .roster.drop-target { background: #10324a; border-color: #38bdf8; }
+    .station .cant { display: none; font-size: 11px; font-weight: 900; color: var(--bad); }
+    .station.fit-0 .cant { display: inline; }
+
+    /* Selected worker detail */
+    .detail { margin-top: 12px; }
+    .detail-body { display: grid; grid-template-columns: 64px 1fr; gap: 10px 14px; align-items: start; }
+    .detail .avatar { width: 64px; height: 64px; font-size: 20px; }
+    .detail h3 { margin: 0; font-size: 18px; }
+    .detail p { margin: 2px 0 0; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .skill-list { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+    .skill-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-radius: 8px; background: #0a101d; border: 1px solid var(--line); font-size: 13px; font-weight: 800; }
+    .skill-row .dots i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #334155; margin-left: 3px; }
+    .skill-row .dots i.on { background: var(--accent); }
+    .today { grid-column: 1 / -1; font-size: 13px; color: #c7d2fe; line-height: 1.6; }
+
+    .empty { color: var(--muted); }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1600; padding: 12px 18px; border-radius: 12px; background: #1f2937; border: 1px solid var(--bad); color: #fecaca; font-weight: 800; }
+
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div><h1>Crew board<span class="test-badge">Test view · nothing is saved</span></h1></div>
+    <div class="controls">
+      <input type="date" id="dateInput" aria-label="Plan date" />
+      <div class="phases" id="phaseTabs" role="tablist" aria-label="Phase">
+        <button type="button" data-phase="start" class="active">1 · Start</button>
+        <button type="button" data-phase="second">2 · Second</button>
+        <button type="button" data-phase="finish">3 · Finish</button>
+      </div>
+      <button type="button" class="btn" id="resetButton">Reset to plan</button>
+    </div>
+  </header>
+
+  <main>
+    <p class="notice" id="notice">Loading…</p>
+    <div id="area" class="hidden">
+      <div class="estimate" id="estimate"></div>
+      <div class="layout" id="crewArea">
+        <section>
+          <div class="panel">
+            <div class="panel-head"><h2>Crew</h2><span id="crewCount"></span></div>
+            <div class="roster zone" data-zone="free" id="roster"></div>
+          </div>
+          <div class="panel detail" id="detail">
+            <div class="panel-head"><h2>Worker</h2><span>Tap a card to see their skills</span></div>
+            <div id="detailBody" class="empty">Nobody selected.</div>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Stations</h2><span>Drag someone onto a station, or tap them then tap the station</span></div>
+          <div class="stations" id="stations"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/drag-board.js"></script>
+  <script type="module">
+    import { collection, doc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { db, ensureAccess, friendlyError } from "./js/session.js";
+
+    // ------------------------------------------------------------------
+    // Skills: the same team rules as the rest of the app. A skill is
+    // 3 dots when it's in someone's preferred benches, 2 when their team
+    // can do it, and crossed out when their team can't or it's restricted.
+    // ------------------------------------------------------------------
+    const SKILLS = [
+      { key: "subAssembly", short: "SA", label: "Sub Assembly", teams: ["A"], kind: "assembly" },
+      { key: "assembly", short: "AS", label: "Assembly", teams: ["A", "D"], kind: "assembly" },
+      { key: "testing", short: "TE", label: "Testing", teams: ["B", "C"], kind: "testing" },
+      { key: "hardware", short: "HW", label: "Hardware", teams: ["A", "B"], kind: "hardware" },
+      { key: "packing", short: "PK", label: "Packing", teams: ["A", "B", "D"], kind: "packing" }
+    ];
+    const STATIONS = {
+      subAssembly:    { label: "Sub Assembly", skill: "subAssembly", kind: "assembly", icon: "SA", min: 1 },
+      assembly:       { label: "Assembly", skill: "assembly", kind: "assembly", icon: "AS", min: 1 },
+      assemblyGen4:   { label: "Gen4 Assembly", skill: "assembly", kind: "assembly", icon: "G4", min: 1 },
+      assemblyTap:    { label: "Tap Assembly", skill: "assembly", kind: "assembly", icon: "TP", min: 1 },
+      testing:        { label: "Testing", skill: "testing", kind: "testing", icon: "TE", min: 2 },
+      testingVerizon: { label: "Verizon Testing", skill: "testing", kind: "testing", icon: "VZ", min: 1 },
+      testingGlobal:  { label: "Global Testing", skill: "testing", kind: "testing", icon: "GL", min: 1 },
+      hardware:       { label: "Hardware Check", skill: "hardware", kind: "hardware", icon: "HW", min: 2 },
+      packing:        { label: "Packing", skill: "packing", kind: "packing", icon: "PK", min: 2 },
+      finalPackaging: { label: "Final Packaging", skill: null, kind: "final", icon: "FP", min: 0 }
+    };
+    const KIND_COLOUR = { assembly: "var(--skill-assembly)", testing: "var(--skill-testing)", hardware: "var(--skill-hardware)", packing: "var(--skill-packing)", final: "var(--skill-final)" };
+    const PHASES = ["start", "second", "finish"];
+    const PHASE_LABEL = { start: "Start", second: "Second", finish: "Finish" };
+
+    const $ = id => document.getElementById(id);
+    const state = {
+      date: "",
+      plan: null,
+      staff: new Map(),
+      away: new Set(),
+      phase: "start",
+      start: null,          // the plan's layout: phase → Map(staffKey → station)
+      layout: null          // the layout being tried out here
+    };
+    let board = null;
+    let renderPending = false;
+
+    function escapeHtml(value) {
+      return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+    function toast(message) {
+      document.querySelector(".toast")?.remove();
+      const element = document.createElement("div");
+      element.className = "toast";
+      element.textContent = message;
+      document.body.appendChild(element);
+      setTimeout(() => element.remove(), 3500);
+    }
+    function token(value) {
+      const text = String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      return { "sub assembly": "subAssembly", subassembly: "subAssembly", test: "testing", "hardware check": "hardware", pack: "packing" }[text] || text;
+    }
+    const list = value => String(value || "").split(/[;,|]/).map(token).filter(Boolean);
+
+    function skillLevel(person, skillKey) {
+      if (!skillKey) return 1;   // anyone can do final packaging
+      const skill = SKILLS.find(item => item.key === skillKey);
+      if (!person || !skill || !skill.teams.includes(person.team)) return 0;
+      if (list(person.restrictedBenches).includes(skillKey)) return 0;
+      return list(person.preferredBenches).includes(skillKey) ? 3 : 2;
+    }
+    const stationLevel = (key, station) => skillLevel(state.staff.get(key), STATIONS[station]?.skill);
+    const initials = name => String(name || "?").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
+    const teamClass = team => (["A", "B", "C", "D"].includes(team) ? `team-${team}` : "team-other");
+
+    // ------------------------------------------------------------------
+    // Output: the agreed single-build rules, per phase.
+    // ------------------------------------------------------------------
+    const isTap = unit => unit === "tap";
+    const dailyLimit = comms => (comms === "verizon" ? 36 : 30);
+    function hardwareCapacity(n, unit, comms) {
+      if (isTap(unit)) {
+        if (comms !== "verizon") return n >= 4 ? 42 : n === 3 ? 36 : n === 2 ? 30 : 0;
+        return n >= 4 ? 50 : n === 3 ? 42 : n === 2 ? 36 : 0;
+      }
+      return n >= 4 ? 36 : n === 3 ? 30 : n === 2 ? 24 : 0;
+    }
+    const packingCapacity = (n, unit) => (isTap(unit) ? (n >= 2 ? 50 : 0) : n >= 3 ? 36 : n === 2 ? 30 : 0);
+
+    function batches() {
+      return (state.plan?.batches || []).filter(batch => Number(batch.quantity) > 0);
+    }
+    function isSingle() {
+      return state.plan?.workMode !== "mixed";
+    }
+    function count(phase, station) {
+      let total = 0;
+      state.layout[phase].forEach(value => { if (value === station) total++; });
+      return total;
+    }
+    function phaseOutput(phase, station) {
+      if (!isSingle()) return null;
+      const batch = batches()[0] || { unitType: "gen4", commsType: "verizon" };
+      const n = count(phase, station);
+      if (station === "assembly") return count(phase, "subAssembly") > 0 ? n * (isTap(batch.unitType) ? 8 : 6) : 0;
+      if (station === "testing") return n >= 2 ? dailyLimit(batch.commsType) / 2 : 0;
+      if (station === "hardware") return hardwareCapacity(n, batch.unitType, batch.commsType);
+      if (station === "packing") return packingCapacity(n, batch.unitType);
+      return null;
+    }
+    function dayEstimate() {
+      if (!isSingle()) return null;
+      const batch = batches()[0] || { commsType: "verizon" };
+      const stages = { Assembly: "assembly", Testing: "testing", Hardware: "hardware", Packing: "packing" };
+      const totals = Object.fromEntries(Object.entries(stages).map(([name, station]) =>
+        [name, PHASES.reduce((sum, phase) => sum + (phaseOutput(phase, station) || 0), 0)]));
+      totals.Testing = Math.min(totals.Testing, dailyLimit(batch.commsType));
+      const [limitName, limit] = Object.entries(totals).reduce((low, item) => (item[1] < low[1] ? item : low));
+      return { units: Math.min(limit, dailyLimit(batch.commsType)), limitName };
+    }
+
+    // ------------------------------------------------------------------
+    // Loading the day
+    // ------------------------------------------------------------------
+    function stationsForPlan() {
+      const plan = state.plan;
+      if (!plan) return [];
+      if (isSingle()) return ["subAssembly", "assembly", "testing", "hardware", "packing", "finalPackaging"];
+      const list = ["subAssembly"];
+      if (batches().some(batch => batch.unitType !== "tap")) list.push("assemblyGen4");
+      if (batches().some(batch => batch.unitType === "tap")) list.push("assemblyTap");
+      if (batches().some(batch => batch.commsType === "verizon")) list.push("testingVerizon");
+      if (batches().some(batch => batch.commsType !== "verizon")) list.push("testingGlobal");
+      return [...list, "hardware", "packing", "finalPackaging"];
+    }
+
+    async function openDate(date) {
+      state.date = date;
+      $("dateInput").value = date;
+      $("notice").textContent = "Loading…";
+      $("area").classList.add("hidden");
+      board?.clearSelection();
+
+      let plan = null;
+      try {
+        const snapshot = await getDoc(doc(db, "plans", date));
+        plan = snapshot.exists() ? snapshot.data() : null;
+      } catch {
+        plan = null;   // benches can't see a plan until it's released
+      }
+      if (state.date !== date) return;
+      if (!plan) {
+        $("notice").textContent = "No plan to show for this day. Pick a day that has a saved or released plan.";
+        return;
+      }
+
+      let assignments = null;
+      if (plan.status === "released") {
+        try {
+          const snapshot = await getDocs(collection(db, "plans", date, "assignments"));
+          assignments = snapshot.docs.map(entry => entry.data());
+        } catch {
+          assignments = null;
+        }
+      }
+      try {
+        const roster = await getDoc(doc(db, "rosters", date));
+        const entries = roster.exists() ? roster.data().entries || {} : {};
+        state.away = new Set(Object.entries(entries).filter(([, entry]) => entry?.available === false).map(([key]) => key));
+      } catch {
+        state.away = new Set();
+      }
+      if (state.date !== date) return;
+
+      // Start from what the benches have now (released), or the plan's layout.
+      const start = Object.fromEntries(PHASES.map(phase => [phase, new Map()]));
+      if (assignments) {
+        assignments.forEach(item => start[item.phase]?.set(item.staffKey, item.station));
+      } else {
+        PHASES.forEach(phase => (plan.snapshot?.phases?.[phase] || []).forEach(task =>
+          (task.workers || []).forEach(key => start[phase].set(key, task.station))));
+      }
+      state.plan = plan;
+      state.start = start;
+      state.layout = Object.fromEntries(PHASES.map(phase => [phase, new Map(start[phase])]));
+      $("notice").textContent = `${plan.status === "released" ? "Released plan" : "Draft plan"} for ${new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`))}. Try moves here; nothing is saved.`;
+      $("area").classList.remove("hidden");
+      render();
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
+    function skillTags(key) {
+      const person = state.staff.get(key);
+      return SKILLS.map(skill => {
+        const level = skillLevel(person, skill.key);
+        const dots = [1, 2, 3].map(n => `<i class="${level >= n ? "on" : ""}"></i>`).join("");
+        return `<span class="skill k-${skill.kind} ${level ? "" : "none"}" title="${escapeHtml(skill.label)}${level ? ` level ${level}` : ": can't"}">${skill.short}${level ? dots : ""}</span>`;
+      }).join("");
+    }
+
+    function dayPips(key) {
+      return PHASES.map(phase => {
+        const station = state.layout[phase].get(key);
+        const colour = station ? KIND_COLOUR[STATIONS[station]?.kind] || "var(--muted)" : "#1e293b";
+        return `<i style="background:${colour}" title="${PHASE_LABEL[phase]}: ${escapeHtml(station ? STATIONS[station]?.label || station : "free")}"></i>`;
+      }).join("");
+    }
+
+    function card(key, zone) {
+      const person = state.staff.get(key) || { name: key };
+      const away = state.away.has(key);
+      const station = state.layout[state.phase].get(key);
+      const status = away ? "Away today" : station ? `At ${STATIONS[station]?.label || station}` : "Free";
+      const selected = board?.selected?.staffKey === key;
+      return `
+        <div class="crew-card ${away ? "away" : "chip"} ${selected ? "selected" : ""}" data-staff="${escapeHtml(key)}" data-zone="${escapeHtml(zone)}" data-card="${escapeHtml(key)}">
+          <div class="avatar ${teamClass(person.team)}">${escapeHtml(initials(person.name))}</div>
+          <div class="who"><b>${escapeHtml(person.name)}</b><span>Team ${escapeHtml(person.team || "?")} · ${escapeHtml(status)}</span></div>
+          <div class="skills">${skillTags(key)}</div>
+          <div class="day-pips">${dayPips(key)}</div>
+        </div>`;
+    }
+
+    function render() {
+      if (board?.isDragging()) {
+        renderPending = true;
+        return;
+      }
+      renderPending = false;
+      if (!state.plan) return;
+
+      document.querySelectorAll("#phaseTabs button").forEach(button => button.classList.toggle("active", button.dataset.phase === state.phase));
+
+      const people = [...state.staff.entries()].filter(([, person]) => person.team !== "IGNORE");
+      const free = people.filter(([key]) => !state.layout[state.phase].has(key))
+        .sort(([a, pa], [b, pb]) => Number(state.away.has(a)) - Number(state.away.has(b)) || pa.name.localeCompare(pb.name));
+      $("roster").innerHTML = free.map(([key]) => card(key, "free")).join("") || '<span class="empty">Everyone is on a station this phase.</span>';
+      $("crewCount").textContent = `${free.filter(([key]) => !state.away.has(key)).length} free · ${state.away.size} away`;
+
+      $("stations").innerHTML = stationsForPlan().map(station => {
+        const info = STATIONS[station];
+        const workers = people.filter(([key]) => state.layout[state.phase].get(key) === station).map(([key]) => key);
+        const output = phaseOutput(state.phase, station);
+        const needed = Math.max(0, info.min - workers.length);
+        const stateText = needed > 0 && workers.length > 0
+          ? `<div class="station-state short">Needs ${needed} more</div>`
+          : `<div class="station-state ${workers.length ? "ok" : ""}">${workers.length ? `Running${output !== null ? ` · ${output} units this phase` : ""}` : "Idle"}</div>`;
+        return `
+          <div class="station zone" data-zone="${station}" data-station="${station}">
+            <div class="station-head">
+              <span class="station-icon" style="background:${KIND_COLOUR[info.kind]}">${info.icon}</span>
+              <b>${escapeHtml(info.label)}</b>
+              <span class="cant">Can't</span>
+            </div>
+            ${stateText}
+            <div class="slots">
+              ${workers.map(key => card(key, station)).join("")}
+              <div class="slot-empty">Drop here</div>
+            </div>
+          </div>`;
+      }).join("");
+
+      const estimate = dayEstimate();
+      const planned = state.plan.plannedTarget ?? state.plan.snapshot?.capacity?.realistic ?? null;
+      $("estimate").innerHTML = `
+        <div class="stat"><div class="label">Day estimate with this crew</div>
+          <div class="value">${estimate ? `${estimate.units} <small>limited by ${escapeHtml(estimate.limitName)}</small>` : "<small>Single-build days only</small>"}</div></div>
+        <div class="stat"><div class="label">Plan target</div><div class="value">${planned ?? "–"}</div></div>`;
+
+      renderDetail();
+      highlightFit(board?.selected?.staffKey || null);
+    }
+
+    function renderDetail() {
+      const key = board?.selected?.staffKey;
+      const person = key ? state.staff.get(key) : null;
+      if (!person) {
+        $("detailBody").className = "empty";
+        $("detailBody").textContent = "Nobody selected.";
+        return;
+      }
+      $("detailBody").className = "detail-body";
+      $("detailBody").innerHTML = `
+        <div class="avatar ${teamClass(person.team)}">${escapeHtml(initials(person.name))}</div>
+        <div><h3>${escapeHtml(person.name)}</h3><p>Team ${escapeHtml(person.team || "?")}${state.away.has(key) ? " · away today" : ""}</p>
+          <p>${person.preferredBenches ? `Prefers ${escapeHtml(person.preferredBenches)}` : "No preferred benches"}${person.restrictedBenches ? ` · not ${escapeHtml(person.restrictedBenches)}` : ""}</p></div>
+        <div class="skill-list">${SKILLS.map(skill => {
+          const level = skillLevel(person, skill.key);
+          return `<div class="skill-row"><span>${escapeHtml(skill.label)}</span><span class="dots">${level ? [1, 2, 3].map(n => `<i class="${level >= n ? "on" : ""}"></i>`).join("") : "Can't"}</span></div>`;
+        }).join("")}</div>
+        <div class="today">${PHASES.map(phase => {
+          const station = state.layout[phase].get(key);
+          return `<div><strong>${PHASE_LABEL[phase]}:</strong> ${escapeHtml(station ? STATIONS[station]?.label || station : "Free")}</div>`;
+        }).join("")}</div>`;
+    }
+
+    // While someone is held or selected, light up where they'd do well.
+    function highlightFit(key) {
+      document.querySelectorAll(".station[data-station]").forEach(element => {
+        element.classList.remove("fit-0", "fit-2", "fit-3");
+        if (!key) return;
+        const level = stationLevel(key, element.dataset.station);
+        element.classList.add(level >= 3 ? "fit-3" : level >= 1 ? "fit-2" : "fit-0");
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // Moving people (in this test view only)
+    // ------------------------------------------------------------------
+    function move(key, from, to) {
+      const person = state.staff.get(key);
+      if (to === "free") {
+        state.layout[state.phase].delete(key);
+      } else if (stationLevel(key, to) === 0) {
+        toast(`${person?.firstName || person?.name || key} can't do ${STATIONS[to]?.label || to}.`);
+      } else {
+        state.layout[state.phase].set(key, to);
+      }
+      render();
+    }
+
+    async function start() {
+      await ensureAccess({
+        title: "Crew board (test)",
+        intro: "Enter the management or bench PIN.",
+        pinLabel: "PIN",
+        allowed: ["management", "bench"],
+        wrongRoleMessage: "That PIN isn't right."
+      });
+      try {
+        const staff = await getDocs(collection(db, "staff"));
+        state.staff = new Map(staff.docs.map(entry => [entry.id, entry.data()]));
+      } catch (error) {
+        $("notice").textContent = friendlyError(error);
+        return;
+      }
+
+      board = window.attachDragBoard($("crewArea"), {
+        onMove: move,
+        onSelect: () => render(),
+        onDragStart: key => highlightFit(key),
+        onDragEnd: () => {
+          if (renderPending) render();
+          else highlightFit(board.selected?.staffKey || null);
+        }
+      });
+      $("phaseTabs").addEventListener("click", event => {
+        const button = event.target.closest("button[data-phase]");
+        if (!button) return;
+        state.phase = button.dataset.phase;
+        board.clearSelection();
+      });
+      $("resetButton").addEventListener("click", () => {
+        if (!state.start) return;
+        state.layout = Object.fromEntries(PHASES.map(phase => [phase, new Map(state.start[phase])]));
+        board.clearSelection();
+      });
+      $("dateInput").addEventListener("change", event => {
+        if (event.target.value) openDate(event.target.value);
+      });
+
+      const requested = new URLSearchParams(window.location.search).get("date");
+      const today = new Date();
+      const fallback = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      openDate(/^\d{4}-\d{2}-\d{2}$/.test(requested || "") ? requested : fallback);
+    }
+
+    start();
+  </script>
+</body>
+</html>

@@ -15,7 +15,7 @@
   "use strict";
 
   function attachDragBoard(root, options) {
-    const { onMove, onSelect = () => {}, onDragEnd = () => {}, isBusy = () => false } = options;
+    const { onMove, onSelect = () => {}, onDragStart = () => {}, onDragEnd = () => {}, isBusy = () => false } = options;
     let drag = null;
     let selected = null;
     let ignoreClickUntil = 0;
@@ -57,6 +57,7 @@
         drag.ghost.classList.add("ghost");
         drag.ghost.classList.remove("selected");
         document.body.appendChild(drag.ghost);
+        onDragStart(drag.staffKey, drag.from);
       }
       if (!drag.ghost) return;
       drag.ghost.style.left = `${event.clientX - drag.ghost.offsetWidth / 2}px`;
