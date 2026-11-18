@@ -312,9 +312,15 @@
         plan = null;   // benches can't see a plan until it's released
       }
       if (state.date !== date) return;
+      // No saved plan (or not released yet for a bench PIN): start with
+      // everyone free on a standard Gen4 · Verizon day.
       if (!plan) {
-        $("notice").textContent = "No plan to show for this day. Pick a day that has a saved or released plan.";
-        return;
+        plan = {
+          status: "none",
+          workMode: "single",
+          plannedTarget: null,
+          batches: [{ customer: "", unitType: "gen4", commsType: "verizon", quantity: 1 }]
+        };
       }
 
       let assignments = null;
@@ -346,7 +352,10 @@
       state.plan = plan;
       state.start = start;
       state.layout = Object.fromEntries(PHASES.map(phase => [phase, new Map(start[phase])]));
-      $("notice").textContent = `${plan.status === "released" ? "Released plan" : "Draft plan"} for ${new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`))}. Try moves here; nothing is saved.`;
+      const dayName = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
+      $("notice").textContent = plan.status === "none"
+        ? `No saved plan for ${dayName}, so everyone starts free (a Gen4 · Verizon day is assumed). Drag people onto stations to try it out. Save a draft on the Management screen to start from the calculator's layout instead.`
+        : `${plan.status === "released" ? "Released plan" : "Draft plan"} for ${dayName}. Try moves here; nothing is saved.`;
       $("area").classList.remove("hidden");
       render();
     }
