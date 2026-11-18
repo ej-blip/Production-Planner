@@ -842,6 +842,22 @@
     .empty { color: #94a3b8; font-size: 14px; }
     .save-state.error { color: var(--bad); font-weight: 800; }
 
+    .bench-card { border-color: #38bdf8; }
+    .bench-phase-tabs { margin: 6px 0 12px; }
+    .bench-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+    .bench-zone { min-height: 96px; border-style: solid; }
+    .bench-zone.other { opacity: 0.7; }
+    .bench-zone.kind-assembly { border-color: #f59e0b; }
+    .bench-zone.kind-testing { border-color: #3b82f6; }
+    .bench-zone.kind-hardware { border-color: #a855f7; }
+    .bench-zone.kind-packing,
+    .bench-zone.kind-finalPackaging { border-color: #22c55e; }
+    .bench-zone.kind-custom { border-color: #94a3b8; }
+    .bench-zone.kind-none { border-style: dashed; border-color: #475569; }
+    .bench-zone.drop-target { opacity: 1; }
+    .zone-count { color: #94a3b8; font-size: 13px; margin-left: 4px; }
+    .chip.manual { border-color: #fbbf24; box-shadow: inset 0 0 0 1px #fbbf24; }
+
     @media (max-width: 700px) {
       .attendance-board { grid-template-columns: 1fr; }
       .week-days { grid-template-columns: repeat(5, minmax(58px, 1fr)); overflow-x: auto; }
@@ -1435,7 +1451,22 @@
     </div>
 
 
-    <!-- Capacity summary, bench allocation, and consolidated roster correction card render here. -->
+    <!-- ==========================================================
+         BENCH ASSIGNMENTS: drag people onto jobs for each phase
+         ========================================================== -->
+    <div class="card bench-card">
+      <h2 class="section-title">Bench Assignments</h2>
+      <div id="benchPhaseTabs" class="phase-toggle-group bench-phase-tabs"></div>
+      <div class="attendance-head">
+        <strong id="benchBoardSummary"></strong>
+        <button type="button" class="secondary" onclick="resetBenchPhase()">Reset this phase</button>
+      </div>
+      <div id="benchBoard" class="bench-board"></div>
+      <p id="benchBoardMessage" class="small save-state"></p>
+      <p class="small">Starts from the calculator's suggested layout for the people who are in. Drag a name to another job, or tap the name and then tap the job. Names with a yellow edge were moved by hand. The target updates as you go; save or release the plan to keep the changes.</p>
+    </div>
+
+    <!-- Capacity summary and bench allocation render here. -->
     <div id="output"></div>
 
     <!-- ==========================================================
@@ -1725,6 +1756,7 @@
       enhanceCollapsibleSections();
 
       wireAttendanceBoard();
+      wireBenchBoard();
       document.getElementById("daySelect").addEventListener("change", () => {
         shiftPlanDateToSelectedDay();
         loadPlanForSelectedDate();
@@ -2802,6 +2834,202 @@
       document.getElementById("planDate").value = value;
       syncDaySelectToPlanDate();
       loadPlanForSelectedDate();
+    }
+
+    /* ============================================================
+       BENCH ASSIGNMENT BOARD
+       The calculator's suggested layout, shown as a drag board per
+       phase. Dragging a name onto another job records a manual phase
+       assignment (stationAdjustments), the same thing the Station
+       Adjustments form does, so capacity, the target, the workflow map
+       and the released bench assignments all follow it.
+       ============================================================ */
+    let benchBoard = null;
+    let benchBoardPhase = "start";
+    let benchBoardRenderPending = false;
+    let benchBoardMessage = "";
+
+    const BENCH_PHASE_TABS = {
+      start: "1 · Start",
+      second: "2 · Second",
+      finish: "3 · Finish"
+    };
+
+    // Jobs usually staffed in each phase come first; the rest follow.
+    const BENCH_PHASE_TYPICAL = {
+      start: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap", "testing", "testingVerizon", "testingGlobal"],
+      second: ["testing", "testingVerizon", "testingGlobal", "hardware", "packing"],
+      finish: ["finalPackaging", "packing"]
+    };
+
+    function benchZoneKind(zone) {
+      if (zone === "none") return "none";
+      if (zone.startsWith("custom:")) return "custom";
+      if (/^assembly|^subAssembly/.test(zone)) return "assembly";
+      if (/^testing/.test(zone)) return "testing";
+      return zone;   // hardware, packing, finalPackaging
+    }
+
+    function benchZoneLabel(zone) {
+      if (zone === "none") return "Not assigned";
+      if (zone.startsWith("custom:")) return zone.slice(7);
+      return workflowStationLabel(zone);
+    }
+
+    function benchZoneOf(assignment) {
+      if (!assignment) return "none";
+      const station = normalizeWorkflowStation(assignment.station);
+      if (station === "custom") return `custom:${assignment.customJobName || "Custom job"}`;
+      return station;
+    }
+
+    function benchBoardZones(phase, people) {
+      const typical = BENCH_PHASE_TYPICAL[phase] || [];
+      const rank = zone => {
+        const index = typical.indexOf(zone);
+        return index === -1 ? 100 : index;
+      };
+      const zones = workflowStationOptions()
+        .map(([value]) => value)
+        .filter(value => value !== "custom")
+        .sort((a, b) => rank(a) - rank(b));
+      // Jobs people are already on (custom jobs, or a job from another mode).
+      people.forEach(({ zone }) => {
+        if (zone !== "none" && !zones.includes(zone)) zones.push(zone);
+      });
+      zones.push("none");
+      return zones.map(zone => ({ zone, typical: zone === "none" || rank(zone) < 100 }));
+    }
+
+    function benchBoardPeople(phase) {
+      const model = lastWorkflowModel;
+      const takenOff = new Set(stationAdjustments
+        .filter(item => (item.phase || "start") === phase && item.action === "remove")
+        .map(item => item.workerKey));
+      return (model?.usableWorkers || []).map(worker => {
+        const assignment = model.phases[phase]?.get(worker.key) || null;
+        const manual = assignment ? Boolean(assignment.manual) : takenOff.has(worker.key);
+        return { worker, zone: benchZoneOf(assignment), manual };
+      });
+    }
+
+    function benchTargetSummary() {
+      const target = currentPlanTarget();
+      if (target === null) {
+        const reason = workDayMode === "mixed" ? lastResult?.mixedCapacity?.reason : lastResult?.reason;
+        return `No valid plan yet${reason ? `: ${reason}` : "."}`;
+      }
+      const bottleneck = workDayMode === "mixed"
+        ? lastResult?.mixedCapacity?.bottleneckName
+        : lastResult?.workflowCapacity?.bottleneck?.name;
+      return `Target: ${target} units${bottleneck ? ` · limited by ${bottleneck}` : ""}`;
+    }
+
+    function renderBenchBoard() {
+      const root = document.getElementById("benchBoard");
+      if (!root) return;
+      if (benchBoard?.isDragging()) {
+        benchBoardRenderPending = true;
+        return;
+      }
+      benchBoardRenderPending = false;
+
+      const tabs = document.getElementById("benchPhaseTabs");
+      const summary = document.getElementById("benchBoardSummary");
+      const message = document.getElementById("benchBoardMessage");
+
+      if (!attendanceReady() || !lastWorkflowModel) {
+        tabs.innerHTML = "";
+        summary.textContent = "";
+        message.textContent = "";
+        root.innerHTML = `<div class="empty">${attendanceReady() ? "Waiting for the calculation…" : "Loading…"}</div>`;
+        return;
+      }
+
+      tabs.innerHTML = WORKFLOW_PHASES.map(phase => {
+        const staffed = [...lastWorkflowModel.phases[phase].values()].length;
+        return `<button type="button" class="phase-toggle ${phase === benchBoardPhase ? "active" : ""}" data-phase="${phase}">${BENCH_PHASE_TABS[phase]} (${staffed})</button>`;
+      }).join("");
+
+      summary.textContent = benchTargetSummary();
+
+      const notes = [benchBoardMessage, ...lastStationIssues].filter(Boolean);
+      message.textContent = notes.join(" ");
+      message.classList.toggle("error", notes.length > 0);
+
+      const people = benchBoardPeople(benchBoardPhase);
+      const selected = benchBoard?.selected;
+      const chip = ({ worker, zone, manual }) => `<span class="chip ${manual ? "manual" : ""} ${selected?.staffKey === worker.key ? "selected" : ""}" data-staff="${safeAttr(worker.key)}" data-zone="${safeAttr(zone)}" title="${safeAttr(worker.name)}${manual ? " (moved by hand)" : ""}">${escapeHtml(worker.first || worker.name)}</span>`;
+
+      root.innerHTML = benchBoardZones(benchBoardPhase, people).map(({ zone, typical }) => {
+        const inZone = people.filter(person => person.zone === zone);
+        return `
+          <div class="zone bench-zone kind-${benchZoneKind(zone)} ${typical ? "" : "other"}" data-zone="${safeAttr(zone)}">
+            <h3>${escapeHtml(benchZoneLabel(zone))} <span class="zone-count">${inZone.length}</span></h3>
+            <div class="chips">${inZone.map(chip).join("") || '<span class="empty">—</span>'}</div>
+          </div>`;
+      }).join("");
+    }
+
+    function setBenchBoardMessage(text) {
+      benchBoardMessage = text;
+      renderBenchBoard();
+    }
+
+    function moveBenchAssignment(workerKey, from, to) {
+      const phase = benchBoardPhase;
+      const worker = workerMap.find(item => item.key === workerKey);
+      if (!worker || !lastWorkflowModel) return;
+
+      let adjustment;
+      if (to === "none") {
+        adjustment = { workerKey, phase, station: "", action: "remove", customJobName: "" };
+      } else if (to.startsWith("custom:")) {
+        adjustment = { workerKey, phase, station: "custom", action: "move", customJobName: to.slice(7) };
+      } else {
+        const station = normalizeWorkflowStation(to);
+        if (!workflowWorkerEligible(worker, station)) {
+          setBenchBoardMessage(`${worker.first} can't do ${workflowStationLabel(station)} (Worker Admin restrictions).`);
+          return;
+        }
+        if (workflowTapMovementConflict(lastWorkflowModel, workerKey, station, phase)) {
+          setBenchBoardMessage(`${worker.first} is testing Tap units, so can't switch between Testing and Hardware/Packing.`);
+          return;
+        }
+        adjustment = { workerKey, phase, station, action: "move", customJobName: "" };
+      }
+
+      stationAdjustments = stationAdjustments.filter(item => !(item.workerKey === workerKey && (item.phase || "start") === phase));
+      stationAdjustments.push(adjustment);
+      benchBoardMessage = "";
+      calculateFromRoster();
+    }
+
+    function resetBenchPhase() {
+      const before = stationAdjustments.length;
+      stationAdjustments = stationAdjustments.filter(item => (item.phase || "start") !== benchBoardPhase);
+      benchBoardMessage = "";
+      if (stationAdjustments.length !== before) calculateFromRoster();
+      else renderBenchBoard();
+    }
+
+    function wireBenchBoard() {
+      benchBoard = window.attachDragBoard(document.getElementById("benchBoard"), {
+        onMove: moveBenchAssignment,
+        onSelect: () => renderBenchBoard(),
+        onDragEnd: () => {
+          if (benchBoardRenderPending) renderBenchBoard();
+        },
+        isBusy: () => !attendanceReady() || !lastWorkflowModel
+      });
+
+      document.getElementById("benchPhaseTabs").addEventListener("click", event => {
+        const button = event.target.closest("button[data-phase]");
+        if (!button) return;
+        benchBoardPhase = button.dataset.phase;
+        benchBoardMessage = "";
+        benchBoard.clearSelection();
+      });
     }
 
     /* ============================================================
@@ -5249,6 +5477,7 @@
 
       renderStationAdjustmentList();
       render(result, day, commsType, unitType);
+      renderBenchBoard();
       renderWorkflowChart(result, day, commsType, unitType);
       enhanceCollapsibleSections();
       updateStationAssignmentHint();
@@ -5307,6 +5536,7 @@
       watchAttendanceWeek();
       renderPlanStatus();
       renderAttendance();
+      renderBenchBoard();
 
       let loaded = null;
       let loadError = null;
