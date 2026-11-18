@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Testing Bench</title>
+  <title>Bench · Production Planner</title>
+  <!-- iPad / phone home-screen app: opens full screen with this bench's name and icon. -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Bench" />
+  <meta name="theme-color" content="#020617" />
+  <link rel="apple-touch-icon" href="icons/bench.png" />
+  <link rel="icon" type="image/png" href="icons/bench.png" />
   <style>
     :root {
       --page: #020617;
@@ -261,40 +269,86 @@
       h1 { font-size: 22px; }
       .stat .value { font-size: 32px; }
     }
+
+    /* Every bench ---------------------------------------------------- */
+    .zone.job.bench-assembly { border-color: #f59e0b; }
+    .zone.job.bench-hardware { border-color: #a855f7; }
+    .zone.job.bench-packing { border-color: #22c55e; }
+
+    .batch-table { width: 100%; border-collapse: collapse; }
+    .batch-table th, .batch-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); font-size: 16px; vertical-align: top; }
+    .batch-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .batch-table td.units { font-size: 22px; font-weight: 900; white-space: nowrap; }
+    .batch-table td.units small { font-size: 13px; color: var(--muted); font-weight: 700; }
+    .batch-table .setup-text { white-space: pre-line; color: #e2e8f0; }
+    .table-scroll { overflow-x: auto; }
+    .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; border: 1px solid rgba(255, 255, 255, 0.35); }
+
+    .notes-card { border-color: var(--warn); }
+    .notes-text { white-space: pre-line; font-size: 17px; line-height: 1.5; }
+
+    .next-plan { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .chooser-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 6px 0 14px; }
+    .chooser-grid a {
+      display: block;
+      padding: 18px;
+      border-radius: 14px;
+      border: 2px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 900;
+      font-size: 20px;
+    }
+    .chooser-grid a span { display: block; font-size: 13px; color: var(--muted); font-weight: 700; margin-top: 4px; }
   </style>
 </head>
 <body>
   <header class="top">
     <div>
-      <h1 id="benchTitle">Testing bench</h1>
+      <h1 id="benchTitle">Bench</h1>
       <div class="sub" id="dateLabel">Loading…</div>
     </div>
-    <div class="top-actions">
+    <div class="top-actions" id="topActions">
       <button type="button" class="secondary" id="prevDay" aria-label="Previous day">◀</button>
       <input type="date" id="dateInput" aria-label="Plan date" />
       <button type="button" class="secondary" id="nextDay" aria-label="Next day">▶</button>
+      <button type="button" class="secondary" id="todayButton">Today</button>
       <span id="liveBadge" class="live">Live</span>
       <button type="button" class="secondary" id="lockButton">Lock</button>
     </div>
   </header>
 
   <main>
+    <section id="chooser" class="card hidden">
+      <h2>Which bench is this screen for?</h2>
+      <div class="chooser-grid" id="chooserLinks"></div>
+      <p class="hint">On an iPad: open the bench, tap <strong>Share</strong> → <strong>Add to Home Screen</strong>. The icon then opens straight to that bench, full screen. Each screen asks for the bench PIN once.</p>
+    </section>
+
     <section id="emptyState" class="card hidden">
       <h2>No plan for this day yet</h2>
       <p class="hint" id="emptyMessage">Plans appear here as soon as management releases them.</p>
+      <div class="next-plan hidden" id="nextPlan"></div>
     </section>
 
     <div id="planArea" class="hidden">
       <section class="summary" id="summary"></section>
 
-      <section class="card">
-        <h2>Network setups</h2>
-        <div class="setup-grid" id="setups"></div>
+      <section class="card notes-card hidden" id="notesCard">
+        <h2>Notes from management</h2>
+        <div class="notes-text" id="notesText"></div>
       </section>
 
       <section class="card">
-        <h2>Who's on Testing</h2>
-        <p class="hint">Drag a name to move someone, or tap a name and then tap where they should go. Moving someone to <strong>Not on Testing</strong> asks for the reason, and management sees every change straight away.</p>
+        <h2 id="infoTitle">What we're building</h2>
+        <div id="info"></div>
+      </section>
+
+      <section class="card" id="boardCard">
+        <h2 id="boardTitle">Who's on this bench</h2>
+        <p class="hint" id="boardHint"></p>
         <div class="phase-tabs" id="phaseTabs" role="tablist"></div>
         <div class="board" id="board"></div>
       </section>
@@ -306,6 +360,7 @@
     </div>
   </main>
 
+  <script src="js/drag-board.js"></script>
   <script type="module">
     import {
       collection, doc, getDoc, getDocs, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc,
@@ -314,19 +369,61 @@
     import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
 
     // ------------------------------------------------------------------
-    // Bench settings. Only Testing exists so far; other benches come later.
+    // Jobs: who can do them (Worker Admin teams) and the word used for
+    // them in "restricted benches". Same rules as the Management screen.
     // ------------------------------------------------------------------
+    const STATIONS = {
+      subAssembly:    { label: "Sub Assembly",    teams: ["A"],           token: "subAssembly" },
+      assembly:       { label: "Assembly",        teams: ["A", "D"],      token: "assembly" },
+      assemblyGen4:   { label: "Gen4 Assembly",   teams: ["A", "D"],      token: "assembly" },
+      assemblyTap:    { label: "Tap Assembly",    teams: ["A", "D"],      token: "assembly" },
+      testing:        { label: "Testing",         teams: ["B", "C"],      token: "testing" },
+      testingVerizon: { label: "Verizon Testing", teams: ["B", "C"],      token: "testing", network: "verizon" },
+      testingGlobal:  { label: "Global Testing",  teams: ["B", "C"],      token: "testing", network: "global" },
+      hardware:       { label: "Hardware Check",  teams: ["A", "B"],      token: "hardware" },
+      packing:        { label: "Packing",         teams: ["A", "B", "D"], token: "packing" },
+      finalPackaging: { label: "Final Packaging", teams: null,            token: null }
+    };
+
+    // Each bench screen: its jobs, and which batch details it shows.
     const BENCHES = {
+      assembly: {
+        label: "Assembly",
+        blurb: "Sub assembly and assembly",
+        stations: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap"],
+        columns: ["customer", "unit", "config", "setup", "units"]
+      },
       testing: {
         label: "Testing",
+        blurb: "Verizon and Global testing",
         stations: ["testing", "testingVerizon", "testingGlobal"],
-        eligibleTeams: ["B", "C"],
-        restrictedNames: ["testing", "test"]
+        columns: null   // network setup cards instead of a table
+      },
+      hardware: {
+        label: "Hardware Check",
+        blurb: "Hardware check",
+        stations: ["hardware"],
+        columns: ["customer", "unit", "network", "config", "units"]
+      },
+      packing: {
+        label: "Packing",
+        blurb: "Packing and final packaging",
+        stations: ["packing", "finalPackaging"],
+        columns: ["customer", "unit", "config", "setup", "units"]
+      },
+      cage: {
+        label: "Production Cage",
+        blurb: "Parts to release for today's builds",
+        stations: [],
+        columns: ["customer", "unit", "network", "config", "setup", "units"]
       }
     };
-    const benchKey = "testing";
-    const bench = BENCHES[benchKey];
-    const ACTOR = `${bench.label} bench`;
+
+    const requestedBench = new URLSearchParams(window.location.search).get("bench");
+    const benchKey = Object.prototype.hasOwnProperty.call(BENCHES, requestedBench) ? requestedBench : null;
+    const bench = benchKey ? BENCHES[benchKey] : null;
+    const hasBoard = Boolean(bench && bench.stations.length);
+    const ACTOR = bench ? `${bench.label} bench` : "Bench";
 
     const PHASES = [["start", "Start phase"], ["second", "Second phase"], ["finish", "Finish phase"]];
     const PHASE_KEYS = PHASES.map(([key]) => key);
@@ -345,22 +442,22 @@
     const state = {
       date: "",
       plan: null,
-      planReadable: true,
+      reachable: true,    // false when the database couldn't be reached
       assignments: [],
       events: [],
       roster: null,
       staff: new Map(),
       presets: {},
       phase: "start",
-      selected: null,     // { staffKey, from }
       busy: false,
-      live: true
+      live: true,
+      nextPlan: null      // { from, date } once the next released plan has been looked up
     };
 
     let stops = [];
     let detailStops = [];
     let retryTimer = null;
-    let drag = null;
+    let board = null;          // shared drag-and-drop (js/drag-board.js)
     let renderPending = false;
 
     // ------------------------------------------------------------------
@@ -401,41 +498,76 @@
         .filter(batch => Number(batch.quantity) > 0);
     }
 
-    function plannedUnits(batch) {
-      const target = (state.plan?.snapshot?.batchTargets || []).find(item => item.index === batch.index);
+    function plannedUnits(batch, plan = state.plan) {
+      const target = (plan?.snapshot?.batchTargets || []).find(item => item.index === batch.index);
       return target ? Number(target.planned) || 0 : Number(batch.quantity) || 0;
     }
 
     function isBenchStation(station) {
-      return bench.stations.includes(station);
+      return Boolean(bench?.stations.includes(station));
+    }
+
+    function benchToken(value) {
+      const token = String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const aliases = {
+        "sub assembly": "subAssembly", "subassembly": "subAssembly", "assembly": "assembly",
+        "testing": "testing", "test": "testing", "hardware": "hardware", "hardware check": "hardware",
+        "packing": "packing", "pack": "packing"
+      };
+      return aliases[token] || token;
+    }
+
+    function canDo(person, station) {
+      const job = STATIONS[station];
+      if (!person || !job || person.team === "IGNORE") return false;
+      if (job.teams && !job.teams.includes(person.team)) return false;
+      const restricted = String(person.restrictedBenches || "").split(/[;,|]/).map(benchToken);
+      return !job.token || !restricted.includes(job.token);
     }
 
     // The jobs this bench can move people between.
     function benchJobs() {
+      if (!hasBoard || !state.plan) return [];
       const batches = activeBatches();
-      if (state.plan?.workMode === "mixed") {
-        return ["verizon", "global"]
-          .filter(network => batches.some(batch => networkOf(batch) === network))
-          .map(network => ({ station: NETWORKS[network].station, label: `${NETWORKS[network].label} Testing`, network }));
+      const mixed = state.plan.workMode === "mixed";
+      let stations;
+
+      if (benchKey === "testing") {
+        stations = mixed
+          ? ["verizon", "global"].filter(network => batches.some(batch => networkOf(batch) === network)).map(network => NETWORKS[network].station)
+          : ["testing"];
+      } else if (benchKey === "assembly") {
+        stations = ["subAssembly"];
+        if (mixed) {
+          if (batches.some(batch => batch.unitType !== "tap")) stations.push("assemblyGen4");
+          if (batches.some(batch => batch.unitType === "tap")) stations.push("assemblyTap");
+        } else {
+          stations.push("assembly");
+        }
+      } else {
+        stations = [...bench.stations];
       }
-      const network = networkOf(batches[0] || { commsType: "verizon" });
-      return [{ station: "testing", label: "Testing", network }];
+
+      // Keep any job someone is already on, so nobody disappears.
+      state.assignments.forEach(item => {
+        if (isBenchStation(item.station) && !stations.includes(item.station)) stations.push(item.station);
+      });
+
+      const singleNetwork = networkOf(batches[0] || { commsType: "verizon" });
+      return stations.map(station => ({
+        station,
+        label: STATIONS[station]?.label || station,
+        network: STATIONS[station]?.network || (benchKey === "testing" ? singleNetwork : null)
+      }));
     }
 
     function jobLabel(station) {
       if (station === "off") return `Not on ${bench.label}`;
-      return benchJobs().find(job => job.station === station)?.label || station;
+      return STATIONS[station]?.label || station;
     }
 
     function benchPeople(phase, assignments = state.assignments) {
       return assignments.filter(item => item.phase === phase && isBenchStation(item.station));
-    }
-
-    function isRestricted(person) {
-      return String(person?.restrictedBenches || "")
-        .split(/[;,|]/)
-        .map(item => item.trim().toLowerCase())
-        .some(item => bench.restrictedNames.includes(item));
     }
 
     function sentHomeToday() {
@@ -444,13 +576,14 @@
         .map(event => event.staffKey));
     }
 
-    // Eligible people who are in today and not on any job in this phase.
+    // People who are in, free this phase, and can do at least one job here.
     function availablePeople(phase) {
       const busy = new Set(state.assignments.filter(item => item.phase === phase).map(item => item.staffKey));
       const sent = sentHomeToday();
       const entries = state.roster?.entries || null;
+      const jobs = benchJobs();
       return [...state.staff.entries()]
-        .filter(([key, person]) => bench.eligibleTeams.includes(person.team) && !isRestricted(person))
+        .filter(([, person]) => jobs.some(job => canDo(person, job.station)))
         .filter(([key]) => entries?.[key]?.available !== false)   // in unless marked away
         .filter(([key]) => !busy.has(key) && !sent.has(key))
         .map(([key]) => key)
@@ -458,13 +591,26 @@
     }
 
     // ------------------------------------------------------------------
-    // Testing capacity: the same agreed rules as the Management screen.
-    // Single build: 36 a day for Verizon, 30 for Global; a phase counts
-    // (half the daily limit) when it has at least 2 testers.
-    // Mixed day: each network needs its testing time; one tester on a
-    // network for a phase gives one phase of time, up to two phases.
+    // Capacity: the same agreed rules as the Management screen.
+    // Each bench works out its own limit from who is on its jobs now; the
+    // day target is the lowest of the planned target and every bench's limit.
     // ------------------------------------------------------------------
+    const isTap = unitType => unitType === "tap";
     const dailyLimit = comms => (comms === "verizon" ? 36 : 30);
+    const assemblyPerBench = unitType => (isTap(unitType) ? 8 : 6);
+
+    function hardwareCapacity(benches, unitType, commsType) {
+      if (isTap(unitType)) {
+        if (commsType !== "verizon") return benches >= 4 ? 42 : benches === 3 ? 36 : benches === 2 ? 30 : 0;
+        return benches >= 4 ? 50 : benches === 3 ? 42 : benches === 2 ? 36 : 0;
+      }
+      return benches >= 4 ? 36 : benches === 3 ? 30 : benches === 2 ? 24 : 0;
+    }
+
+    function packingCapacity(benches, unitType) {
+      if (isTap(unitType)) return benches >= 2 ? 50 : 0;
+      return benches >= 3 ? 36 : benches === 2 ? 30 : 0;
+    }
 
     function capacityInteger(value) {
       const safe = Math.max(0, Number(value) || 0);
@@ -472,6 +618,10 @@
       return Math.abs(safe - nearest) < 0.02 ? nearest : Math.floor(safe);
     }
 
+    // Single build: 36 a day for Verizon, 30 for Global; a phase counts
+    // (half the daily limit) when it has at least 2 testers.
+    // Mixed day: each network needs its testing time; one tester on a
+    // network for a phase gives one phase of time, up to two phases.
     function testingCapacity(plan, assignments) {
       const batches = activeBatches(plan);
       if (!batches.length) return 0;
@@ -494,6 +644,45 @@
           return demand <= 0 ? 1 : Math.max(0, Math.min(1, Math.min(2, activePhases) / demand));
         });
       return capacityInteger(requested * Math.min(1, ...ratios));
+    }
+
+    const CAPACITY_STATIONS = {
+      assembly: ["assembly", "assemblyGen4", "assemblyTap"],
+      hardware: ["hardware"],
+      packing: ["packing"]
+    };
+
+    // A bench's limit in units, or null when it has no limit of its own.
+    function benchLimit(key, plan, assignments) {
+      if (key === "testing") return testingCapacity(plan, assignments);
+      const stations = CAPACITY_STATIONS[key];
+      if (!stations) return null;
+      const batches = activeBatches(plan);
+      if (!batches.length) return 0;
+      const count = (phase, list) => assignments.filter(item => item.phase === phase && list.includes(item.station)).length;
+
+      if (plan.workMode !== "mixed") {
+        const { unitType, commsType } = batches[0];
+        return PHASE_KEYS.reduce((sum, phase) => {
+          const benches = count(phase, stations);
+          if (key === "assembly") return sum + (count(phase, ["subAssembly"]) > 0 ? benches * assemblyPerBench(unitType) : 0);
+          if (key === "hardware") return sum + hardwareCapacity(benches, unitType, commsType);
+          return sum + packingCapacity(benches, unitType);
+        }, 0);
+      }
+
+      // Mixed day: scale what this stage could do at release by how many
+      // people are on its jobs now compared with then.
+      const planned = Number(plan.snapshot?.capacity?.stages?.[key]);
+      if (!Number.isFinite(planned)) return null;
+      const releasedOn = list => PHASE_KEYS.reduce((sum, phase) => sum + (plan.snapshot?.phases?.[phase] || [])
+        .filter(task => list.includes(task.station))
+        .reduce((inner, task) => inner + (task.workers?.length || 0), 0), 0);
+      const nowOn = list => PHASE_KEYS.reduce((sum, phase) => sum + count(phase, list), 0);
+      if (key === "assembly" && releasedOn(["subAssembly"]) > 0 && nowOn(["subAssembly"]) === 0) return 0;
+      const before = releasedOn(stations);
+      if (!before) return planned;
+      return Math.floor(planned * Math.min(1, nowOn(stations) / before));
     }
 
     // ------------------------------------------------------------------
@@ -522,7 +711,8 @@
 
     function openDate(date) {
       stopAll();
-      Object.assign(state, { date, plan: null, planReadable: true, assignments: [], events: [], roster: null, selected: null });
+      board?.clearSelection();
+      Object.assign(state, { date, plan: null, reachable: true, assignments: [], events: [], roster: null, nextPlan: null });
       $("dateInput").value = date;
       render();
 
@@ -539,26 +729,51 @@
         const plan = snapshot.exists() ? snapshot.data() : null;
         const released = plan?.status === "released";
         state.plan = released ? plan : null;
-        state.planReadable = true;
+        state.reachable = true;
         state.live = !snapshot.metadata.fromCache;
         if (released && detailStops.length === 0) watchDetails(date);
         if (!released) {
           stopDetails();
           state.assignments = [];
           state.events = [];
+          lookForNextPlan(date);
         }
         render();
       }, error => {
         if (state.date !== date) return;
-        // Bench screens can't read a plan until it's released: check again shortly.
+        // Bench screens can't read a plan until it's released ("permission
+        // denied" just means not released yet): check again shortly.
         state.plan = null;
-        state.planReadable = error?.code !== "permission-denied";
-        state.live = error?.code === "permission-denied";
+        state.reachable = error?.code === "permission-denied";
+        state.live = state.reachable;
         render();
+        if (state.reachable) lookForNextPlan(date);
         retryTimer = setTimeout(() => {
           if (state.date === date) openDate(date);
         }, 60000);
       }));
+    }
+
+    // When a day has no plan, find the next released one (up to two weeks on).
+    async function lookForNextPlan(fromDate) {
+      if (state.nextPlan?.from === fromDate) return;
+      state.nextPlan = { from: fromDate, date: null, searching: true };
+      const start = fromInputDate(fromDate);
+      let found = null;
+      for (let day = 1; day <= 14 && !found; day++) {
+        const next = new Date(start);
+        next.setDate(start.getDate() + day);
+        const key = toInputDate(next);
+        try {
+          const snapshot = await getDoc(doc(db, "plans", key));
+          if (snapshot.exists() && snapshot.data().status === "released") found = key;
+        } catch {
+          // Not released yet (benches can't see drafts): keep looking.
+        }
+        if (state.date !== fromDate) return;
+      }
+      state.nextPlan = { from: fromDate, date: found, searching: false };
+      render();
     }
 
     function watchDetails(date) {
@@ -582,13 +797,13 @@
     // Rendering
     // ------------------------------------------------------------------
     function render() {
-      if (drag?.ghost) {
+      if (board?.isDragging()) {
         renderPending = true;
         return;
       }
       renderPending = false;
 
-      $("benchTitle").textContent = `${bench.label} bench`;
+      $("benchTitle").textContent = bench.label;
       $("dateLabel").textContent = state.date ? longDate(state.date) : "";
       const badge = $("liveBadge");
       badge.textContent = state.live ? "Live" : "Offline";
@@ -598,16 +813,34 @@
       $("emptyState").classList.toggle("hidden", hasPlan);
       $("planArea").classList.toggle("hidden", !hasPlan);
       if (!hasPlan) {
-        $("emptyMessage").textContent = state.planReadable
-          ? "Plans appear here as soon as management releases them."
-          : "The database can't be reached. Check the internet connection.";
+        renderEmpty();
         return;
       }
 
       renderSummary();
-      renderSetups();
+      renderNotes();
+      renderInfo();
       renderBoard();
       renderEvents();
+    }
+
+    function renderEmpty() {
+      $("emptyMessage").textContent = state.reachable
+        ? "Plans appear here as soon as management releases them."
+        : "The database can't be reached. Check the internet connection.";
+      const next = state.nextPlan;
+      const holder = $("nextPlan");
+      const show = Boolean(next && next.from === state.date && state.reachable);
+      holder.classList.toggle("hidden", !show);
+      if (!show) return;
+      if (next.searching) {
+        holder.innerHTML = `<span class="hint">Looking for the next released plan…</span>`;
+      } else if (next.date) {
+        holder.innerHTML = `<span>Next released plan: <strong>${escapeHtml(longDate(next.date))}</strong></span>
+          <button type="button" data-open-date="${escapeHtml(next.date)}">Open it</button>`;
+      } else {
+        holder.innerHTML = `<span class="hint">No released plans in the next two weeks.</span>`;
+      }
     }
 
     function renderSummary() {
@@ -615,36 +848,109 @@
       const planned = plan.plannedTarget ?? 0;
       const current = plan.currentTarget ?? planned;
       const batches = activeBatches();
-      const byNetwork = ["verizon", "global"]
-        .map(network => [network, batches.filter(batch => networkOf(batch) === network).reduce((sum, batch) => sum + plannedUnits(batch), 0)])
-        .filter(([, units]) => units > 0)
-        .map(([network, units]) => `${NETWORKS[network].label} ${units}`);
       const people = [...new Set(state.assignments.filter(item => isBenchStation(item.station)).map(item => item.staffKey))];
+      const totalUnits = batches.reduce((sum, batch) => sum + plannedUnits(batch), 0);
+      const byUnit = ["gen4", "tap"]
+        .map(unit => [unit, batches.filter(batch => (batch.unitType === "tap" ? "tap" : "gen4") === unit).reduce((sum, batch) => sum + plannedUnits(batch), 0)])
+        .filter(([, units]) => units > 0)
+        .map(([unit, units]) => `${UNIT_LABELS[unit]} ${units}`);
 
-      $("summary").innerHTML = `
+      const target = `
         <div class="stat">
           <div class="label">Day target</div>
           <div class="value ${current < planned ? "down" : ""}">${current}</div>
           <div class="note">${current < planned ? `Down from ${planned} after bench changes` : "As planned"}</div>
-        </div>
-        <div class="stat">
-          <div class="label">Units to test</div>
-          <div class="value small-value">${escapeHtml(byNetwork.join(" · ") || "None")}</div>
-          <div class="note">Planned units by network</div>
-        </div>
-        <div class="stat">
-          <div class="label">On Testing today</div>
-          <div class="value">${people.length}</div>
-          <div class="note">${escapeHtml(people.map(staffName).join(", ") || "Nobody assigned")}</div>
+        </div>`;
+
+      let middle;
+      if (benchKey === "testing") {
+        const byNetwork = ["verizon", "global"]
+          .map(network => [network, batches.filter(batch => networkOf(batch) === network).reduce((sum, batch) => sum + plannedUnits(batch), 0)])
+          .filter(([, units]) => units > 0)
+          .map(([network, units]) => `${NETWORKS[network].label} ${units}`);
+        middle = `
+          <div class="stat">
+            <div class="label">Units to test</div>
+            <div class="value small-value">${escapeHtml(byNetwork.join(" · ") || "None")}</div>
+            <div class="note">Planned units by network</div>
+          </div>`;
+      } else {
+        middle = `
+          <div class="stat">
+            <div class="label">${benchKey === "cage" ? "Units to release parts for" : "Units today"}</div>
+            <div class="value">${totalUnits}</div>
+            <div class="note">${escapeHtml(byUnit.join(" · ") || "None")} · ${batches.length} batch${batches.length === 1 ? "" : "es"}</div>
+          </div>`;
+      }
+
+      const last = hasBoard
+        ? `
+          <div class="stat">
+            <div class="label">On ${escapeHtml(bench.label)} today</div>
+            <div class="value">${people.length}</div>
+            <div class="note">${escapeHtml(people.map(staffName).join(", ") || "Nobody assigned")}</div>
+          </div>`
+        : "";
+
+      $("summary").innerHTML = target + middle + last;
+    }
+
+    function renderNotes() {
+      const notes = String(state.plan.notes || "").trim();
+      $("notesCard").classList.toggle("hidden", !notes);
+      $("notesText").textContent = notes;
+    }
+
+    function renderInfo() {
+      if (benchKey === "testing") {
+        $("infoTitle").textContent = "Network setups";
+        $("info").innerHTML = `<div class="setup-grid">${testingSetupsHtml()}</div>`;
+        return;
+      }
+      $("infoTitle").textContent = benchKey === "cage" ? "Release for today's builds" : "What we're building";
+      $("info").innerHTML = batchTableHtml(bench.columns);
+    }
+
+    function presetFor(batch) {
+      return state.presets[batch.configKey] || null;
+    }
+
+    function batchTableHtml(columns) {
+      const batches = activeBatches();
+      if (!batches.length) return '<p class="empty">No batches in this plan.</p>';
+      const headings = {
+        customer: "Customer", unit: "Unit", network: "Network · SIM",
+        config: "Configuration", setup: "Component setup", units: "Units"
+      };
+      const cell = (column, batch) => {
+        if (column === "customer") return `<td>${escapeHtml(batch.customer)}</td>`;
+        if (column === "unit") return `<td><strong>${escapeHtml(UNIT_LABELS[batch.unitType] || batch.unitType)}</strong></td>`;
+        if (column === "network") return `<td>${escapeHtml(NETWORKS[networkOf(batch)].label)} · ${escapeHtml(SIM_LABELS[batch.simType] || batch.simType || "")}</td>`;
+        if (column === "config") {
+          const preset = presetFor(batch);
+          const swatch = preset?.colourHex ? `<span class="swatch" style="background:${escapeHtml(preset.colourHex)}"></span>` : "";
+          return `<td>${swatch}${escapeHtml(preset?.label || batch.configKey || "")}</td>`;
+        }
+        if (column === "setup") return `<td class="setup-text">${escapeHtml(batch.configText || "")}</td>`;
+        const units = plannedUnits(batch);
+        const requested = Number(batch.quantity) || 0;
+        return `<td class="units">${units}${units < requested ? ` <small>of ${requested}</small>` : ""}</td>`;
+      };
+      return `
+        <div class="table-scroll">
+          <table class="batch-table">
+            <thead><tr>${columns.map(column => `<th>${headings[column]}</th>`).join("")}</tr></thead>
+            <tbody>${batches.map(batch => `<tr>${columns.map(column => cell(column, batch)).join("")}</tr>`).join("")}</tbody>
+          </table>
         </div>`;
     }
 
-    function renderSetups() {
+    function testingSetupsHtml() {
       const batches = activeBatches();
       const networks = ["verizon", "global"].filter(network => batches.some(batch => networkOf(batch) === network));
       const tasks = state.plan.snapshot?.phases || {};
 
-      $("setups").innerHTML = networks.map(network => {
+      return networks.map(network => {
         const rows = batches.filter(batch => networkOf(batch) === network);
         const sims = [...new Set(rows.map(batch => SIM_LABELS[batch.simType] || batch.simType))];
         const job = benchJobs().find(item => item.network === network) || { station: NETWORKS[network].station };
@@ -666,7 +972,7 @@
                   <tr>
                     <td>${escapeHtml(batch.customer)}</td>
                     <td>${escapeHtml(UNIT_LABELS[batch.unitType] || batch.unitType)}</td>
-                    <td>${escapeHtml(state.presets[batch.configKey]?.label || batch.configKey || "")}</td>
+                    <td>${escapeHtml(presetFor(batch)?.label || batch.configKey || "")}</td>
                     <td>${escapeHtml(SIM_LABELS[batch.simType] || batch.simType)}</td>
                     <td><strong>${plannedUnits(batch)}</strong>${plannedUnits(batch) < Number(batch.quantity) ? ` of ${Number(batch.quantity)}` : ""}</td>
                   </tr>`).join("")}
@@ -678,6 +984,11 @@
     }
 
     function renderBoard() {
+      $("boardCard").classList.toggle("hidden", !hasBoard);
+      if (!hasBoard) return;
+
+      $("boardTitle").textContent = `Who's on ${bench.label}`;
+      $("boardHint").innerHTML = `Drag a name to move someone, or tap a name and then tap where they should go. Moving someone to <strong>Not on ${escapeHtml(bench.label)}</strong> asks for the reason, and management sees every change straight away.`;
       $("phaseTabs").innerHTML = PHASES.map(([phase, label]) => {
         const count = benchPeople(phase).length;
         return `<button type="button" role="tab" data-phase="${phase}" class="${phase === state.phase ? "active" : ""}" aria-selected="${phase === state.phase}">${label} (${count})</button>`;
@@ -685,17 +996,17 @@
 
       const phase = state.phase;
       const tasks = state.plan.snapshot?.phases?.[phase] || [];
-      const selectedKey = state.selected?.staffKey;
-      const tapReady = state.selected ? "tap-ready" : "";
+      const selected = board?.selected;
+      const tapReady = selected ? "tap-ready" : "";
 
       const chip = (key, zone) =>
-        `<span class="chip ${selectedKey === key && state.selected.from === zone ? "selected" : ""}" data-staff="${escapeHtml(key)}" data-zone="${escapeHtml(zone)}">${escapeHtml(staffName(key))}</span>`;
+        `<span class="chip ${selected?.staffKey === key && selected?.from === zone ? "selected" : ""}" data-staff="${escapeHtml(key)}" data-zone="${escapeHtml(zone)}">${escapeHtml(staffName(key))}</span>`;
 
       const jobZones = benchJobs().map(job => {
         const people = benchPeople(phase).filter(item => item.station === job.station).map(item => item.staffKey);
         const detail = tasks.find(task => task.station === job.station)?.detail || "";
         return `
-          <div class="zone job ${NETWORKS[job.network]?.cls || ""} ${tapReady}" data-zone="${job.station}">
+          <div class="zone job bench-${benchKey} ${NETWORKS[job.network]?.cls || ""} ${tapReady}" data-zone="${escapeHtml(job.station)}">
             <h3>${escapeHtml(job.label)}</h3>
             <div class="zone-detail">${escapeHtml(detail || (people.length ? "" : "No one on this job"))}</div>
             <div class="chips">${people.map(key => chip(key, job.station)).join("") || '<span class="empty">Drop a name here</span>'}</div>
@@ -706,8 +1017,8 @@
       const offZone = `
         <div class="zone off ${tapReady}" data-zone="off">
           <h3>Not on ${escapeHtml(bench.label)}</h3>
-          <div class="zone-detail">Testers who are in and free this phase</div>
-          <div class="chips">${available.map(key => chip(key, "off")).join("") || '<span class="empty">No free testers</span>'}</div>
+          <div class="zone-detail">People who are in, free this phase and can do these jobs</div>
+          <div class="chips">${available.map(key => chip(key, "off")).join("") || '<span class="empty">Nobody free</span>'}</div>
         </div>`;
 
       $("board").innerHTML = jobZones + offZone;
@@ -787,8 +1098,14 @@
       const phase = state.phase;
       const name = staffName(staffKey);
       const phaseName = phaseLabel(phase).toLowerCase();
-      let next = state.assignments.filter(item => !(item.phase === phase && item.staffKey === staffKey));
 
+      if (to !== "off" && !canDo(state.staff.get(staffKey), to)) {
+        toast(`${name} can't do ${jobLabel(to)} (Worker Admin teams and restrictions).`, true);
+        render();
+        return;
+      }
+
+      let next = state.assignments.filter(item => !(item.phase === phase && item.staffKey === staffKey));
       let reason = null;
       let laterPhases = [];
       if (to === "off") {
@@ -805,7 +1122,6 @@
       }
 
       state.busy = true;
-      state.selected = null;
       render();
       try {
         if (to === "off") {
@@ -836,23 +1152,32 @@
       }
     }
 
-    // Recalculate this bench's limit; the day target is the lowest of the
-    // planned target and every bench's limit.
+    // Recalculate the bench limits; the day target is the lowest of the
+    // planned target and every bench's limit. All benches are checked, because
+    // sending someone home also takes them off later jobs on other benches.
+    const LIMIT_BENCHES = ["assembly", "testing", "hardware", "packing"];
+
     async function updateTarget(nextAssignments) {
       const plan = state.plan;
       const planned = plan.plannedTarget ?? 0;
       const before = plan.currentTarget ?? planned;
-      const limitNow = testingCapacity(plan, nextAssignments);
-      const limits = { ...(plan.benchLimits || {}), [benchKey]: limitNow };
+      const limits = { ...(plan.benchLimits || {}) };
+      const changes = {};
+      LIMIT_BENCHES.forEach(key => {
+        const now = benchLimit(key, plan, nextAssignments);
+        if (now === null) return;
+        const stored = plan.benchLimits?.[key];
+        if (stored === undefined && now >= planned) return;   // not limiting the day
+        limits[key] = now;
+        if (stored !== now) changes[`benchLimits.${key}`] = now;
+      });
       const after = Math.max(0, Math.min(planned, ...Object.values(limits).map(Number)));
-      const stored = plan.benchLimits?.[benchKey];
-      const limitChanged = stored === undefined ? limitNow < planned : stored !== limitNow;
 
-      if (after === before && !limitChanged) return;
+      if (after === before && !Object.keys(changes).length) return;
 
       await updateDoc(doc(db, "plans", state.date), {
         currentTarget: after,
-        [`benchLimits.${benchKey}`]: limitNow,
+        ...changes,
         updatedAt: serverTimestamp(),
         updatedBy: ACTOR
       });
@@ -868,85 +1193,21 @@
       }
     }
 
-    // Drag with mouse or finger; a short tap selects instead.
-    function zoneAt(x, y) {
-      return document.elementFromPoint(x, y)?.closest(".zone[data-zone]") || null;
-    }
-
-    function clearDropTargets() {
-      document.querySelectorAll(".zone.drop-target").forEach(zone => zone.classList.remove("drop-target"));
-    }
-
     function wireBoard() {
-      const board = $("board");
-
-      board.addEventListener("pointerdown", event => {
-        const chip = event.target.closest(".chip[data-staff]");
-        if (!chip || state.busy) return;
-        drag = {
-          chip,
-          staffKey: chip.dataset.staff,
-          from: chip.dataset.zone,
-          startX: event.clientX,
-          startY: event.clientY,
-          pointerId: event.pointerId,
-          ghost: null
-        };
-        chip.setPointerCapture(event.pointerId);
-      });
-
-      board.addEventListener("pointermove", event => {
-        if (!drag || event.pointerId !== drag.pointerId) return;
-        if (!drag.ghost && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 8) {
-          drag.ghost = drag.chip.cloneNode(true);
-          drag.ghost.classList.add("ghost");
-          document.body.appendChild(drag.ghost);
-        }
-        if (!drag.ghost) return;
-        drag.ghost.style.left = `${event.clientX - drag.ghost.offsetWidth / 2}px`;
-        drag.ghost.style.top = `${event.clientY - drag.ghost.offsetHeight / 2}px`;
-        clearDropTargets();
-        zoneAt(event.clientX, event.clientY)?.classList.add("drop-target");
-      });
-
-      const finish = (event, cancelled) => {
-        if (!drag || event.pointerId !== drag.pointerId) return;
-        const current = drag;
-        drag = null;
-        if (current.ghost) {
-          current.ghost.remove();
-          const zone = cancelled ? null : zoneAt(event.clientX, event.clientY);
-          clearDropTargets();
+      board = window.attachDragBoard($("board"), {
+        onMove: applyMove,
+        onSelect: () => render(),
+        onDragEnd: () => {
           if (renderPending) render();
-          if (zone) applyMove(current.staffKey, current.from, zone.dataset.zone);
-          return;
-        }
-        if (cancelled) return;
-        // A tap: select or unselect this person.
-        const same = state.selected?.staffKey === current.staffKey && state.selected?.from === current.from;
-        state.selected = same ? null : { staffKey: current.staffKey, from: current.from };
-        current.chip.dataset.justTapped = "yes";
-        render();
-      };
-
-      board.addEventListener("pointerup", event => finish(event, false));
-      board.addEventListener("pointercancel", event => finish(event, true));
-
-      // With someone selected, tapping a job (not a name) moves them there.
-      board.addEventListener("click", event => {
-        if (event.target.closest(".chip")) return;
-        const zone = event.target.closest(".zone[data-zone]");
-        if (!zone || !state.selected) return;
-        const { staffKey, from } = state.selected;
-        applyMove(staffKey, from, zone.dataset.zone);
+        },
+        isBusy: () => state.busy || !state.plan
       });
 
       $("phaseTabs").addEventListener("click", event => {
         const button = event.target.closest("button[data-phase]");
         if (!button) return;
         state.phase = button.dataset.phase;
-        state.selected = null;
-        render();
+        board.clearSelection();
       });
     }
 
@@ -959,10 +1220,33 @@
       openDate(toInputDate(date));
     }
 
+    // iPad home-screen icon and name for this bench.
+    function setHomeScreenDetails() {
+      const name = bench ? bench.label : "Bench screens";
+      document.title = bench ? `${bench.label} · Production Planner` : "Bench screens · Production Planner";
+      document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", name);
+      document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute("href", `icons/${benchKey || "bench"}.png`);
+    }
+
+    function showChooser() {
+      $("topActions").classList.add("hidden");
+      $("benchTitle").textContent = "Bench screens";
+      $("dateLabel").textContent = "Production Planner";
+      $("chooserLinks").innerHTML = Object.entries(BENCHES)
+        .map(([key, item]) => `<a href="bench.html?bench=${key}">${escapeHtml(item.label)}<span>${escapeHtml(item.blurb)}</span></a>`)
+        .join("");
+      $("chooser").classList.remove("hidden");
+    }
+
     async function start() {
-      document.title = `${bench.label} Bench`;
+      setHomeScreenDetails();
+      if (!bench) {
+        showChooser();
+        return;
+      }
+
       await ensureAccess({
-        title: `${bench.label} bench`,
+        title: bench.label,
         intro: "Enter the bench PIN to open this screen.",
         pinLabel: "Bench PIN",
         allowed: ["bench", "management"],
@@ -978,8 +1262,13 @@
       wireBoard();
       $("prevDay").addEventListener("click", () => shiftDate(-1));
       $("nextDay").addEventListener("click", () => shiftDate(1));
+      $("todayButton").addEventListener("click", () => openDate(toInputDate(new Date())));
       $("dateInput").addEventListener("change", event => {
         if (event.target.value) openDate(event.target.value);
+      });
+      $("nextPlan").addEventListener("click", event => {
+        const button = event.target.closest("button[data-open-date]");
+        if (button) openDate(button.dataset.openDate);
       });
       $("lockButton").addEventListener("click", async () => {
         await lockScreen();

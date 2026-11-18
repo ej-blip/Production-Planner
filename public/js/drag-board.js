@@ -83,7 +83,7 @@
       const same = selected?.staffKey === current.staffKey && selected?.from === current.from;
       // The click that follows this tap can land on the zone once the board
       // redraws; ignore it so the tap doesn't count as "move here".
-      ignoreClickUntil = performance.now() + 350;
+      ignoreClickUntil = performance.now() + 250;
       select(same ? null : { staffKey: current.staffKey, from: current.from });
     };
 

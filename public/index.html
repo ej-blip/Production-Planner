@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Production Planner</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Planner" />
+  <meta name="theme-color" content="#020617" />
+  <link rel="apple-touch-icon" href="icons/planner.png" />
+  <link rel="icon" type="image/png" href="icons/planner.png" />
   <!-- Phase 4: flexible three-phase workflow planner linked to capacity -->
 
   <style>
@@ -907,6 +913,9 @@
       .flow-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
+    .bench-links { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-right: 8px; }
+    .bench-links .work-mode-label { margin-right: 2px; }
+
     .bench-card { border-color: #38bdf8; }
     .bench-phase-tabs { margin: 6px 0 12px; }
     .bench-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
@@ -1361,7 +1370,14 @@
          ========================================================== -->
     <div class="tabs">
       <button class="tab-button" onclick="openWorkerAdmin()">Worker Admin</button>
-      <a id="testingScreenLink" class="tab-button tab-link" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing screen ↗</a>
+      <span class="bench-links" aria-label="Bench screens">
+        <span class="work-mode-label">Bench screens</span>
+        <a class="tab-button tab-link" data-bench="assembly" href="bench.html?bench=assembly" target="_blank" rel="noopener">Assembly ↗</a>
+        <a class="tab-button tab-link" data-bench="testing" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing ↗</a>
+        <a class="tab-button tab-link" data-bench="hardware" href="bench.html?bench=hardware" target="_blank" rel="noopener">Hardware ↗</a>
+        <a class="tab-button tab-link" data-bench="packing" href="bench.html?bench=packing" target="_blank" rel="noopener">Packing ↗</a>
+        <a class="tab-button tab-link" data-bench="cage" href="bench.html?bench=cage" target="_blank" rel="noopener">Cage ↗</a>
+      </span>
       <a class="tab-button tab-link" href="setup.html" target="_blank" rel="noopener">Setup ↗</a>
       <button class="tab-button" onclick="lockPlannerScreen()">Lock screen</button>
       <div id="activeUnitBadge" class="active-unit-badge">Active Unit: Gen4</div>
@@ -3020,8 +3036,9 @@
 
       const date = planDateValue();
       document.getElementById("dayBarLabel").textContent = date ? longDayLabel(date) : "";
-      const testingLink = document.getElementById("testingScreenLink");
-      if (testingLink) testingLink.href = `bench.html?bench=testing${date ? `&date=${date}` : ""}`;
+      document.querySelectorAll("a[data-bench]").forEach(link => {
+        link.href = `bench.html?bench=${link.dataset.bench}${date ? `&date=${date}` : ""}`;
+      });
 
       renderReleaseSummary(statuses);
     }

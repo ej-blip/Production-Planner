@@ -136,3 +136,14 @@ and open `http://localhost:8765/?practice=1`. A yellow **PRACTICE DATABASE** bar
 shows while it's on; `?practice=0` switches back. Practice mode only works on
 `localhost`, never on the live website. The practice data is wiped when
 `npm run practice` stops.
+
+## Setting up a bench iPad
+
+1. On the iPad, open **https://production-planner-be3e6.web.app/bench.html** in Safari.
+2. Tap the bench this iPad is for (Assembly, Testing, Hardware Check, Packing or Production Cage).
+3. Tap **Share** → **Add to Home Screen** → **Add**. The icon (a coloured letter) opens straight
+   to that bench, full screen.
+4. Open it from the home screen and enter the **bench PIN** once.
+
+Each bench screen opens on today's plan. If today's plan isn't released yet, it offers
+the next released plan.
