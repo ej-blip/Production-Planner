@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daily Capacity Calculator</title>
+  <title>Production Planner</title>
   <!-- Phase 4: flexible three-phase workflow planner linked to capacity -->
 
   <style>
@@ -842,6 +842,71 @@
     .empty { color: #94a3b8; font-size: 14px; }
     .save-state.error { color: var(--bad); font-weight: 800; }
 
+    /* ============================================================
+       DAILY FLOW (ADMIN HOME): day bar, step bar, one step at a time
+       ============================================================ */
+    .day-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; }
+    .day-bar label { margin: 0; }
+    .day-bar input { width: auto; padding: 8px 10px; }
+    .day-bar-label { font-weight: 800; font-size: 17px; }
+    .flow-steps {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      padding: 8px 0;
+      margin-bottom: 10px;
+      background: var(--page);
+    }
+    .flow-step {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      padding: 10px 12px;
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid var(--border);
+      min-width: 0;
+    }
+    .flow-step.active { background: #0c4a6e; border-color: var(--accent); }
+    .flow-num {
+      flex: none;
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #334155;
+      font-weight: 900;
+    }
+    .flow-step.active .flow-num { background: var(--accent); color: #00111f; }
+    .flow-text { display: flex; flex-direction: column; min-width: 0; }
+    .flow-name { font-weight: 800; }
+    .flow-status { font-size: 12px; font-weight: 600; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .flow-step.warn .flow-status { color: #fca5a5; }
+    .flow-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; }
+    .flow-nav button { margin: 0; }
+    .release-card { border-color: #22c55e; }
+    .release-card .summary-grid { margin-bottom: 10px; }
+    .release-card .mini strong { font-size: 19px; }
+    .release-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
+    .release-actions button { margin: 0; }
+
+    body[data-step="who"] [data-step]:not([data-step~="who"]),
+    body[data-step="mix"] [data-step]:not([data-step~="mix"]),
+    body[data-step="benches"] [data-step]:not([data-step~="benches"]),
+    body[data-step="release"] [data-step]:not([data-step~="release"]) {
+      display: none !important;
+    }
+
+    @media (max-width: 700px) {
+      .flow-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
     .bench-card { border-color: #38bdf8; }
     .bench-phase-tabs { margin: 6px 0 12px; }
     .bench-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
@@ -1286,9 +1351,9 @@
 
 <body>
   <div class="container">
-    <h1>Daily Capacity Calculator</h1>
+    <h1>Production Planner</h1>
     <div class="subtitle">
-      Set who's in, enter the work mix, check the best station allocation, then release the plan to the benches.
+      Management · plan the day in four steps, then release it to the bench screens.
     </div>
 
     <!-- ==========================================================
@@ -1296,20 +1361,34 @@
          ========================================================== -->
     <div class="tabs">
       <button class="tab-button" onclick="openWorkerAdmin()">Worker Admin</button>
-      <a class="tab-button tab-link" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing screen ↗</a>
+      <a id="testingScreenLink" class="tab-button tab-link" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing screen ↗</a>
+      <a class="tab-button tab-link" href="setup.html" target="_blank" rel="noopener">Setup ↗</a>
       <button class="tab-button" onclick="lockPlannerScreen()">Lock screen</button>
       <div id="activeUnitBadge" class="active-unit-badge">Active Unit: Gen4</div>
     </div>
 
     <!-- ==========================================================
-         PHASE 1A: SINGLE BUILD / MIXED WORK DAY
+         DAY + DAILY FLOW: pick the day, then work through the steps
          ========================================================== -->
-    <div class="work-mode-bar" aria-label="Work day setup">
-      <span class="work-mode-label">Work Day Setup</span>
-      <button id="singleWorkModeButton" type="button" class="work-mode-button active" onclick="setWorkDayMode('single')">Single Build</button>
-      <button id="mixedWorkModeButton" type="button" class="work-mode-button" onclick="setWorkDayMode('mixed')">Mixed Work Day</button>
-      <span id="workModeSummary" class="work-mode-summary">One product / network setup</span>
+    <div class="day-bar">
+      <label for="planDate" class="work-mode-label">Day</label>
+      <input id="planDate" type="date" />
+      <span id="dayBarLabel" class="day-bar-label"></span>
+      <select id="daySelect" class="hidden" aria-hidden="true" tabindex="-1">
+            <option value="monday">Monday</option>
+            <option value="tuesday">Tuesday</option>
+            <option value="wednesday">Wednesday</option>
+            <option value="thursday">Thursday</option>
+            <option value="friday">Friday</option>
+      </select>
     </div>
+
+    <nav id="flowSteps" class="flow-steps" aria-label="Daily plan steps">
+      <button type="button" class="flow-step" data-go="who"><span class="flow-num">1</span><span class="flow-text"><span class="flow-name">Who's in</span><span class="flow-status" id="flowStatus-who"></span></span></button>
+      <button type="button" class="flow-step" data-go="mix"><span class="flow-num">2</span><span class="flow-text"><span class="flow-name">Work mix</span><span class="flow-status" id="flowStatus-mix"></span></span></button>
+      <button type="button" class="flow-step" data-go="benches"><span class="flow-num">3</span><span class="flow-text"><span class="flow-name">Benches</span><span class="flow-status" id="flowStatus-benches"></span></span></button>
+      <button type="button" class="flow-step" data-go="release"><span class="flow-num">4</span><span class="flow-text"><span class="flow-name">Review &amp; release</span><span class="flow-status" id="flowStatus-release"></span></span></button>
+    </nav>
 
     <!-- ==========================================================
          DAILY PLAN STATUS: SAVE DRAFT / RELEASE TO THE BENCHES
@@ -1319,33 +1398,27 @@
       <span id="planStatusPill" class="plan-status-pill">Loading…</span>
       <span id="planStatusText" class="plan-status-text"></span>
       <span class="plan-status-actions">
-        <button type="button" id="saveDraftButton" class="secondary" onclick="savePlanDraft()">Save draft</button>
-        <button type="button" id="releasePlanButton" onclick="releaseCurrentPlan()">Release plan</button>
+        <button type="button" id="saveDraftButton" class="secondary" data-plan-action="draft" onclick="savePlanDraft()">Save draft</button>
+        <button type="button" id="releasePlanButton" data-plan-action="release" onclick="releaseCurrentPlan()">Release plan</button>
       </span>
+    </div>
+
+    <!-- ==========================================================
+         PHASE 1A: SINGLE BUILD / MIXED WORK DAY
+         ========================================================== -->
+    <div class="work-mode-bar" data-step="mix" aria-label="Work day setup">
+      <span class="work-mode-label">Work Day Setup</span>
+      <button id="singleWorkModeButton" type="button" class="work-mode-button active" onclick="setWorkDayMode('single')">Single Build</button>
+      <button id="mixedWorkModeButton" type="button" class="work-mode-button" onclick="setWorkDayMode('mixed')">Mixed Work Day</button>
+      <span id="workModeSummary" class="work-mode-summary">One product / network setup</span>
     </div>
 
     <!-- ==========================================================
          PRODUCT / PLAN HEADER
          ========================================================== -->
-    <div class="card header-card">
-      <h2 class="section-title">Production Plan Header</h2>
+    <div class="card header-card" data-step="mix">
+      <h2 class="section-title">Build Setup</h2>
       <div class="grid">
-        <div>
-          <label for="daySelect">Select Day</label>
-          <select id="daySelect">
-            <option value="monday">Monday</option>
-            <option value="tuesday">Tuesday</option>
-            <option value="wednesday">Wednesday</option>
-            <option value="thursday">Thursday</option>
-            <option value="friday">Friday</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="planDate">Selected Day Date</label>
-          <input id="planDate" type="date" />
-        </div>
-
         <div class="single-work-only">
           <label for="customer">Customer</label>
           <input id="customer" type="text" value="Portland" />
@@ -1400,7 +1473,7 @@
     <!-- ==========================================================
          PHASE 1A + PHASE 4: WORK MIX DATA ENTRY / CAPACITY INPUT
          ========================================================== -->
-    <div id="mixedWorkCard" class="card work-mix-card hidden">
+    <div id="mixedWorkCard" class="card work-mix-card hidden" data-step="mix">
       <h2 class="section-title">Work Mix</h2>
       <p class="small">Add each planned batch. Configuration Colour fills the standard component setup; edit the setup text whenever a Tap or Gen4 build needs a variation.</p>
 
@@ -1433,7 +1506,7 @@
     <!-- ==========================================================
          WHO'S IN: everyone is in unless dragged to Away for that day
          ========================================================== -->
-    <div class="card roster-card">
+    <div class="card roster-card" data-step="who">
       <h2 class="section-title">Who's In</h2>
       <div class="week-strip">
         <button type="button" class="secondary week-nav" onclick="shiftAttendanceWeek(-1)" aria-label="Previous week">◀</button>
@@ -1454,7 +1527,7 @@
     <!-- ==========================================================
          BENCH ASSIGNMENTS: drag people onto jobs for each phase
          ========================================================== -->
-    <div class="card bench-card">
+    <div class="card bench-card" data-step="benches">
       <h2 class="section-title">Bench Assignments</h2>
       <div id="benchPhaseTabs" class="phase-toggle-group bench-phase-tabs"></div>
       <div class="attendance-head">
@@ -1467,24 +1540,17 @@
     </div>
 
     <!-- Capacity summary and bench allocation render here. -->
-    <div id="output"></div>
+    <div id="output" data-step="benches"></div>
 
     <!-- ==========================================================
          PLANNING TOOLS BELOW ALLOCATION
          (Roster corrections are intentionally NOT duplicated here.)
          ========================================================== -->
-    <div id="plannerToolsCard" class="card tools-card hidden">
-      <h2 class="section-title">Planning Tools</h2>
-      <p class="small">Use these tools after reviewing the recommended bench allocation and roster verification above.</p>
+    <div id="plannerToolsCard" class="card tools-card hidden" data-step="benches">
+      <h2 class="section-title">Custom Jobs</h2>
+      <p class="small">For a job that isn't on the board (e.g. strapping and wrapping), or to assign by form instead of dragging.</p>
 
-      <button class="secondary" onclick="toggleToolPanel('notesPanel')">Open Notes & Instructions</button>
       <button class="secondary" onclick="toggleToolPanel('stationAdjustmentPanel')">Open Station Adjustments</button>
-
-      <div id="notesPanel" class="tool-panel">
-        <h3 class="section-title">Notes & Instructions</h3>
-        <label for="notesInstructions">Notes & Instructions</label>
-        <textarea id="notesInstructions" placeholder="Add workflow notes, instructions for unassigned workers, stock notes, audit prep, training, handover details, etc."></textarea>
-      </div>
 
       <!-- ========================================================
            FEATURE 6: STATION ADJUSTMENTS + CUSTOM JOB NAME
@@ -1541,7 +1607,27 @@
     <!-- ==========================================================
          FEATURE 5 / 6: DYNAMIC WORKFLOW + SVG WORKER ARROWS
          ========================================================== -->
-    <div id="workflowSection"></div>
+    <!-- ==========================================================
+         REVIEW & RELEASE
+         ========================================================== -->
+    <div class="card release-card" data-step="release">
+      <h2 class="section-title">Review &amp; Release</h2>
+      <div id="releaseSummary" class="summary-grid"></div>
+      <p id="releaseWarnings" class="small save-state error"></p>
+      <label for="notesInstructions">Notes &amp; Instructions for the benches</label>
+      <textarea id="notesInstructions" placeholder="Workflow notes, instructions for unassigned workers, stock notes, audit prep, training, handover details, etc."></textarea>
+      <div class="release-actions">
+        <button type="button" class="secondary" data-plan-action="draft" onclick="savePlanDraft()">Save draft</button>
+        <button type="button" data-plan-action="release" onclick="releaseCurrentPlan()">Release plan</button>
+      </div>
+    </div>
+
+    <div id="workflowSection" data-step="release"></div>
+
+    <div class="flow-nav">
+      <button type="button" id="flowBack" class="secondary">←</button>
+      <button type="button" id="flowNext">Next →</button>
+    </div>
   </div>
 
   <!-- ============================================================
@@ -1757,6 +1843,7 @@
 
       wireAttendanceBoard();
       wireBenchBoard();
+      wireFlow();
       document.getElementById("daySelect").addEventListener("change", () => {
         shiftPlanDateToSelectedDay();
         loadPlanForSelectedDate();
@@ -2794,6 +2881,7 @@
       saveState.textContent = attendanceSave.message;
       saveState.classList.toggle("error", attendanceSave.state === "error");
 
+      renderFlow();
       boardElement.innerHTML = `
         <div class="zone in-zone" data-zone="in">
           <h3>In (${inPeople.length})</h3>
@@ -2834,6 +2922,134 @@
       document.getElementById("planDate").value = value;
       syncDaySelectToPlanDate();
       loadPlanForSelectedDate();
+    }
+
+    /* ============================================================
+       DAILY FLOW (ADMIN HOME)
+       One day, four steps: who's in → work mix → benches → review &
+       release. Only the current step's cards show; the day bar and the
+       plan bar (save / release) stay on every step. The step is kept in
+       the address (#who, #mix, #benches, #release) so a refresh stays put.
+       ============================================================ */
+    const FLOW_STEPS = ["who", "mix", "benches", "release"];
+    const FLOW_STEP_NAMES = { who: "Who's in", mix: "Work mix", benches: "Benches", release: "Review & release" };
+
+    function currentFlowStep() {
+      return FLOW_STEPS.includes(document.body.dataset.step) ? document.body.dataset.step : "who";
+    }
+
+    function showFlowStep(step, options = {}) {
+      const next = FLOW_STEPS.includes(step) ? step : "who";
+      document.body.dataset.step = next;
+      try {
+        history.replaceState(null, "", `${location.pathname}${location.search}#${next}`);
+      } catch {
+        // The address bar just won't remember the step.
+      }
+      renderFlow();
+      if (options.scroll !== false) window.scrollTo({ top: 0 });
+      // The workflow map's arrows are measured from the page, so redraw
+      // them once the map is visible.
+      if (next === "release") setTimeout(drawWorkerArrows, 60);
+    }
+
+    function moveFlow(delta) {
+      const index = FLOW_STEPS.indexOf(currentFlowStep());
+      showFlowStep(FLOW_STEPS[Math.max(0, Math.min(FLOW_STEPS.length - 1, index + delta))]);
+    }
+
+    function wireFlow() {
+      document.getElementById("flowSteps").addEventListener("click", event => {
+        const button = event.target.closest("[data-go]");
+        if (button) showFlowStep(button.dataset.go);
+      });
+      document.getElementById("flowBack").addEventListener("click", () => moveFlow(-1));
+      document.getElementById("flowNext").addEventListener("click", () => moveFlow(1));
+      showFlowStep(location.hash.slice(1), { scroll: false });
+    }
+
+    function workMixSummaryText() {
+      if (workDayMode === "mixed") {
+        const active = workBatches.filter(batch => Number(batch.quantity) > 0);
+        if (!active.length) return "No batches yet";
+        return `${active.length} batch${active.length === 1 ? "" : "es"} · ${getWorkMixTotalQuantity()} units`;
+      }
+      const unit = document.getElementById("unitType");
+      const unitText = unit?.options[unit.selectedIndex]?.text || "";
+      return `${unitText} · ${getCommsLabel(document.getElementById("commsType").value)}`;
+    }
+
+    function flowStatuses() {
+      const ready = attendanceReady();
+      const people = plannableWorkers();
+      const away = ready ? people.filter(worker => attendance.away.has(worker.key)).length : 0;
+      const target = ready ? currentPlanTarget() : null;
+      const plan = currentPlanState;
+      const planText = { loading: "…", none: "Not saved", draft: "Draft saved", released: "Released", error: "Offline" }[plan.status] || "Not saved";
+      const unsaved = planDirty && plan.status !== "loading" && plan.status !== "error";
+      return {
+        who: { text: ready ? `${people.length - away} in${away ? ` · ${away} away` : ""}` : "…" },
+        mix: { text: workMixSummaryText(), warn: workDayMode === "mixed" && getWorkMixTotalQuantity() <= 0 },
+        benches: { text: !ready ? "…" : target === null ? "No valid plan" : `Target ${target}`, warn: ready && target === null },
+        release: { text: unsaved ? `${planText} · unsaved changes` : planText, warn: plan.status === "error" }
+      };
+    }
+
+    function renderFlow() {
+      const nav = document.getElementById("flowSteps");
+      if (!nav) return;
+      const step = currentFlowStep();
+      const statuses = flowStatuses();
+
+      nav.querySelectorAll("[data-go]").forEach(button => {
+        const key = button.dataset.go;
+        button.classList.toggle("active", key === step);
+        button.classList.toggle("warn", Boolean(statuses[key]?.warn));
+        if (key === step) button.setAttribute("aria-current", "step");
+        else button.removeAttribute("aria-current");
+        document.getElementById(`flowStatus-${key}`).textContent = statuses[key]?.text || "";
+      });
+
+      const index = FLOW_STEPS.indexOf(step);
+      const back = document.getElementById("flowBack");
+      const next = document.getElementById("flowNext");
+      back.disabled = index <= 0;
+      back.textContent = index > 0 ? `← ${FLOW_STEP_NAMES[FLOW_STEPS[index - 1]]}` : "←";
+      next.classList.toggle("hidden", index >= FLOW_STEPS.length - 1);
+      if (index < FLOW_STEPS.length - 1) next.textContent = `${FLOW_STEP_NAMES[FLOW_STEPS[index + 1]]} →`;
+
+      const date = planDateValue();
+      document.getElementById("dayBarLabel").textContent = date ? longDayLabel(date) : "";
+      const testingLink = document.getElementById("testingScreenLink");
+      if (testingLink) testingLink.href = `bench.html?bench=testing${date ? `&date=${date}` : ""}`;
+
+      renderReleaseSummary(statuses);
+    }
+
+    function renderReleaseSummary(statuses) {
+      const holder = document.getElementById("releaseSummary");
+      if (!holder) return;
+      const date = planDateValue();
+      const target = attendanceReady() ? currentPlanTarget() : null;
+      const bottleneck = workDayMode === "mixed"
+        ? lastResult?.mixedCapacity?.bottleneckName
+        : lastResult?.workflowCapacity?.bottleneck?.name;
+      const items = [
+        ["Day", date ? longDayLabel(date) : "–"],
+        ["Who's in", statuses.who.text],
+        ["Work mix", statuses.mix.text],
+        ["Target", target === null ? "No valid plan" : `${target} units`],
+        ["Limited by", target === null ? "–" : (bottleneck || "–")],
+        ["Plan", statuses.release.text]
+      ];
+      holder.innerHTML = items
+        .map(([label, value]) => `<div class="mini">${escapeHtml(label)}<strong>${escapeHtml(value)}</strong></div>`)
+        .join("");
+
+      const warnings = target === null && attendanceReady()
+        ? [benchTargetSummary()]
+        : lastStationIssues;
+      document.getElementById("releaseWarnings").textContent = warnings.join(" ");
     }
 
     /* ============================================================
@@ -5549,7 +5765,16 @@
 
       loadingPlan = true;
       try {
-        if (loaded?.plan) applySavedPlan(loaded.plan);
+        if (loaded?.plan) {
+          applySavedPlan(loaded.plan);
+        } else if (!loadError) {
+          // A day with no saved plan starts from the work mix on screen, but
+          // not from another day's hand-made bench moves or notes.
+          stationAdjustments = [];
+          lastStationIssues = [];
+          document.getElementById("notesInstructions").value = "";
+          renderStationAdjustmentList();
+        }
         if (!loadError) setAttendanceFor(date, loaded?.roster || null);
         currentPlanState = loadError
           ? { date, status: "error", error: window.plannerData.friendlyError(loadError) }
@@ -5785,8 +6010,6 @@
     function renderPlanStatus() {
       const pill = document.getElementById("planStatusPill");
       const text = document.getElementById("planStatusText");
-      const saveButton = document.getElementById("saveDraftButton");
-      const releaseButton = document.getElementById("releasePlanButton");
       if (!pill || !text) return;
 
       const state = currentPlanState;
@@ -5833,11 +6056,14 @@
       }
 
       const offline = state.status === "error" || state.status === "loading" || !window.plannerData;
-      if (saveButton) saveButton.disabled = planBusy || offline;
-      if (releaseButton) {
-        releaseButton.disabled = planBusy || offline;
-        releaseButton.textContent = state.status === "released" ? "Release again" : "Release plan";
-      }
+      document.querySelectorAll('[data-plan-action="draft"]').forEach(button => {
+        button.disabled = planBusy || offline;
+      });
+      document.querySelectorAll('[data-plan-action="release"]').forEach(button => {
+        button.disabled = planBusy || offline;
+        button.textContent = state.status === "released" ? "Release again" : "Release plan";
+      });
+      renderFlow();
     }
 
     async function lockPlannerScreen() {
