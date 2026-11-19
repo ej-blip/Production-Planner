@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>History · Production Planner</title>
+  <link rel="icon" type="image/png" href="icons/planner.png" />
+  <link rel="stylesheet" href="css/floor.css" />
+  <style>
+    :root {
+      --page: #020617;
+      --card: #111827;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --good: #22c55e;
+      --warn: #fbbf24;
+      --series-1: #3987e5;   /* packed (validated on the card surface) */
+      --grid: #1f2a3d;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--page); color: var(--text); }
+    button, select { font: inherit; }
+    .hidden { display: none !important; }
+
+    .top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: rgba(2, 6, 23, 0.95); border-bottom: 1px solid var(--border); }
+    h1 { margin: 0; font-size: 24px; }
+    .sub { color: var(--muted); font-weight: 700; margin-top: 2px; }
+    .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .btn { padding: 9px 14px; border-radius: 10px; border: none; background: #334155; color: #f8fafc; font-weight: 800; cursor: pointer; }
+    select, input[type="date"] { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: #020617; color: var(--text); font-size: 15px; font-weight: 700; }
+
+    main { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; }
+    .stat .label { color: var(--muted); font-size: 13px; font-weight: 700; }
+    .stat .value { font-size: 30px; font-weight: 900; line-height: 1.15; }
+    .stat .value small { font-size: 14px; color: var(--muted); font-weight: 700; }
+
+    section.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 18px; }
+    section.card h2 { margin: 0 0 12px; font-size: 19px; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+    .grid2 section.card { margin-bottom: 0; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); font-size: 14px; white-space: nowrap; }
+    th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+    td a { color: var(--accent); font-weight: 800; text-decoration: none; }
+    .ok { color: var(--good); font-weight: 800; }
+    .short { color: var(--warn); font-weight: 800; }
+    .muted { color: var(--muted); }
+    .list { list-style: none; margin: 0; padding: 0; }
+    .list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.4; }
+    .list .meta { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .empty { color: var(--muted); font-size: 14px; }
+    .notice { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 18px; font-weight: 700; }
+
+    /* Chart: packed (bars) against the day's target (tick), one units axis */
+    .chart-wrap { position: relative; }
+    .legend { display: flex; gap: 16px; font-size: 13px; color: #cbd5e1; font-weight: 700; margin-bottom: 8px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .key-bar { width: 12px; height: 12px; border-radius: 3px; background: var(--series-1); }
+    .key-tick { width: 14px; height: 3px; border-radius: 2px; background: var(--text); }
+    svg.chart { display: block; width: 100%; height: 260px; overflow: visible; }
+    svg.chart .grid line { stroke: var(--grid); stroke-width: 1; }
+    svg.chart .axis text { fill: var(--muted); font-size: 11px; }
+    svg.chart .bar { fill: var(--series-1); }
+    svg.chart .tick-mark { stroke: var(--text); stroke-width: 3; stroke-linecap: round; }
+    svg.chart .hit { fill: transparent; cursor: pointer; }
+    svg.chart .hit:hover, svg.chart .hit.active { fill: rgba(148, 163, 184, 0.12); }
+    .tip { position: absolute; z-index: 5; pointer-events: none; padding: 8px 10px; border-radius: 10px; background: #0b1220; border: 1px solid var(--border); font-size: 13px; line-height: 1.5; white-space: nowrap; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
+    .tip b { display: block; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>History</h1>
+      <div class="sub" id="rangeLabel">Loading…</div>
+    </div>
+    <div class="actions">
+      <select id="rangeSelect" aria-label="Range">
+        <option value="7">1 week</option>
+        <option value="14">2 weeks</option>
+        <option value="28" selected>4 weeks</option>
+        <option value="84">12 weeks</option>
+      </select>
+      <input type="date" id="endInput" aria-label="Up to" />
+      <button type="button" class="btn" id="csvButton">Download CSV</button>
+    </div>
+  </header>
+
+  <div class="notice" id="notice">Loading…</div>
+  <main id="history" class="hidden">
+    <div class="stats" id="stats"></div>
+
+    <section class="card">
+      <h2>Packed and target</h2>
+      <div class="legend"><span><i class="key-bar"></i>Packed</span><span><i class="key-tick"></i>Target</span></div>
+      <div class="chart-wrap" id="chartWrap"></div>
+    </section>
+
+    <section class="card">
+      <h2>Days</h2>
+      <div class="table-scroll" id="days"></div>
+    </section>
+
+    <div class="grid2">
+      <section class="card">
+        <h2>Requests by bench</h2>
+        <div class="table-scroll" id="byBench"></div>
+      </section>
+      <section class="card">
+        <h2>Stock ordered</h2>
+        <div class="table-scroll" id="stock"></div>
+      </section>
+    </div>
+    <div class="grid2" style="margin-top: 18px">
+      <section class="card">
+        <h2>Faults</h2>
+        <ul class="list" id="faults"></ul>
+      </section>
+      <section class="card">
+        <h2>Attendance</h2>
+        <div class="table-scroll" id="attendance"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/skills.js"></script>
+  <script type="module">
+    import { collection, doc, getDoc, getDocs, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { db, ensureAccess, friendlyError } from "./js/session.js";
+    import { floorBatches, batchTitle, progressOf, expectedUnits, escapeHtml } from "./js/floor.js";
+    import { requestTitle } from "./js/requests.js";
+
+    const $ = id => document.getElementById(id);
+    const BENCHES = [["assembly", "Assembly"], ["testing", "Testing"], ["hardware", "Hardware"], ["packing", "Packing"], ["cage", "Cage"]];
+    const state = { staff: new Map(), days: [], loading: 0 };
+
+    const toInputDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const fromInputDate = value => { const [y, m, d] = String(value).split("-").map(Number); return new Date(y, (m || 1) - 1, d || 1, 12); };
+    const shortDate = value => new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(fromInputDate(value));
+    const axisDate = value => new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "short" }).format(fromInputDate(value));
+    const longDate = value => new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "long", year: "numeric" }).format(fromInputDate(value));
+    const firstOf = key => state.staff.get(key)?.firstName || String(state.staff.get(key)?.name || key).split(/\s+/)[0];
+
+    // ------------------------------------------------------------------
+    // Loading: every plan in the range, with its bench statuses, requests,
+    // changes and who was in.
+    // ------------------------------------------------------------------
+    async function loadRange() {
+      const days = Number($("rangeSelect").value) || 28;
+      const end = $("endInput").value || toInputDate(new Date());
+      const startDate = fromInputDate(end);
+      startDate.setDate(startDate.getDate() - (days - 1));
+      const start = toInputDate(startDate);
+      const ticket = ++state.loading;
+      $("rangeLabel").textContent = `${longDate(start)} – ${longDate(end)}`;
+      $("notice").classList.remove("hidden");
+      $("notice").textContent = "Loading…";
+      $("history").classList.add("hidden");
+
+      let plans;
+      try {
+        plans = await getDocs(query(collection(db, "plans"), where(documentId(), ">=", start), where(documentId(), "<=", end)));
+      } catch (error) {
+        $("notice").textContent = friendlyError(error);
+        return;
+      }
+      const loaded = await Promise.all(plans.docs.map(async entry => {
+        const date = entry.id;
+        const [progress, requests, events, roster] = await Promise.all([
+          getDocs(collection(db, "plans", date, "progress")),
+          getDocs(collection(db, "plans", date, "requests")),
+          getDocs(collection(db, "plans", date, "events")),
+          getDoc(doc(db, "rosters", date))
+        ]);
+        return {
+          date,
+          plan: entry.data(),
+          progress: new Map(progress.docs.map(item => [item.id, item.data()])),
+          requests: requests.docs.map(item => ({ id: item.id, ...item.data() })),
+          events: events.docs.map(item => item.data()),
+          roster: roster.exists() ? roster.data() : null
+        };
+      }));
+      if (ticket !== state.loading) return;
+      state.days = loaded.sort((a, b) => a.date.localeCompare(b.date)).map(summarise);
+      if (!state.days.length) {
+        $("notice").textContent = "No plans in this range.";
+        return;
+      }
+      $("notice").classList.add("hidden");
+      $("history").classList.remove("hidden");
+      render();
+    }
+
+    // One day boiled down to the numbers the history needs.
+    function summarise(day) {
+      const batches = floorBatches(day.plan);
+      let packed = 0;
+      let finished = 0;
+      batches.forEach(batch => {
+        const item = progressOf(day.progress, "packing", batch);
+        if (item.status === "hit") { packed += Number.isInteger(item.done) ? item.done : expectedUnits(day.progress, "packing", batch); finished++; }
+        else if (item.status === "short") { packed += item.done || 0; finished++; }
+      });
+      const planned = day.plan.plannedTarget ?? batches.reduce((sum, batch) => sum + batch.planned, 0);
+      const target = day.plan.currentTarget ?? planned;
+      const entries = day.roster?.entries || {};
+      const production = [...state.staff.entries()].filter(([, person]) => window.PlannerSkills.inProduction(person)).map(([key]) => key);
+      const away = production.filter(key => entries[key]?.available === false);
+      const count = kind => day.requests.filter(request => request.kind === kind).length;
+      return {
+        date: day.date,
+        status: day.plan.status,
+        planned,
+        target,
+        packed,
+        finished,
+        batches: batches.length,
+        batchTitles: new Map(batches.map(batch => [batch.key, batchTitle(batch)])),
+        inCount: production.length - away.length,
+        away,
+        help: count("help"),
+        stock: count("stock"),
+        faults: count("faulty"),
+        changes: day.events.filter(event => ["moved", "removed", "added"].includes(event.kind)).length,
+        requests: day.requests
+      };
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
+    function render() {
+      renderStats();
+      renderChart();
+      renderDays();
+      renderByBench();
+      renderStock();
+      renderFaults();
+      renderAttendance();
+    }
+
+    function renderStats() {
+      const days = state.days;
+      const released = days.filter(day => day.status === "released");
+      const packed = days.reduce((sum, day) => sum + day.packed, 0);
+      const atTarget = released.filter(day => day.target && day.packed >= day.target).length;
+      const average = released.length ? Math.round(packed / released.length) : 0;
+      $("stats").innerHTML = `
+        <div class="stat"><div class="label">Packed</div><div class="value">${packed}</div></div>
+        <div class="stat"><div class="label">Per day</div><div class="value">${average}</div></div>
+        <div class="stat"><div class="label">Days at target</div><div class="value">${atTarget} <small>/ ${released.length}</small></div></div>
+        <div class="stat"><div class="label">Faults</div><div class="value">${days.reduce((sum, day) => sum + day.faults, 0)}</div></div>
+        <div class="stat"><div class="label">Help calls</div><div class="value">${days.reduce((sum, day) => sum + day.help, 0)}</div></div>
+        <div class="stat"><div class="label">Stock orders</div><div class="value">${days.reduce((sum, day) => sum + day.stock, 0)}</div></div>`;
+    }
+
+    function renderChart() {
+      const days = state.days;
+      const width = Math.max(300, Math.round($("chartWrap").clientWidth || 1000)), height = 260, left = 36, right = 8, top = 10, bottom = 34;
+      const max = Math.max(10, ...days.map(day => Math.max(day.packed, day.target || 0)));
+      const step = max <= 20 ? 5 : max <= 60 ? 10 : 20;
+      const top_ = Math.ceil(max / step) * step;
+      const plotW = width - left - right, plotH = height - top - bottom;
+      const y = value => top + plotH - (value / top_) * plotH;
+      const slot = plotW / days.length;
+      const barW = Math.max(3, Math.min(42, slot * 0.62));
+      const labelEvery = Math.ceil(days.length / Math.max(2, Math.floor(plotW / 70)));
+
+      const grid = [];
+      for (let value = 0; value <= top_; value += step) {
+        grid.push(`<line x1="${left}" x2="${width - right}" y1="${y(value)}" y2="${y(value)}"/>`);
+      }
+      const axis = [];
+      for (let value = 0; value <= top_; value += step) {
+        axis.push(`<text x="${left - 6}" y="${y(value) + 4}" text-anchor="end">${value}</text>`);
+      }
+      const marks = days.map((day, index) => {
+        const cx = left + slot * index + slot / 2;
+        const x = cx - barW / 2;
+        const h = Math.max(0, y(0) - y(day.packed));
+        const radius = Math.min(4, barW / 2, h);
+        // A bar with a 4px rounded top, square at the baseline.
+        const bar = h > 0
+          ? `<path class="bar" d="M${x},${y(0)} V${y(day.packed) + radius} Q${x},${y(day.packed)} ${x + radius},${y(day.packed)} H${x + barW - radius} Q${x + barW},${y(day.packed)} ${x + barW},${y(day.packed) + radius} V${y(0)} Z"/>`
+          : "";
+        const tick = day.target ? `<line class="tick-mark" x1="${cx - barW / 2}" x2="${cx + barW / 2}" y1="${y(day.target)}" y2="${y(day.target)}"/>` : "";
+        const label = index % labelEvery === 0
+          ? `<text x="${cx}" y="${height - 12}" text-anchor="middle">${escapeHtml(axisDate(day.date))}</text>`
+          : "";
+        const hit = `<rect class="hit" data-index="${index}" x="${left + slot * index}" y="${top}" width="${slot}" height="${plotH}"/>`;
+        return { bar, tick, label, hit };
+      });
+      $("chartWrap").innerHTML = `
+        <svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Packed units and target for each day">
+          <g class="grid">${grid.join("")}</g>
+          <g class="axis">${axis.join("")}${marks.map(mark => mark.label).join("")}</g>
+          ${marks.map(mark => mark.bar).join("")}
+          ${marks.map(mark => mark.tick).join("")}
+          ${marks.map(mark => mark.hit).join("")}
+        </svg>
+        <div class="tip hidden" id="tip"></div>`;
+    }
+
+    function showTip(index, event) {
+      const day = state.days[index];
+      const tip = $("tip");
+      if (!day) return;
+      tip.innerHTML = `<b>${escapeHtml(shortDate(day.date))}</b>Packed ${day.packed} · target ${day.target}${day.target < day.planned ? ` (planned ${day.planned})` : ""}${day.faults ? `<br>${day.faults} fault${day.faults === 1 ? "" : "s"}` : ""}`;
+      tip.classList.remove("hidden");
+      const wrap = $("chartWrap").getBoundingClientRect();
+      const x = Math.min(event.clientX - wrap.left + 12, wrap.width - tip.offsetWidth - 4);
+      tip.style.left = `${Math.max(0, x)}px`;
+      tip.style.top = `${Math.max(0, event.clientY - wrap.top - 50)}px`;
+      document.querySelectorAll("#chartWrap .hit").forEach(rect => rect.classList.toggle("active", Number(rect.dataset.index) === index));
+    }
+
+    function renderDays() {
+      $("days").innerHTML = `
+        <table>
+          <thead><tr><th>Day</th><th class="n">Target</th><th class="n">Packed</th><th class="n">Batches</th><th class="n">In</th><th class="n">Away</th><th class="n">Help</th><th class="n">Stock</th><th class="n">Faults</th><th class="n">Moves</th></tr></thead>
+          <tbody>${[...state.days].reverse().map(day => {
+            const hit = day.target && day.packed >= day.target;
+            return `
+              <tr>
+                <td><a href="summary.html?date=${day.date}">${escapeHtml(shortDate(day.date))}</a>${day.status !== "released" ? ' <span class="muted">draft</span>' : ""}</td>
+                <td class="n">${day.target < day.planned ? `<span class="muted">${day.planned} →</span> ` : ""}${day.target}</td>
+                <td class="n ${day.status === "released" ? (hit ? "ok" : "short") : ""}">${day.packed}</td>
+                <td class="n">${day.finished} / ${day.batches}</td>
+                <td class="n">${day.inCount}</td>
+                <td class="n">${day.away.length}</td>
+                <td class="n">${day.help}</td>
+                <td class="n">${day.stock}</td>
+                <td class="n">${day.faults}</td>
+                <td class="n">${day.changes}</td>
+              </tr>`;
+          }).join("")}</tbody>
+        </table>`;
+    }
+
+    function renderByBench() {
+      const all = state.days.flatMap(day => day.requests);
+      const rows = BENCHES.map(([key, label]) => {
+        const mine = all.filter(request => request.bench === key);
+        return { label, help: mine.filter(r => r.kind === "help").length, stock: mine.filter(r => r.kind === "stock").length, faulty: mine.filter(r => r.kind === "faulty").length };
+      }).filter(row => row.help + row.stock + row.faulty > 0);
+      $("byBench").innerHTML = rows.length
+        ? `<table><thead><tr><th>Bench</th><th class="n">Help</th><th class="n">Stock</th><th class="n">Faults</th></tr></thead><tbody>${rows.map(row => `<tr><td>${row.label}</td><td class="n">${row.help}</td><td class="n">${row.stock}</td><td class="n">${row.faulty}</td></tr>`).join("")}</tbody></table>`
+        : '<p class="empty">None</p>';
+    }
+
+    function renderStock() {
+      const totals = new Map();
+      state.days.flatMap(day => day.requests).filter(request => request.kind === "stock").forEach(request => {
+        const name = String(request.text || "Other").trim();
+        const key = name.toLowerCase();
+        const row = totals.get(key) || { name, qty: 0, orders: 0 };
+        row.qty += Number(request.qty) || 0;
+        row.orders += 1;
+        totals.set(key, row);
+      });
+      const rows = [...totals.values()].sort((a, b) => b.qty - a.qty || b.orders - a.orders);
+      $("stock").innerHTML = rows.length
+        ? `<table><thead><tr><th>Item</th><th class="n">Qty</th><th class="n">Orders</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.name)}</td><td class="n">${row.qty || "–"}</td><td class="n">${row.orders}</td></tr>`).join("")}</tbody></table>`
+        : '<p class="empty">None</p>';
+    }
+
+    function renderFaults() {
+      const faults = [...state.days].reverse().flatMap(day => day.requests
+        .filter(request => request.kind === "faulty")
+        .map(request => ({ day, request })));
+      $("faults").innerHTML = faults.slice(0, 100).map(({ day, request }) => `
+        <li>${escapeHtml(requestTitle(request))}
+          <div class="meta">${escapeHtml(shortDate(day.date))} · ${escapeHtml(BENCHES.find(([key]) => key === request.bench)?.[1] || request.bench)}${request.batchId && day.batchTitles.get(request.batchId) ? ` · ${escapeHtml(day.batchTitles.get(request.batchId))}` : ""}</div></li>`).join("")
+        || '<li class="empty">None</li>';
+    }
+
+    function renderAttendance() {
+      const released = state.days.filter(day => day.status === "released");
+      const production = [...state.staff.entries()].filter(([, person]) => window.PlannerSkills.inProduction(person)).map(([key]) => key);
+      const rows = production.map(key => {
+        const away = released.filter(day => day.away.includes(key)).length;
+        return { key, away, in: released.length - away };
+      }).sort((a, b) => b.away - a.away || firstOf(a.key).localeCompare(firstOf(b.key)));
+      $("attendance").innerHTML = rows.length
+        ? `<table><thead><tr><th>Person</th><th class="n">In</th><th class="n">Away</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(firstOf(row.key))}</td><td class="n">${row.in}</td><td class="n ${row.away ? "short" : ""}">${row.away}</td></tr>`).join("")}</tbody></table>`
+        : '<p class="empty">None</p>';
+    }
+
+    function downloadCsv() {
+      const header = ["Date", "Status", "Planned", "Target", "Packed", "Batches finished", "Batches", "In", "Away", "Help", "Stock", "Faults", "Moves"];
+      const rows = state.days.map(day => [day.date, day.status, day.planned ?? "", day.target ?? "", day.packed, day.finished, day.batches, day.inCount, day.away.length, day.help, day.stock, day.faults, day.changes]);
+      const csv = [header, ...rows].map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      link.download = `production-history-${state.days[0]?.date || ""}-to-${state.days.at(-1)?.date || ""}.csv`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    // ------------------------------------------------------------------
+    // Start
+    // ------------------------------------------------------------------
+    async function start() {
+      await ensureAccess({ title: "History", intro: "Enter the management PIN.", pinLabel: "Management PIN", allowed: ["management"], wrongRoleMessage: "This page needs the management PIN." });
+      try {
+        const staff = await getDocs(collection(db, "staff"));
+        state.staff = new Map(staff.docs.map(entry => [entry.id, entry.data()]));
+      } catch (error) {
+        $("notice").textContent = friendlyError(error);
+        return;
+      }
+      $("endInput").value = toInputDate(new Date());
+      $("rangeSelect").addEventListener("change", loadRange);
+      $("endInput").addEventListener("change", loadRange);
+      $("csvButton").addEventListener("click", downloadCsv);
+      let resizeTimer = null;
+      let lastWidth = $("chartWrap").clientWidth;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (!state.days.length || $("chartWrap").clientWidth === lastWidth) return;
+          lastWidth = $("chartWrap").clientWidth;
+          renderChart();
+        }, 150);
+      });
+      $("chartWrap").addEventListener("pointermove", event => {
+        const hit = event.target.closest?.(".hit");
+        if (hit) showTip(Number(hit.dataset.index), event);
+      });
+      $("chartWrap").addEventListener("pointerleave", () => {
+        $("tip")?.classList.add("hidden");
+        document.querySelectorAll("#chartWrap .hit.active").forEach(rect => rect.classList.remove("active"));
+      });
+      loadRange();
+    }
+
+    start();
+  </script>
+</body>
+</html>
