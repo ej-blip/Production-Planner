@@ -38,7 +38,8 @@
     .notice { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 18px; font-weight: 600; }
 
     /* Chart: packed (bars) against the day's target (tick), one units axis */
-    .chart-wrap { position: relative; --series-1: var(--accent); --grid: var(--rule); }
+    main { --series-1: var(--accent); --grid: var(--rule); }
+    .chart-wrap { position: relative; }
     .legend { display: flex; gap: 16px; font-size: 13px; color: var(--ink-2); font-weight: 600; margin-bottom: 8px; }
     .legend span { display: inline-flex; align-items: center; gap: 6px; }
     .key-bar { width: 12px; height: 12px; border-radius: 2px; background: var(--series-1); }

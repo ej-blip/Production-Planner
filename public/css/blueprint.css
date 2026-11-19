@@ -144,8 +144,10 @@ a.button {
   text-decoration: none;
   transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
-button:hover,
-a.button:hover { background: var(--print-2); }
+button:not([class]):hover,
+button.primary:hover,
+.req-go:hover,
+a.button:not(.secondary):hover { background: var(--print-2); }
 button.secondary,
 .button.secondary,
 a.button.secondary {
@@ -167,7 +169,7 @@ input, select, textarea {
   border-radius: var(--radius);
 }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent-soft); outline-offset: 0; }
-input::placeholder, textarea::placeholder { color: #6d829c; }
+input::placeholder, textarea::placeholder { color: #5d7391; }
 
 /* Title block: the header on every page --------------------------------- */
 .top {
