@@ -170,6 +170,7 @@
       <button type="button" class="secondary" id="nextDay" aria-label="Next day">▶</button>
       <button type="button" class="secondary" id="todayButton">Today</button>
       <span id="liveBadge" class="live">Live</span>
+      <a class="button secondary" id="summaryLink" href="summary.html">Summary</a>
       <a class="button secondary hidden" id="planningLink" href="index.html#release">Planning</a>
       <button type="button" class="secondary" id="lockButton">Lock</button>
     </div>
@@ -277,6 +278,7 @@
       Object.assign(state, { date, plan: null, reachable: true, assignments: [], progress: new Map(), notes: [], requests: [], nextPlan: null });
       $("dateInput").value = date;
       $("planningLink").href = `index.html#release`;
+      $("summaryLink").href = `summary.html?date=${date}`;
       render();
 
       stops.push(onSnapshot(doc(db, "plans", date), { includeMetadataChanges: true }, snapshot => {

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day summary · Production Planner</title>
+  <link rel="icon" type="image/png" href="icons/planner.png" />
+  <link rel="stylesheet" href="css/floor.css" />
+  <style>
+    :root {
+      --page: #020617;
+      --card: #111827;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --good: #22c55e;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--page); color: var(--text); }
+    button { font: inherit; cursor: pointer; }
+    .hidden { display: none !important; }
+
+    .top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: rgba(2, 6, 23, 0.95); border-bottom: 1px solid var(--border); }
+    h1 { margin: 0; font-size: 24px; }
+    .sub { color: var(--muted); font-weight: 700; margin-top: 2px; }
+    .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .btn { padding: 9px 14px; border-radius: 10px; border: none; background: #334155; color: #f8fafc; font-weight: 800; }
+    .btn.primary { background: var(--accent); color: #00111f; }
+    input[type="date"] { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: #020617; color: var(--text); font-size: 15px; font-weight: 700; }
+
+    main { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; }
+    .stat .label { color: var(--muted); font-size: 13px; font-weight: 700; }
+    .stat .value { font-size: 32px; font-weight: 900; line-height: 1.15; }
+    .stat .value small { font-size: 15px; color: var(--muted); font-weight: 700; }
+    .stat .value.down { color: var(--warn); }
+
+    section.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 18px; }
+    section.card h2 { margin: 0 0 12px; font-size: 19px; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    td.num { font-weight: 900; font-size: 16px; white-space: nowrap; }
+    .st { font-weight: 800; white-space: nowrap; }
+    .st.hit { color: var(--good); }
+    .st.short { color: var(--warn); }
+    .st.in_progress { color: var(--accent); }
+    .st.waiting { color: var(--muted); font-weight: 700; }
+
+    .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .col h3 { margin: 0 0 8px; font-size: 15px; color: #cbd5e1; }
+    .list { list-style: none; margin: 0; padding: 0; }
+    .list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.4; }
+    .list .time { color: var(--muted); font-weight: 800; margin-right: 8px; white-space: nowrap; }
+    .list .meta { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .list .tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #1e293b; font-size: 12px; font-weight: 800; }
+    .list .tag.open { color: var(--warn); }
+    .list .tag.accepted { color: #93c5fd; }
+    .list .tag.done { color: #86efac; }
+    .list img { display: block; max-width: 160px; max-height: 110px; border-radius: 6px; margin-top: 6px; cursor: zoom-in; }
+    .empty { color: var(--muted); font-size: 14px; }
+    .people b { color: #cbd5e1; }
+    .people p { margin: 0 0 8px; line-height: 1.5; font-size: 14px; }
+    .notice { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 18px; font-weight: 700; }
+    .copied { color: var(--good); font-weight: 800; font-size: 13px; }
+
+    @media print {
+      :root { --page: #fff; --card: #fff; --border: #cbd5e1; --text: #0f172a; --muted: #475569; --good: #15803d; }
+      body { background: #fff; }
+      .top { position: static; background: #fff; }
+      .actions { display: none; }
+      section.card, .stat { break-inside: avoid; }
+      .st.hit { color: #15803d; } .st.short { color: #b45309; } .st.in_progress { color: #1d4ed8; }
+      .list .tag { background: #f1f5f9; }
+      .list .tag.open, .stat .value.down { color: #b45309; }
+      .list .tag.accepted { color: #1d4ed8; }
+      .list .tag.done { color: #15803d; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Day summary</h1>
+      <div class="sub" id="dateLabel">Loading…</div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn" id="prevDay" aria-label="Previous day">◀</button>
+      <input type="date" id="dateInput" aria-label="Day" />
+      <button type="button" class="btn" id="nextDay" aria-label="Next day">▶</button>
+      <button type="button" class="btn" id="todayButton">Today</button>
+      <button type="button" class="btn" id="copyButton">Copy as text</button>
+      <button type="button" class="btn primary" id="printButton">Print / PDF</button>
+      <span class="copied hidden" id="copied">Copied</span>
+    </div>
+  </header>
+
+  <div class="notice" id="notice">Loading…</div>
+  <main id="summary" class="hidden">
+    <div class="stats" id="stats"></div>
+
+    <section class="card">
+      <h2>Batches</h2>
+      <div class="table-scroll" id="batches"></div>
+    </section>
+
+    <section class="card">
+      <h2>Requests</h2>
+      <div class="cols" id="requests"></div>
+    </section>
+
+    <section class="card">
+      <h2>People</h2>
+      <div class="people" id="people"></div>
+    </section>
+
+    <section class="card">
+      <h2>Changes</h2>
+      <ul class="list" id="changes"></ul>
+    </section>
+
+    <section class="card hidden" id="notesCard">
+      <h2>Notes</h2>
+      <ul class="list" id="notes"></ul>
+    </section>
+  </main>
+
+  <script type="module">
+    import { collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { db, ensureAccess, friendlyError } from "./js/session.js";
+    import { FLOOR_BENCHES, floorBatches, batchTitle, progressOf, expectedUnits, statusText, watchFloor, showPhoto, escapeHtml } from "./js/floor.js";
+    import { REQUEST_KINDS, requestTitle, watchRequests } from "./js/requests.js";
+
+    const $ = id => document.getElementById(id);
+    const PHASES = [["start", "Start"], ["second", "Second"], ["finish", "Finish"]];
+    const BENCH_NAME = { cage: "Cage", assembly: "Assembly", testing: "Testing", hardware: "Hardware", packing: "Packing", management: "Management" };
+    const BENCH_STATIONS = {
+      Assembly: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap"],
+      Testing: ["testing", "testingVerizon", "testingGlobal"],
+      Hardware: ["hardware"],
+      Packing: ["packing"]
+    };
+    const state = {
+      date: "", plan: null, readable: true, staff: new Map(), presets: {}, roster: null,
+      assignments: [], progress: new Map(), notes: [], requests: [], events: []
+    };
+    let stops = [];
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+    const toInputDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const fromInputDate = value => { const [y, m, d] = String(value).split("-").map(Number); return new Date(y, (m || 1) - 1, d || 1, 12); };
+    const longDate = value => new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(fromInputDate(value));
+    const timeOf = stamp => (stamp?.toDate ? stamp.toDate().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" }) : "");
+    const nameOf = key => state.staff.get(key)?.name || key;
+    const firstOf = key => state.staff.get(key)?.firstName || String(nameOf(key)).split(/\s+/)[0];
+
+    // Finished units: what Packing marked done (hit target or the number it did).
+    function packed(batch) {
+      const item = progressOf(state.progress, "packing", batch);
+      if (item.status === "hit") return Number.isInteger(item.done) ? item.done : expectedUnits(state.progress, "packing", batch);
+      if (item.status === "short") return item.done || 0;
+      return null;
+    }
+
+    function stopAll() {
+      stops.forEach(stop => stop());
+      stops = [];
+    }
+
+    // ------------------------------------------------------------------
+    // Loading (live, so it fills in as the day goes)
+    // ------------------------------------------------------------------
+    async function openDate(date) {
+      stopAll();
+      Object.assign(state, { date, plan: null, readable: true, roster: null, assignments: [], progress: new Map(), notes: [], requests: [], events: [] });
+      $("dateInput").value = date;
+      $("dateLabel").textContent = longDate(date);
+      $("notice").classList.remove("hidden");
+      $("notice").textContent = "Loading…";
+      $("summary").classList.add("hidden");
+
+      try {
+        const plan = await getDoc(doc(db, "plans", date));
+        state.plan = plan.exists() ? plan.data() : null;
+      } catch {
+        state.plan = null;   // benches can't see a plan until it's released
+      }
+      if (state.date !== date) return;
+      if (!state.plan) {
+        $("notice").textContent = "No plan for this day.";
+        return;
+      }
+      try {
+        const roster = await getDoc(doc(db, "rosters", date));
+        state.roster = roster.exists() ? roster.data() : null;
+      } catch { state.roster = null; }
+
+      stops.push(onSnapshot(collection(db, "plans", date, "assignments"), snapshot => {
+        state.assignments = snapshot.docs.map(entry => entry.data());
+        render();
+      }, () => {}));
+      stops.push(onSnapshot(query(collection(db, "plans", date, "events"), orderBy("createdAt", "asc"), limit(500)), snapshot => {
+        state.events = snapshot.docs.map(entry => entry.data());
+        render();
+      }, () => {}));
+      stops.push(watchFloor(date, ({ progress, notes }) => {
+        state.progress = progress;
+        state.notes = notes;
+        render();
+      }));
+      stops.push(watchRequests(date, list => {
+        state.requests = [...list].reverse();   // oldest first
+        render();
+      }));
+      $("notice").classList.add("hidden");
+      $("summary").classList.remove("hidden");
+      render();
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
+    function render() {
+      if (!state.plan) return;
+      renderStats();
+      renderBatches();
+      renderRequests();
+      renderPeople();
+      renderChanges();
+      renderNotes();
+    }
+
+    function figures() {
+      const batches = floorBatches(state.plan);
+      const planned = state.plan.plannedTarget ?? batches.reduce((sum, batch) => sum + batch.planned, 0);
+      const current = state.plan.currentTarget ?? planned;
+      const packedUnits = batches.reduce((sum, batch) => sum + (packed(batch) || 0), 0);
+      const finished = batches.filter(batch => packed(batch) !== null).length;
+      const entries = state.roster?.entries || {};
+      const people = [...state.staff.entries()].filter(([, person]) => window.PlannerSkills?.inProduction(person) ?? person.team !== "IGNORE");
+      const away = people.filter(([key]) => entries[key]?.available === false).map(([key]) => key);
+      const inToday = people.filter(([key]) => entries[key]?.available !== false).map(([key]) => key);
+      const faults = state.requests.filter(request => request.kind === "faulty");
+      const openRequests = state.requests.filter(request => request.status !== "done");
+      return { batches, planned, current, packedUnits, finished, away, inToday, faults, openRequests };
+    }
+
+    function renderStats() {
+      const f = figures();
+      $("stats").innerHTML = `
+        <div class="stat"><div class="label">Packed</div><div class="value">${f.packedUnits} <small>/ ${f.current}</small></div></div>
+        <div class="stat"><div class="label">Day target</div><div class="value ${f.current < f.planned ? "down" : ""}">${f.current} <small>${f.current < f.planned ? `planned ${f.planned}` : ""}</small></div></div>
+        <div class="stat"><div class="label">Batches finished</div><div class="value">${f.finished} <small>/ ${f.batches.length}</small></div></div>
+        <div class="stat"><div class="label">People in</div><div class="value">${f.inToday.length} <small>${f.away.length ? `${f.away.length} away` : ""}</small></div></div>
+        <div class="stat"><div class="label">Faults</div><div class="value">${f.faults.length}</div></div>
+        <div class="stat"><div class="label">Open requests</div><div class="value">${f.openRequests.length}</div></div>`;
+    }
+
+    function cellFor(bench, batch) {
+      const item = progressOf(state.progress, bench, batch);
+      const expected = expectedUnits(state.progress, bench, batch);
+      return `<span class="st ${escapeHtml(item.status)}">${escapeHtml(statusText(bench, item, expected))}</span>`;
+    }
+
+    function renderBatches() {
+      const batches = floorBatches(state.plan);
+      if (!batches.length) {
+        $("batches").innerHTML = '<p class="empty">No batches.</p>';
+        return;
+      }
+      $("batches").innerHTML = `
+        <table>
+          <thead><tr><th>Batch</th><th>Config</th><th>Planned</th>${FLOOR_BENCHES.map(bench => `<th>${escapeHtml(bench.short)}</th>`).join("")}<th>Packed</th></tr></thead>
+          <tbody>${batches.map(batch => `
+            <tr>
+              <td><strong>${escapeHtml(batchTitle(batch))}</strong></td>
+              <td>${escapeHtml(state.presets[batch.configKey]?.label || batch.configKey || "")}</td>
+              <td class="num">${batch.planned}${batch.planned < batch.requested ? ` <small>of ${batch.requested}</small>` : ""}</td>
+              ${FLOOR_BENCHES.map(bench => `<td>${cellFor(bench.key, batch)}</td>`).join("")}
+              <td class="num">${packed(batch) ?? "–"}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    function requestItem(request) {
+      const kind = REQUEST_KINDS[request.kind];
+      const changed = request.status !== "open" && request.updatedAt ? ` → ${timeOf(request.updatedAt)}` : "";
+      return `
+        <li>
+          <span class="time">${escapeHtml(timeOf(request.createdAt))}</span>${escapeHtml(requestTitle(request))}
+          <span class="tag ${escapeHtml(request.status)}">${escapeHtml(kind?.status[request.status] || request.status)}</span>
+          <div class="meta">${escapeHtml(BENCH_NAME[request.bench] || request.bench)}${escapeHtml(changed)}</div>
+          ${request.photo ? `<img src="${escapeHtml(request.photo)}" alt="Photo" data-photo />` : ""}
+        </li>`;
+    }
+
+    function renderRequests() {
+      $("requests").innerHTML = ["help", "stock", "faulty"].map(kind => {
+        const list = state.requests.filter(request => request.kind === kind);
+        const title = kind === "help" ? "Help calls" : kind === "stock" ? "Maged's Mart orders" : "Faulty units";
+        return `
+          <div class="col">
+            <h3>${title} (${list.length})</h3>
+            <ul class="list">${list.map(requestItem).join("") || '<li class="empty">None</li>'}</ul>
+          </div>`;
+      }).join("");
+    }
+
+    function renderPeople() {
+      const f = figures();
+      const byBench = Object.entries(BENCH_STATIONS).map(([name, stations]) => {
+        const lines = PHASES.map(([phase, label]) => {
+          const keys = state.assignments.filter(item => item.phase === phase && stations.includes(item.station)).map(item => item.staffKey);
+          return keys.length ? `${label}: ${keys.map(firstOf).join(", ")}` : "";
+        }).filter(Boolean);
+        return lines.length ? `<p><b>${name}</b> · ${escapeHtml(lines.join(" · "))}</p>` : "";
+      }).join("");
+      $("people").innerHTML = `
+        <p><b>In (${f.inToday.length})</b> · ${escapeHtml(f.inToday.map(firstOf).sort().join(", ") || "–")}</p>
+        <p><b>Away (${f.away.length})</b> · ${escapeHtml(f.away.map(firstOf).sort().join(", ") || "–")}</p>
+        ${byBench}`;
+    }
+
+    function renderChanges() {
+      $("changes").innerHTML = state.events.map(event => `
+        <li><span class="time">${escapeHtml(timeOf(event.createdAt))}</span>${escapeHtml(event.message || event.kind)}<span class="meta"> · ${escapeHtml(event.createdBy || "")}</span></li>`).join("")
+        || '<li class="empty">None</li>';
+    }
+
+    function renderNotes() {
+      $("notesCard").classList.toggle("hidden", !state.notes.length);
+      $("notes").innerHTML = state.notes.map(note => `
+        <li>${escapeHtml(note.text || "")}<div class="meta">${escapeHtml(note.bench === "all" ? "Everyone" : BENCH_NAME[note.bench] || note.bench)} · ${escapeHtml(note.createdBy || "")}</div>
+        ${note.photo ? `<img src="${escapeHtml(note.photo)}" alt="Photo" data-photo />` : ""}</li>`).join("");
+    }
+
+    // ------------------------------------------------------------------
+    // Copy as text (for an email or chat) and print
+    // ------------------------------------------------------------------
+    function summaryText() {
+      const f = figures();
+      const lines = [];
+      lines.push(`Production summary · ${longDate(state.date)}`);
+      lines.push(`Packed ${f.packedUnits} of ${f.current}${f.current < f.planned ? ` (target down from ${f.planned})` : ""} · ${f.finished} of ${f.batches.length} batches finished`);
+      lines.push(`People: ${f.inToday.length} in${f.away.length ? `, away: ${f.away.map(firstOf).join(", ")}` : ""}`);
+      lines.push("");
+      lines.push("Batches");
+      f.batches.forEach(batch => {
+        const stages = FLOOR_BENCHES.map(bench => {
+          const item = progressOf(state.progress, bench.key, batch);
+          return `${bench.short} ${statusText(bench.key, item, expectedUnits(state.progress, bench.key, batch))}`;
+        }).join(" · ");
+        lines.push(`- ${batchTitle(batch)} (${batch.planned} planned): ${stages}`);
+      });
+      const section = (title, kind) => {
+        const list = state.requests.filter(request => request.kind === kind);
+        if (!list.length) return;
+        lines.push("");
+        lines.push(`${title} (${list.length})`);
+        list.forEach(request => lines.push(`- ${timeOf(request.createdAt)} ${requestTitle(request)} · ${BENCH_NAME[request.bench] || request.bench} · ${REQUEST_KINDS[kind].status[request.status]}`));
+      };
+      section("Help calls", "help");
+      section("Maged's Mart orders", "stock");
+      section("Faulty units", "faulty");
+      const moves = state.events.filter(event => ["moved", "removed", "added", "target_changed"].includes(event.kind));
+      if (moves.length) {
+        lines.push("");
+        lines.push(`Changes (${moves.length})`);
+        moves.forEach(event => lines.push(`- ${timeOf(event.createdAt)} ${event.message}`));
+      }
+      return lines.join("\n");
+    }
+
+    async function copySummary() {
+      const text = summaryText();
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      $("copied").classList.remove("hidden");
+      setTimeout(() => $("copied").classList.add("hidden"), 2000);
+    }
+
+    // ------------------------------------------------------------------
+    // Start
+    // ------------------------------------------------------------------
+    async function start() {
+      await ensureAccess({ title: "Day summary", intro: "Enter the management or bench PIN.", pinLabel: "PIN", allowed: ["management", "bench"], wrongRoleMessage: "That PIN isn't right." });
+      try {
+        const [staff, presets] = await Promise.all([getDocs(collection(db, "staff")), getDocs(collection(db, "configPresets"))]);
+        state.staff = new Map(staff.docs.map(entry => [entry.id, entry.data()]));
+        state.presets = Object.fromEntries(presets.docs.map(entry => [entry.id, entry.data()]));
+      } catch (error) {
+        $("notice").textContent = friendlyError(error);
+        return;
+      }
+      const shift = days => {
+        const date = fromInputDate(state.date || toInputDate(new Date()));
+        date.setDate(date.getDate() + days);
+        openDate(toInputDate(date));
+      };
+      $("prevDay").addEventListener("click", () => shift(-1));
+      $("nextDay").addEventListener("click", () => shift(1));
+      $("todayButton").addEventListener("click", () => openDate(toInputDate(new Date())));
+      $("dateInput").addEventListener("change", event => { if (event.target.value) openDate(event.target.value); });
+      $("copyButton").addEventListener("click", copySummary);
+      $("printButton").addEventListener("click", () => window.print());
+      $("summary").addEventListener("click", event => {
+        const photo = event.target.closest("img[data-photo]");
+        if (photo) showPhoto(photo.getAttribute("src"));
+      });
+      const requested = new URLSearchParams(window.location.search).get("date");
+      openDate(/^\d{4}-\d{2}-\d{2}$/.test(requested || "") ? requested : toInputDate(new Date()));
+    }
+
+    start();
+  </script>
+  <script src="js/skills.js"></script>
+</body>
+</html>
