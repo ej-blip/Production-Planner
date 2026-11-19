@@ -1197,7 +1197,7 @@
       testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PK", finalPackaging: "FP"
     };
     const STATION_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 2, testingVerizon: 1, testingGlobal: 1, hardware: 2, packing: 2 };
-    const KIND_COLOUR = { assembly: "#f59e0b", testing: "#3b82f6", hardware: "#a855f7", packing: "#22c55e", final: "#64748b" };
+    const KIND_COLOUR = { assembly: "var(--k-assembly)", testing: "var(--k-testing)", hardware: "var(--k-hardware)", packing: "var(--k-packing)", final: "var(--k-cage)" };
 
     const personName = key => state.staff.get(key)?.name || staffName(key);
     const initials = name => String(name || "?").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
@@ -1218,7 +1218,7 @@
     function pipsHtml(key) {
       return PHASE_KEYS.map(phase => {
         const job = jobFor(key, phase);
-        const colour = job ? KIND_COLOUR[STATION_KIND[job.station]] || "#94a3b8" : "#1e293b";
+        const colour = job ? KIND_COLOUR[STATION_KIND[job.station]] || "var(--k-cage)" : "var(--btn)";
         return `<i style="background:${colour}" title="${escapeHtml(phaseLabel(phase))}: ${escapeHtml(job ? job.jobLabel || jobLabel(job.station) : "Free")}"></i>`;
       }).join("");
     }

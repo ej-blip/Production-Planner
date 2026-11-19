@@ -1,0 +1,446 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-19T00:00:00Z",
+  "title": "Design System: Production Planner",
+  "extensions": {
+    "colorMeta": {
+      "print": {
+        "role": "primary",
+        "displayName": "Cyanotype Print",
+        "canonical": "#173f6e",
+        "tonalRamp": [
+          "#071321",
+          "#0c2037",
+          "#102c4d",
+          "#143761",
+          "#45658b",
+          "#7f95af",
+          "#b9c5d4",
+          "#e8ecf0"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Drafting Blue",
+        "canonical": "#1d5fae",
+        "tonalRamp": [
+          "#091c34",
+          "#0e3057",
+          "#14427a",
+          "#1a5499",
+          "#4a7fbe",
+          "#83a7d2",
+          "#bbcfe7",
+          "#e8eff7"
+        ]
+      },
+      "red": {
+        "role": "secondary",
+        "displayName": "Redline",
+        "canonical": "#b9381a",
+        "tonalRamp": [
+          "#381108",
+          "#5c1c0d",
+          "#822712",
+          "#a33117",
+          "#c76048",
+          "#d89281",
+          "#eac3ba",
+          "#f8ebe8"
+        ]
+      },
+      "amber": {
+        "role": "secondary",
+        "displayName": "Signal Amber",
+        "canonical": "#93570a",
+        "tonalRamp": [
+          "#2c1a03",
+          "#4a2c05",
+          "#673d07",
+          "#814d09",
+          "#a9793b",
+          "#c4a378",
+          "#dfcdb6",
+          "#f4eee6"
+        ]
+      },
+      "ok": {
+        "role": "secondary",
+        "displayName": "Pass Green",
+        "canonical": "#1b7643",
+        "tonalRamp": [
+          "#082314",
+          "#0e3b22",
+          "#13532f",
+          "#18683b",
+          "#499169",
+          "#82b498",
+          "#bbd6c7",
+          "#e8f1ec"
+        ]
+      },
+      "note": {
+        "role": "tertiary",
+        "displayName": "Markup Yellow",
+        "canonical": "#fbf2cf",
+        "tonalRamp": [
+          "#4b493e",
+          "#7e7968",
+          "#b0a991",
+          "#ddd5b6",
+          "#fcf5d9",
+          "#fdf8e5",
+          "#fefbf1",
+          "#fffefa"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Drafting Paper",
+        "canonical": "#e8eff6",
+        "tonalRamp": [
+          "#46484a",
+          "#74787b",
+          "#a2a7ac",
+          "#ccd2d8",
+          "#edf2f8",
+          "#f2f6fa",
+          "#f8fafc",
+          "#fdfdfe"
+        ]
+      },
+      "sheet": {
+        "role": "neutral",
+        "displayName": "Sheet White",
+        "canonical": "#f9fbfd",
+        "tonalRamp": [
+          "#4b4b4c",
+          "#7c7e7e",
+          "#aeb0b1",
+          "#dbdddf",
+          "#fafcfd",
+          "#fcfdfe",
+          "#fdfefe",
+          "#feffff"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Prussian Ink",
+        "canonical": "#0f2747",
+        "tonalRamp": [
+          "#040c15",
+          "#081424",
+          "#0a1b32",
+          "#0d223e",
+          "#3f526c",
+          "#7b889a",
+          "#b7bec8",
+          "#e7e9ed"
+        ]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "#8ea4bf",
+        "tonalRamp": [
+          "#2b3139",
+          "#475260",
+          "#637386",
+          "#7d90a8",
+          "#a5b6cc",
+          "#c1cddc",
+          "#dde4ec",
+          "#f4f6f9"
+        ]
+      },
+      "print-2": {
+        "role": "primary",
+        "displayName": "Lighter Print"
+      },
+      "print-deep": {
+        "role": "primary",
+        "displayName": "Deep Print"
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Drafting Blue Wash"
+      },
+      "red-soft": {
+        "role": "secondary",
+        "displayName": "Redline Wash"
+      },
+      "amber-soft": {
+        "role": "secondary",
+        "displayName": "Amber Wash"
+      },
+      "ok-soft": {
+        "role": "secondary",
+        "displayName": "Green Wash"
+      },
+      "note-rule": {
+        "role": "tertiary",
+        "displayName": "Markup Gold Rule"
+      },
+      "note-ink": {
+        "role": "tertiary",
+        "displayName": "Markup Ink"
+      },
+      "inset": {
+        "role": "neutral",
+        "displayName": "Inset"
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised White"
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink"
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2"
+      },
+      "print-ink": {
+        "role": "neutral",
+        "displayName": "Title-block Lettering"
+      },
+      "print-muted": {
+        "role": "neutral",
+        "displayName": "Title-block Label"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Sheet Name",
+        "purpose": "Title-block sheet name, uppercase; 23px under 700px."
+      },
+      "headline": {
+        "displayName": "Title-block Value",
+        "purpose": "Title-block figures and connection state; dialog titles uppercase."
+      },
+      "title": {
+        "displayName": "Sheet Heading",
+        "purpose": "Uppercase sheet headings ruled off beneath."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Names, batch and request text; fields stay 16px."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Every button label, sentence case."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Table headers, figure labels, status tags (0.05-0.07em), uppercase."
+      },
+      "label-small": {
+        "displayName": "Title-block Label",
+        "purpose": "Small pale-blue cell labels in the title block, uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "dialog-float",
+        "value": "0 24px 48px -24px rgba(15, 39, 71, 0.55)",
+        "purpose": "Floor dialogs."
+      },
+      {
+        "name": "pin-float",
+        "value": "0 30px 60px -30px rgba(0, 0, 0, 0.6)",
+        "purpose": "PIN box over the print-blue ground."
+      },
+      {
+        "name": "drag-ghost",
+        "value": "0 8px 24px rgba(15, 39, 71, 0.23)",
+        "purpose": "Crew chip in mid-drag."
+      },
+      {
+        "name": "popover",
+        "value": "0 18px 40px rgba(15, 39, 71, 0.25)",
+        "purpose": "Toasts and alerts; tooltips use 0 8px 20px rgba(15, 39, 71, 0.2)."
+      },
+      {
+        "name": "hover-ring",
+        "value": "0 0 0 3px #dde9f7",
+        "purpose": "Hover on clickable status notes."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-change",
+        "value": "0.12s ease",
+        "purpose": "Background, border and colour changes on buttons, notes and drop zones."
+      },
+      {
+        "name": "help-pulse",
+        "value": "1.6s ease-in-out infinite",
+        "purpose": "Open help requests pulse amber; off under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "700px"
+      },
+      {
+        "name": "tablet",
+        "value": "900px"
+      },
+      {
+        "name": "desk",
+        "value": "1150px"
+      }
+    ],
+    "background": {
+      "name": "blueprint-grid",
+      "value": "16px minor and 80px major lines, rgba(23, 63, 110, 0.055) and rgba(23, 63, 110, 0.12), fixed",
+      "purpose": "Page ground on every screen; detector rule codex-grid-background ignored on purpose."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid cyanotype action: Release plan, Resolved, Received.",
+      "html": "<button class=\"ds-btn-primary\">Release plan</button>",
+      "css": ".ds-btn-primary { font-family: var(--font, 'Barlow', sans-serif); font-size: 15px; font-weight: 600; line-height: 1.2; padding: 10px 16px; min-height: 40px; border-radius: 3px; border: 1px solid #0f2f55; background: #173f6e; color: #f4f8fc; cursor: pointer; transition: background-color 0.12s ease; } .ds-btn-primary:hover { background: #1f4f88; } .ds-btn-primary:focus-visible { outline: 2px solid #1d5fae; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "White outlined action: Save draft, + Note.",
+      "html": "<button class=\"ds-btn-secondary\">Save draft</button>",
+      "css": ".ds-btn-secondary { font-family: var(--font, 'Barlow', sans-serif); font-size: 15px; font-weight: 600; line-height: 1.2; padding: 10px 16px; min-height: 40px; border-radius: 3px; border: 1px solid #8ea4bf; background: #ffffff; color: #0f2747; cursor: pointer; transition: background-color 0.12s ease, border-color 0.12s ease; } .ds-btn-secondary:hover { background: #eef3f9; border-color: #2c4a6e; } .ds-btn-secondary:focus-visible { outline: 2px solid #1d5fae; outline-offset: 2px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "White field, strong-rule outline, drafting-blue focus.",
+      "html": "<label class=\"ds-field\">Quantity<input class=\"ds-input\" value=\"36\"></label>",
+      "css": ".ds-field { display: block; color: #2c4a6e; font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-weight: 600; font-size: 15px; letter-spacing: 0.04em; text-transform: uppercase; } .ds-input { display: block; width: 100%; margin-top: 6px; padding: 12px; font-family: 'Barlow', sans-serif; font-size: 16px; color: #0f2747; background: #ffffff; border: 1px solid #8ea4bf; border-radius: 3px; text-transform: none; letter-spacing: 0; } .ds-input:focus { border-color: #1d5fae; outline: 2px solid #dde9f7; outline-offset: 0; }"
+    },
+    {
+      "name": "Title Block",
+      "kind": "nav",
+      "refersTo": "title-block",
+      "description": "Signature header: sheet name and labelled data cells divided by white rules.",
+      "html": "<header class=\"ds-tb\"><div class=\"ds-tb-name\">FLOOR BOARD</div><div class=\"ds-tb-cell\"><span class=\"ds-tb-label\">Target</span><span class=\"ds-tb-value\">36</span></div><div class=\"ds-tb-cell\"><span class=\"ds-tb-label\">Packed</span><span class=\"ds-tb-value\">30 <small>1 of 1 batch</small></span></div><div class=\"ds-tb-actions\"><button class=\"ds-tb-btn\">Summary</button></div></header>",
+      "css": ".ds-tb { display: flex; flex-wrap: wrap; align-items: stretch; color: #f4f8fc; background-color: #173f6e; background-image: linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px); background-size: 16px 16px; border-bottom: 3px solid #0f2f55; } .ds-tb-name { display: flex; align-items: center; padding: 10px 22px 10px 20px; border-right: 1px solid rgba(255,255,255,0.22); font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-size: 26px; font-weight: 600; letter-spacing: 0.05em; } .ds-tb-cell { display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 8px 18px; border-right: 1px solid rgba(255,255,255,0.22); } .ds-tb-label { font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #bdd0e6; } .ds-tb-value { font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-size: 22px; font-weight: 600; letter-spacing: 0.02em; line-height: 1.15; font-variant-numeric: tabular-nums; } .ds-tb-value small { font-size: 15px; font-weight: 500; color: #bdd0e6; } .ds-tb-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 10px 16px; } .ds-tb-btn { font-family: 'Barlow', sans-serif; font-size: 15px; font-weight: 600; padding: 10px 16px; min-height: 40px; border-radius: 3px; background: transparent; color: #f4f8fc; border: 1px solid rgba(255,255,255,0.38); cursor: pointer; } .ds-tb-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.6); } .ds-tb-btn:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "State as a word in condensed capitals inside a 1px rule of its colour.",
+      "html": "<span class=\"ds-tag\">Waiting</span> <span class=\"ds-tag ds-tag-hit\">Hit target · 30</span> <span class=\"ds-tag ds-tag-short\">Did 30 of 36</span> <span class=\"ds-tag ds-tag-amber\">Reported</span>",
+      "css": ".ds-tag { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 3px; border: 1px solid #8ea4bf; color: #4f6785; font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-size: 14px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; } .ds-tag-hit { color: #1b7643; border-color: #1b7643; background: #dcefe2; } .ds-tag-short { color: #b9381a; border-color: #b9381a; background: #f8e0d8; } .ds-tag-amber { color: #93570a; border-color: #93570a; background: #f6e7c9; }"
+    },
+    {
+      "name": "Sheet with Figure Strip",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "Near-white sheet; figures ruled by 1px gaps over the rule colour.",
+      "html": "<section class=\"ds-sheet\"><h2 class=\"ds-sheet-h\">Day summary</h2><div class=\"ds-figures\"><div class=\"ds-fig\"><div class=\"ds-fig-l\">Day target</div><div class=\"ds-fig-v\">36</div></div><div class=\"ds-fig\"><div class=\"ds-fig-l\">Packed</div><div class=\"ds-fig-v\">30</div></div></div></section>",
+      "css": ".ds-sheet { background: #f9fbfd; border: 1px solid #8ea4bf; border-radius: 3px; padding: 16px; color: #0f2747; } .ds-sheet-h { margin: 0 0 12px; padding-bottom: 9px; border-bottom: 1px solid #c5d2e1; font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-size: 19px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; } .ds-figures { display: flex; gap: 1px; background: #c5d2e1; border: 1px solid #8ea4bf; border-radius: 3px; overflow: hidden; } .ds-fig { flex: 1 1 150px; padding: 12px 16px; background: #f9fbfd; } .ds-fig-l { font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-size: 14px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: #4f6785; } .ds-fig-v { font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Batch Status Note",
+      "kind": "custom",
+      "refersTo": "status-note",
+      "description": "The kanban sticky note on the floor board; bordered by confirmed exception.",
+      "html": "<div class=\"ds-note ds-note-short\" tabindex=\"0\"><b>Portland · Gen4</b><span class=\"ds-note-sub\">Blue · 36 planned</span><span class=\"ds-note-status\">Did 30 of 36</span></div>",
+      "css": ".ds-note { display: block; width: 180px; padding: 10px 12px; border-radius: 3px; background: #ffffff; color: #0f2747; border: 1px solid #8ea4bf; font-family: 'Barlow', sans-serif; font-size: 14px; line-height: 1.35; cursor: pointer; transition: box-shadow 0.12s ease; } .ds-note b { display: block; font-size: 15px; font-weight: 600; } .ds-note-sub { display: block; font-size: 13px; color: #4f6785; margin-top: 2px; } .ds-note-sub::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border-radius: 1px; background: #2a4bd7; box-shadow: inset 0 0 0 1px rgba(15,39,71,0.3); } .ds-note-status { display: inline-flex; margin-top: 8px; padding: 2px 8px; border: 1px solid #8ea4bf; border-radius: 3px; font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-weight: 600; font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase; color: #4f6785; } .ds-note-short { border-color: #b9381a; } .ds-note-short .ds-note-status { color: #b9381a; border-color: #b9381a; background: #f8e0d8; } .ds-note:hover { box-shadow: 0 0 0 3px #dde9f7; } .ds-note:focus-visible { outline: 2px solid #1d5fae; outline-offset: 2px; }"
+    },
+    {
+      "name": "Pinned Note",
+      "kind": "custom",
+      "refersTo": "pinned-note",
+      "description": "Markup-yellow note pinned to a bench or to everyone.",
+      "html": "<div class=\"ds-pinned\"><div class=\"ds-pinned-text\">Pallet split: 18 + 18</div><div class=\"ds-pinned-meta\"><span>Management · 07:10</span><button class=\"ds-link\">Remove</button></div></div>",
+      "css": ".ds-pinned { padding: 10px 12px; border-radius: 3px; background: #fbf2cf; border: 1px solid #d4ad45; color: #4a3405; font-family: 'Barlow', sans-serif; font-size: 14px; line-height: 1.4; } .ds-pinned-text { font-weight: 600; white-space: pre-line; } .ds-pinned-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12px; color: #6b4d0b; } .ds-link { background: none; border: none; padding: 0; color: inherit; text-decoration: underline; text-underline-offset: 2px; font-weight: 600; font-size: 12px; cursor: pointer; } .ds-link:hover { color: #0f2747; }"
+    },
+    {
+      "name": "Crew Chip",
+      "kind": "chip",
+      "refersTo": "crew-chip",
+      "description": "Draggable person chip; bordered as a drag handle by confirmed exception.",
+      "html": "<span class=\"ds-chip\">Ethan</span> <span class=\"ds-chip ds-chip-selected\">Jashan</span> <span class=\"ds-badge\">EM</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; padding: 10px 14px; border-radius: 3px; background: #f9fbfd; border: 1px solid #8ea4bf; color: #0f2747; font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 15px; cursor: grab; user-select: none; } .ds-chip:hover { border-color: #2c4a6e; } .ds-chip:focus-visible { outline: 2px solid #1d5fae; outline-offset: 2px; } .ds-chip-selected { background: #1d5fae; color: #ffffff; border-color: #1d5fae; } .ds-badge { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 3px; color: #a86400; background: color-mix(in srgb, #a86400 9%, #ffffff); border: 1px solid #a86400; font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-weight: 700; font-size: 14px; letter-spacing: 0.04em; }"
+    },
+    {
+      "name": "Request Row",
+      "kind": "custom",
+      "refersTo": "request-row",
+      "description": "Help, stock or faulty request with drawn icon, status word and action.",
+      "html": "<div class=\"ds-req-list\"><div class=\"ds-req\"><span class=\"ds-req-icon\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3 2 20h20L12 3z\"/><path d=\"M12 10v4\"/><path d=\"M12 17h.01\"/></svg></span><span class=\"ds-req-body\"><b>No power on test · DCU-1042</b><span>Testing · 06:37 pm</span></span><span class=\"ds-req-status\">Reported</span><button class=\"ds-req-go\">Checking</button></div></div>",
+      "css": ".ds-req-list { border: 1px solid #8ea4bf; border-radius: 3px; background: #ffffff; overflow: hidden; } .ds-req { display: grid; grid-template-columns: 40px 1fr auto auto; align-items: center; gap: 12px; padding: 10px 12px; color: #0f2747; font-family: 'Barlow', sans-serif; } .ds-req + .ds-req { border-top: 1px solid #c5d2e1; } .ds-req-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 3px; border: 1px solid currentColor; color: #b9381a; background: #f8e0d8; } .ds-req-body b { display: block; font-size: 16px; font-weight: 600; } .ds-req-body span { font-size: 13px; color: #4f6785; font-weight: 500; } .ds-req-status { padding: 3px 9px; border-radius: 3px; border: 1px solid currentColor; font-family: var(--font-label, 'Barlow Condensed', sans-serif); font-size: 14px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #93570a; background: #f6e7c9; } .ds-req-go { font-family: 'Barlow', sans-serif; font-size: 15px; font-weight: 600; padding: 10px 16px; min-height: 40px; border-radius: 3px; border: 1px solid #0f2f55; background: #173f6e; color: #f4f8fc; cursor: pointer; } .ds-req-go:hover { background: #1f4f88; } .ds-req-go:focus-visible { outline: 2px solid #1d5fae; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Day's Drawing Set",
+    "overview": "Every screen is an engineering drawing sheet for today's production. Pale drafting paper with a two-weight blue grid sits behind everything; work lives on near-white sheets ruled in blue-grey; a cyanotype title block runs across the top of every page carrying the sheet name and the live plan figures in labelled cells. The ink is deep Prussian blue, and the only loud colour is a redline orange-red for faults and shortfalls.\n\nThe system is dense and precise at the desk (Management, Summary, History) and glanceable at arm's length on bench iPads under bright factory light. It is professional and plain: standard web controls, condensed capitals for labels and figures, tabular numerals everywhere. It deliberately refuses the dark-slate, rounded-card, neon-accent dashboard look, and it never gamifies: no cartoon characters, stars, playful names or toy colours.\n\nThe screen speaks only in titles, labels and numbers. There is no instructional or helper text; the drawing itself explains the work.",
+    "keyCharacteristics": [
+      "Blueprint grid paper ground (16px minor, 80px major), fixed behind the page.",
+      "Cyanotype title block header with labelled data cells divided by thin white rules.",
+      "Near-white sheets with 1px blue-grey rules and 3px corners; flat, no resting shadows.",
+      "Sections divided by ruled lines, not by separate floating cards.",
+      "Barlow for text, Barlow Condensed capitals for labels and figures, tabular numerals.",
+      "Status always carried by words plus a coloured rule, never by colour alone."
+    ],
+    "rules": [
+      {
+        "name": "The State-Only Colour Rule",
+        "body": "Red, amber and green mark state and nothing else. They never decorate a heading, a section or a button at rest.",
+        "section": "colors"
+      },
+      {
+        "name": "The Words-First Status Rule",
+        "body": "Every status is a word in condensed capitals inside a 1px rule of its colour (Waiting, Hit target, Did 30 of 36, Sent, Responding, Reported). Colour reinforces; it never carries meaning alone. The connection light sits next to the word \"Live\" or \"Offline\"; crew badges carry initials.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lettering Rule",
+        "body": "Labels, headers, tags and figures are condensed capitals; names, batch text and button labels are plain Barlow in sentence case. Never set a running sentence in capitals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Numbers are always tabular so targets, counts and times align in columns and title-block cells.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Sheet Rule",
+        "body": "Nothing on the paper casts a shadow at rest. If it is part of the drawing, it is outlined; only transient things float.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep the blueprint grid on the page ground (16px minor, 80px major). The user asked for it; the detector rule codex-grid-background is ignored on purpose in `.impeccable/config.json`.",
+      "**Do** open every page with the cyanotype title block, its labelled cells carrying real plan data.",
+      "**Do** divide regions inside a sheet with 1px rules or 1px gaps over the rule colour, not with nested cards.",
+      "**Do** set every status as a word in condensed capitals inside a 1px rule of its state colour.",
+      "**Do** use 3px corners and 1px borders everywhere; keep buttons at least 40px tall and fields at 16px type.",
+      "**Do** draw icons as inline SVG in the text colour.",
+      "**Do** keep numerals tabular."
+    ],
+    "donts": [
+      "**Don't** add instructional or helper text: titles, labels and numbers only.",
+      "**Don't** show status by colour alone; pair every colour with a word, initials or a code.",
+      "**Don't** put shadows on resting sheets, notes, chips or rows; only dialogs, popovers and drag ghosts float.",
+      "**Don't** add bordered cards inside sheets. The only confirmed exceptions are batch status notes on the floor board and draggable crew chips.",
+      "**Don't** use red, amber or green for decoration; they mark state only.",
+      "**Don't** gamify: no cartoon characters, stars, playful names or toy colours.",
+      "**Don't** drift toward the dark-slate, rounded-card, neon-accent dashboard look."
+    ]
+  }
+}

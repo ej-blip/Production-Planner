@@ -3433,8 +3433,8 @@
     function crewPips(key) {
       return WORKFLOW_PHASES.map(phase => {
         const assignment = lastWorkflowModel?.phases?.[phase]?.get(key);
-        const colours = { assembly: "#f59e0b", testing: "#3b82f6", hardware: "#a855f7", packing: "#22c55e", finalPackaging: "#64748b", custom: "#94a3b8" };
-        const colour = assignment ? colours[crewStationKind(benchZoneOf(assignment))] || "#94a3b8" : "#1e293b";
+        const colours = { assembly: "var(--k-assembly)", testing: "var(--k-testing)", hardware: "var(--k-hardware)", packing: "var(--k-packing)", finalPackaging: "var(--k-cage)", custom: "var(--k-cage)" };
+        const colour = assignment ? colours[crewStationKind(benchZoneOf(assignment))] || "var(--k-cage)" : "var(--btn)";
         return `<i style="background:${colour}" title="${escapeHtml(phaseLabel(phase))}: ${escapeHtml(assignment ? workflowAssignmentTitle(assignment) : "Free")}"></i>`;
       }).join("");
     }

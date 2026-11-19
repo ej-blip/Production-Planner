@@ -13,3 +13,4 @@ ui-debug.log
 
 # Node
 node_modules/
+.impeccable/review/
