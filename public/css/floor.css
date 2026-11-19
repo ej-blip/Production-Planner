@@ -18,6 +18,7 @@
   font-family: var(--font);
 }
 .sticky b { display: block; font-size: 15px; font-weight: 600; }
+.nw { white-space: nowrap; }
 .sticky-sub { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
 /* Configuration colour as a small swatch before the configuration name */
 .sticky-sub::before {

@@ -213,7 +213,7 @@ export function statusNoteHtml({ bench, batch, progress, presets, clickable = fa
     <div class="sticky status-${item.status} ${clickable ? "clickable" : ""}" style="--note:${escapeHtml(noteColour(batch, presets))}"
       data-bench="${escapeHtml(bench)}" data-batch="${escapeHtml(batch.key)}" ${clickable ? 'role="button" tabindex="0"' : ""}>
       <b>${escapeHtml(batchTitle(batch))}</b>
-      <span class="sticky-sub">${escapeHtml(preset?.label || batch.configKey || "")} · ${escapeHtml(expectedText(progress, bench, batch))}</span>
+      <span class="sticky-sub"><span class="nw">${escapeHtml(preset?.label || batch.configKey || "")}</span> · ${expected < batch.planned ? `<span class="nw">${Number(expected)} coming</span> <span class="nw">(of ${Number(batch.planned)})</span>` : `<span class="nw">${Number(batch.planned)} planned</span>`}</span>
       <span class="sticky-status">${escapeHtml(statusText(bench, item, expected))}</span>
     </div>`;
 }
