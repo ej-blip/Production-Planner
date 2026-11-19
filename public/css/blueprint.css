@@ -1,0 +1,365 @@
+/* Production Planner: the blueprint look, shared by every page.
+   Drafting-paper ground with a blue grid, near-white sheets, Prussian-blue
+   ink and a cyanotype title block across the top. Pages keep their own
+   layout rules and use these tokens for every colour. */
+@import url("https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Barlow+Condensed:wght@500;600;700&display=swap");
+
+:root {
+  /* Paper and sheets */
+  --paper: #e8eff6;
+  --grid-minor: rgba(23, 63, 110, 0.055);
+  --grid-major: rgba(23, 63, 110, 0.12);
+  --sheet: #f9fbfd;
+  --inset: #eef3f9;
+  --raised: #ffffff;
+  --btn: #e3eaf3;
+  --btn-hover: #d4dfeb;
+  --rule: #c5d2e1;
+  --rule-strong: #8ea4bf;
+
+  /* Ink */
+  --ink: #0f2747;
+  --ink-2: #2c4a6e;
+  --muted: #4f6785;
+
+  /* Cyanotype shell */
+  --print: #173f6e;
+  --print-2: #1f4f88;
+  --print-deep: #0f2f55;
+  --print-ink: #f4f8fc;
+  --print-muted: #bdd0e6;
+  --print-rule: rgba(255, 255, 255, 0.22);
+
+  /* Action and state */
+  --accent: #1d5fae;
+  --accent-soft: #dde9f7;
+  --on-accent: #ffffff;
+  --ok: #1b7643;
+  --ok-soft: #dcefe2;
+  --amber: #93570a;
+  --amber-soft: #f6e7c9;
+  --red: #b9381a;
+  --red-soft: #f8e0d8;
+  --violet: #5f48a6;
+  --violet-soft: #e7e2f5;
+  --note: #fbf2cf;
+  --note-rule: #d4ad45;
+  --note-ink: #4a3405;
+
+  /* Benches and networks */
+  --k-cage: #4f6785;
+  --k-assembly: #a86400;
+  --k-testing: #1d5fae;
+  --k-hardware: #5f48a6;
+  --k-packing: #1b7643;
+  --verizon: #b8262c;
+  --global: #1d5fae;
+
+  /* Type */
+  --font: "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-label: "Barlow Condensed", "Barlow", "Arial Narrow", sans-serif;
+  --radius: 3px;
+  --shadow: 0 1px 0 rgba(15, 39, 71, 0.05), 0 10px 24px -18px rgba(15, 39, 71, 0.45);
+
+  /* Older names still used by page styles */
+  --page: var(--paper);
+  --page-2: var(--inset);
+  --card: var(--sheet);
+  --card-2: var(--inset);
+  --panel: var(--sheet);
+  --panel-2: var(--inset);
+  --text: var(--ink);
+  --border: var(--rule-strong);
+  --line: var(--rule);
+  --good: var(--ok);
+  --bad: var(--red);
+  --warn: var(--amber);
+
+  color-scheme: light;
+  accent-color: var(--accent);
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--paper);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--ink);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  background-position: -1px -1px;
+  background-attachment: fixed;
+  font-variant-numeric: tabular-nums;
+  caret-color: var(--accent);
+}
+
+::selection { background: var(--accent-soft); color: var(--ink); }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+a { color: var(--accent); text-underline-offset: 3px; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Scrollbars */
+* { scrollbar-color: var(--rule-strong) transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--rule-strong); border: 2px solid var(--paper); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Controls ------------------------------------------------------------- */
+button,
+.button,
+a.button {
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 10px 16px;
+  min-height: 40px;
+  border-radius: var(--radius);
+  border: 1px solid var(--print-deep);
+  background: var(--print);
+  color: var(--print-ink);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+button:hover,
+a.button:hover { background: var(--print-2); }
+button.secondary,
+.button.secondary,
+a.button.secondary {
+  background: var(--raised);
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+button.secondary:hover,
+a.button.secondary:hover { background: var(--inset); border-color: var(--ink-2); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+a.button { display: inline-flex; align-items: center; justify-content: center; }
+
+input, select, textarea {
+  font-family: var(--font);
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent-soft); outline-offset: 0; }
+input::placeholder, textarea::placeholder { color: #6d829c; }
+
+/* Title block: the header on every page --------------------------------- */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0;
+  color: var(--print-ink);
+  background-color: var(--print);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 16px 16px;
+  border-bottom: 3px solid var(--print-deep);
+}
+.top > div:first-child {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 22px 10px 20px;
+  border-right: 1px solid var(--print-rule);
+}
+.top h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--print-ink);
+}
+.top .sub {
+  margin-top: 2px;
+  color: var(--print-muted);
+  font-weight: 500;
+  font-size: 14px;
+}
+.top-actions,
+.top .actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+}
+.top button,
+.top .btn,
+.top a.button {
+  background: transparent;
+  color: var(--print-ink);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+}
+.top button:hover,
+.top .btn:hover,
+.top a.button:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.6); }
+.top button.primary,
+.top .btn.primary { background: var(--print-ink); color: var(--print); border-color: var(--print-ink); }
+.top button.primary:hover,
+.top .btn.primary:hover { background: #ffffff; }
+.top input[type="date"],
+.top select {
+  min-height: 40px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--print-ink);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  font-weight: 600;
+  font-size: 15px;
+  color-scheme: dark;
+}
+.top input[type="date"]:focus,
+.top select:focus { outline: 2px solid rgba(255, 255, 255, 0.5); }
+.top select option { color: var(--ink); background: var(--raised); }
+.top :focus-visible { outline-color: #ffffff; }
+
+/* Live connection tag */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  background: transparent;
+  color: var(--print-ink);
+  font-family: var(--font-label);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.live::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #5fd08e;
+  box-shadow: 0 0 0 3px rgba(95, 208, 142, 0.25);
+}
+.live.offline { border-color: #f2a48f; color: #ffd9cf; }
+.live.offline::before { background: #f2876b; box-shadow: 0 0 0 3px rgba(242, 135, 107, 0.25); }
+
+/* Sheets ----------------------------------------------------------------- */
+.card,
+section.card {
+  background: var(--sheet);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.card > h2,
+.card-head h2,
+section.card > h2 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.card > h2,
+section.card > h2 {
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Tables */
+table { border-collapse: collapse; }
+th {
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+td { font-variant-numeric: tabular-nums; }
+
+/* Labelled figures */
+.stat {
+  background: var(--raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+}
+.stat .label {
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stat .value {
+  font-family: var(--font-label);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Status tags: text plus a coloured rule, never colour alone */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  border: 1px solid currentColor;
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Dialogs and toasts */
+.dialog-backdrop,
+.floor-dialog-backdrop { background: rgba(15, 39, 71, 0.42) !important; }
+
+.hidden { display: none !important; }
+
+@media print {
+  body { background: #ffffff; }
+  .top { position: static; }
+}
+
+/* Crew board badges (Management Benches step and bench screens) ---------- */
+.crew-avatar.kind-assembly, .crew-icon.kind-assembly { --k: var(--k-assembly); }
+.crew-avatar.kind-testing, .crew-icon.kind-testing { --k: var(--k-testing); }
+.crew-avatar.kind-hardware, .crew-icon.kind-hardware { --k: var(--k-hardware); }
+.crew-avatar.kind-packing, .crew-icon.kind-packing { --k: var(--k-packing); }
+.crew-avatar.kind-subAssembly, .crew-icon.kind-subAssembly { --k: var(--k-assembly); }
+.verizon .crew-icon { --k: var(--verizon); }
+.global .crew-icon { --k: var(--global); }

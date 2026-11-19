@@ -105,18 +105,27 @@ function showPinScreen({ title, intro, pinLabel, allowed, wrongRoleMessage, note
     overlay.innerHTML = `
       <style>
         #plannerPinOverlay { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
-          padding: 24px; background: rgba(2, 6, 23, 0.95); font-family: Arial, Helvetica, sans-serif; color: #f8fafc; }
-        #plannerPinOverlay .pin-box { width: min(440px, 100%); background: #111827; border: 1px solid #334155; border-radius: 16px; padding: 22px; }
-        #plannerPinOverlay h2 { margin: 0 0 6px; font-size: 22px; }
-        #plannerPinOverlay p { margin: 0 0 14px; color: #94a3b8; line-height: 1.45; }
-        #plannerPinOverlay .pin-note { color: #fde68a; }
-        #plannerPinOverlay label { display: block; margin-bottom: 6px; color: #cbd5e1; font-weight: 700; font-size: 14px; }
-        #plannerPinOverlay input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #334155; background: #020617;
-          color: #f8fafc; font-size: 18px; margin-bottom: 12px; }
-        #plannerPinOverlay button { width: 100%; padding: 12px; border: none; border-radius: 10px; background: #38bdf8; color: #00111f;
-          font-weight: 800; font-size: 16px; cursor: pointer; }
+          padding: 24px; color: #0f2747; font-family: "Barlow", "Segoe UI", system-ui, sans-serif;
+          background-color: #173f6e;
+          background-image: linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
+            linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+          background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px; }
+        #plannerPinOverlay .pin-box { width: min(420px, 100%); background: #f9fbfd; border: 1px solid #0f2f55; border-top: 6px solid #0f2f55;
+          border-radius: 3px; padding: 22px 22px 18px; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6); }
+        #plannerPinOverlay h2 { margin: 0 0 6px; font-family: "Barlow Condensed", "Barlow", sans-serif; font-weight: 600; font-size: 26px;
+          letter-spacing: 0.05em; text-transform: uppercase; }
+        #plannerPinOverlay p { margin: 0 0 14px; color: #4f6785; line-height: 1.45; }
+        #plannerPinOverlay .pin-note { color: #93570a; font-weight: 600; }
+        #plannerPinOverlay label { display: block; margin-bottom: 6px; color: #2c4a6e; font-family: "Barlow Condensed", "Barlow", sans-serif;
+          font-weight: 600; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; }
+        #plannerPinOverlay input { width: 100%; padding: 12px; border-radius: 3px; border: 1px solid #8ea4bf; background: #ffffff;
+          color: #0f2747; font-size: 20px; letter-spacing: 0.2em; margin-bottom: 12px; font-family: inherit; }
+        #plannerPinOverlay input:focus { outline: 2px solid #dde9f7; border-color: #1d5fae; }
+        #plannerPinOverlay button { width: 100%; min-height: 46px; padding: 12px; border: 1px solid #0f2f55; border-radius: 3px; background: #173f6e;
+          color: #f4f8fc; font-family: inherit; font-weight: 600; font-size: 17px; cursor: pointer; }
+        #plannerPinOverlay button:hover { background: #1f4f88; }
         #plannerPinOverlay button:disabled { opacity: 0.6; cursor: wait; }
-        #plannerPinOverlay .pin-message { min-height: 22px; margin: 12px 0 0; font-weight: 700; color: #f87171; }
+        #plannerPinOverlay .pin-message { min-height: 22px; margin: 12px 0 0; font-weight: 600; color: #b9381a; }
       </style>
       <form class="pin-box">
         <h2></h2>

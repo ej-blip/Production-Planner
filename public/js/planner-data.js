@@ -182,7 +182,7 @@ function watchRosters(dates, callback) {
 }
 
 // ---------------------------------------------------------------------
-// Requests from the benches (help, Maged's Mart, faulty)
+// Requests from the benches (help, stock, faulty)
 // ---------------------------------------------------------------------
 async function advanceRequest(date, request, to) {
   await moveRequest(date, request, to, ACTOR);

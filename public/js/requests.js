@@ -1,8 +1,8 @@
 // Production Planner — requests from the benches.
 //
-//   help    Need help        Waiting → On the way → Sorted
-//   stock   Maged's Mart     Waiting → Sent       → Received
-//   faulty  Report faulty    Reported → Checking  → Fixed
+//   help    Need help        Waiting  → Responding → Resolved
+//   stock   Stock request    Waiting  → Sent       → Received
+//   faulty  Report faulty    Reported → Checking   → Fixed
 //
 // Stored per day in plans/{date}/requests/{id} with status open → accepted
 // → done. Shared by the bench screens, the cage screen and the floor board.
@@ -14,7 +14,7 @@ import { escapeHtml, shrinkPhoto } from "./floor.js";
 
 const ICON = {
   help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>',
-  stock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v7h14v-7"/><path d="M10 20v-4h4v4"/></svg>',
+  stock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/><path d="m7.5 5.5 9 5"/></svg>',
   faulty: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
 };
 
@@ -22,11 +22,11 @@ export const REQUEST_KINDS = {
   help: {
     label: "Need help",
     icon: ICON.help,
-    status: { open: "Waiting", accepted: "On the way", done: "Sorted" },
-    next: { open: "On my way", accepted: "Sorted" }
+    status: { open: "Waiting", accepted: "Responding", done: "Resolved" },
+    next: { open: "Respond", accepted: "Resolved" }
   },
   stock: {
-    label: "Maged's Mart",
+    label: "Stock request",
     icon: ICON.stock,
     status: { open: "Waiting", accepted: "Sent", done: "Received" },
     next: { open: "Send", accepted: "Received" }
@@ -150,14 +150,14 @@ export function askHelp() {
 export function askStock() {
   return new Promise(resolve => {
     const backdrop = dialog(`
-      <h3><span class="req-dialog-icon stock">${ICON.stock}</span>Maged's Mart</h3>
+      <h3><span class="req-dialog-icon stock">${ICON.stock}</span>Stock request</h3>
       ${chipsHtml(["Boxes", "Labels", "Sensors", "Cables", "Screws", "SIM cards"])}
       <label>Item<input type="text" maxlength="200" placeholder="Labels" data-item /></label>
       <label>How many<input type="number" inputmode="numeric" min="1" step="1" placeholder="20" data-qty /></label>
       <p class="floor-error" role="alert"></p>
       <div class="floor-dialog-actions">
         <button type="button" class="secondary" data-cancel>Cancel</button>
-        <button type="button" data-save>Order</button>
+        <button type="button" data-save>Request</button>
       </div>`);
     const item = backdrop.querySelector("[data-item]");
     const qty = backdrop.querySelector("[data-qty]");

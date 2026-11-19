@@ -5,81 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Day summary · Production Planner</title>
   <link rel="icon" type="image/png" href="icons/planner.png" />
+  <link rel="stylesheet" href="css/blueprint.css" />
   <link rel="stylesheet" href="css/floor.css" />
   <style>
-    :root {
-      --page: #020617;
-      --card: #111827;
-      --border: #334155;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --accent: #38bdf8;
-      --good: #22c55e;
-      --warn: #fbbf24;
-      --bad: #f87171;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--page); color: var(--text); }
-    button { font: inherit; cursor: pointer; }
+    
     .hidden { display: none !important; }
-
-    .top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: rgba(2, 6, 23, 0.95); border-bottom: 1px solid var(--border); }
-    h1 { margin: 0; font-size: 24px; }
-    .sub { color: var(--muted); font-weight: 700; margin-top: 2px; }
-    .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .btn { padding: 9px 14px; border-radius: 10px; border: none; background: #334155; color: #f8fafc; font-weight: 800; }
-    .btn.primary { background: var(--accent); color: #00111f; }
-    input[type="date"] { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: #020617; color: var(--text); font-size: 15px; font-weight: 700; }
 
     main { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; }
     .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
-    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; }
-    .stat .label { color: var(--muted); font-size: 13px; font-weight: 700; }
-    .stat .value { font-size: 32px; font-weight: 900; line-height: 1.15; }
-    .stat .value small { font-size: 15px; color: var(--muted); font-weight: 700; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
+    .stat .label { color: var(--muted); font-size: 13px; font-weight: 600; }
+    .stat .value { font-size: 32px; font-weight: 700; line-height: 1.15; }
+    .stat .value small { font-size: 15px; color: var(--muted); font-weight: 600; }
     .stat .value.down { color: var(--warn); }
 
-    section.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 18px; }
+    section.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 18px; }
     section.card h2 { margin: 0 0 12px; font-size: 19px; }
     .table-scroll { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
     th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-    td.num { font-weight: 900; font-size: 16px; white-space: nowrap; }
-    .st { font-weight: 800; white-space: nowrap; }
+    td.num { font-weight: 700; font-size: 16px; white-space: nowrap; }
+    .st { font-weight: 600; white-space: nowrap; }
     .st.hit { color: var(--good); }
     .st.short { color: var(--warn); }
     .st.in_progress { color: var(--accent); }
-    .st.waiting { color: var(--muted); font-weight: 700; }
+    .st.waiting { color: var(--muted); font-weight: 600; }
 
     .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-    .col h3 { margin: 0 0 8px; font-size: 15px; color: #cbd5e1; }
+    .col h3 { margin: 0 0 8px; font-size: 15px; color: var(--ink-2); }
     .list { list-style: none; margin: 0; padding: 0; }
     .list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.4; }
-    .list .time { color: var(--muted); font-weight: 800; margin-right: 8px; white-space: nowrap; }
-    .list .meta { color: var(--muted); font-size: 12px; font-weight: 700; }
-    .list .tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #1e293b; font-size: 12px; font-weight: 800; }
+    .list .time { color: var(--muted); font-weight: 600; margin-right: 8px; white-space: nowrap; }
+    .list .meta { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .list .tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: var(--radius); background: var(--sheet); font-size: 12px; font-weight: 600; }
     .list .tag.open { color: var(--warn); }
-    .list .tag.accepted { color: #93c5fd; }
-    .list .tag.done { color: #86efac; }
-    .list img { display: block; max-width: 160px; max-height: 110px; border-radius: 6px; margin-top: 6px; cursor: zoom-in; }
+    .list .tag.accepted { color: var(--accent); }
+    .list .tag.done { color: var(--ok); }
+    .list img { display: block; max-width: 160px; max-height: 110px; border-radius: var(--radius); margin-top: 6px; cursor: zoom-in; }
     .empty { color: var(--muted); font-size: 14px; }
-    .people b { color: #cbd5e1; }
+    .people b { color: var(--ink-2); }
     .people p { margin: 0 0 8px; line-height: 1.5; font-size: 14px; }
-    .notice { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 18px; font-weight: 700; }
-    .copied { color: var(--good); font-weight: 800; font-size: 13px; }
+    .notice { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 18px; font-weight: 600; }
+    .copied { color: var(--good); font-weight: 600; font-size: 13px; }
 
     @media print {
-      :root { --page: #fff; --card: #fff; --border: #cbd5e1; --text: #0f172a; --muted: #475569; --good: #15803d; }
-      body { background: #fff; }
-      .top { position: static; background: #fff; }
+      :root { --page: var(--rule-strong); --card: var(--rule-strong); --border: var(--rule-strong); --text: var(--rule); --muted: var(--rule-strong); --good: var(--ok); }
+      body { background: var(--raised); }
+      .top { position: static; background: var(--raised); }
       .actions { display: none; }
       section.card, .stat { break-inside: avoid; }
-      .st.hit { color: #15803d; } .st.short { color: #b45309; } .st.in_progress { color: #1d4ed8; }
-      .list .tag { background: #f1f5f9; }
-      .list .tag.open, .stat .value.down { color: #b45309; }
-      .list .tag.accepted { color: #1d4ed8; }
-      .list .tag.done { color: #15803d; }
+      .st.hit { color: var(--ok); } .st.short { color: var(--amber); } .st.in_progress { color: var(--accent); }
+      .list .tag { background: var(--raised); }
+      .list .tag.open, .stat .value.down { color: var(--amber); }
+      .list .tag.accepted { color: var(--accent); }
+      .list .tag.done { color: var(--ok); }
     }
   </style>
 </head>
@@ -305,7 +285,7 @@
     function renderRequests() {
       $("requests").innerHTML = ["help", "stock", "faulty"].map(kind => {
         const list = state.requests.filter(request => request.kind === kind);
-        const title = kind === "help" ? "Help calls" : kind === "stock" ? "Maged's Mart orders" : "Faulty units";
+        const title = kind === "help" ? "Help calls" : kind === "stock" ? "Stock requests" : "Faulty units";
         return `
           <div class="col">
             <h3>${title} (${list.length})</h3>
@@ -368,7 +348,7 @@
         list.forEach(request => lines.push(`- ${timeOf(request.createdAt)} ${requestTitle(request)} · ${BENCH_NAME[request.bench] || request.bench} · ${REQUEST_KINDS[kind].status[request.status]}`));
       };
       section("Help calls", "help");
-      section("Maged's Mart orders", "stock");
+      section("Stock requests", "stock");
       section("Faulty units", "faulty");
       const moves = state.events.filter(event => ["moved", "removed", "added", "target_changed"].includes(event.kind));
       if (moves.length) {

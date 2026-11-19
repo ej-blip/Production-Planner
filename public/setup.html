@@ -4,29 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Production Planner Setup</title>
+  <link rel="stylesheet" href="css/blueprint.css" />
   <style>
-    :root {
-      --page: #020617;
-      --page-2: #0f172a;
-      --card: rgba(17, 24, 39, 0.94);
-      --border: #334155;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --accent: #38bdf8;
-      --good: #22c55e;
-      --bad: #f87171;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: linear-gradient(135deg, var(--page), var(--page-2));
-      color: var(--text);
-      min-height: 100vh;
-      padding: 24px 16px;
-    }
 
     .container { max-width: 860px; margin: 0 auto; }
     h1 { margin: 0 0 6px; }
@@ -39,19 +18,19 @@
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 16px;
+      border-radius: var(--radius);
       padding: 18px;
       margin-bottom: 18px;
     }
 
-    label { display: block; color: #cbd5e1; font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+    label { display: block; color: var(--ink-2); font-size: 14px; font-weight: 600; margin-bottom: 6px; }
 
     input {
       width: 100%;
       padding: 11px 12px;
-      border-radius: 10px;
+      border-radius: var(--radius);
       border: 1px solid var(--border);
-      background: #020617;
+      background: var(--inset);
       color: var(--text);
       font-size: 16px;
     }
@@ -60,16 +39,16 @@
 
     button {
       padding: 11px 16px;
-      border-radius: 10px;
+      border-radius: var(--radius);
       border: none;
       background: var(--accent);
-      color: #00111f;
-      font-weight: 800;
+      color: var(--on-accent);
+      font-weight: 600;
       font-size: 15px;
       cursor: pointer;
     }
 
-    button.secondary { background: #334155; color: var(--text); }
+    button.secondary { background: var(--btn); color: var(--text); }
     button.small { padding: 6px 10px; font-size: 13px; }
     button:disabled { opacity: 0.6; cursor: wait; }
 
@@ -83,7 +62,7 @@
 
     .inline-form > div { flex: 1 1 240px; }
 
-    .message { min-height: 22px; margin: 10px 0 0; font-weight: 700; }
+    .message { min-height: 22px; margin: 10px 0 0; font-weight: 600; }
     .message.error { color: var(--bad); }
     .message.ok { color: var(--good); }
 
@@ -94,32 +73,32 @@
       gap: 12px;
       flex-wrap: wrap;
       margin-bottom: 18px;
-      color: #cbd5e1;
+      color: var(--ink-2);
     }
 
-    .stats { margin: 6px 0 14px; color: #cbd5e1; }
+    .stats { margin: 6px 0 14px; color: var(--ink-2); }
 
     .pin-row {
       display: flex;
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
-      color: #cbd5e1;
+      color: var(--ink-2);
     }
 
     .pin-value {
       font-family: Menlo, Consolas, monospace;
-      background: #020617;
+      background: var(--inset);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--radius);
       padding: 6px 10px;
       min-width: 120px;
     }
 
     code {
-      background: #020617;
+      background: var(--inset);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: var(--radius);
       padding: 2px 6px;
       font-size: 14px;
     }

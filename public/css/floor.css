@@ -1,54 +1,91 @@
-/* Production Planner — floor board sticky notes, pinned notes and dialogs.
-   Shared by board.html and bench.html (both dark pages). */
+/* Production Planner — batch status notes, pinned notes, dialogs and request
+   rows. Shared by board.html, bench.html, summary.html and the Management
+   screen. Colours come from css/blueprint.css. */
 
+/* Batch status note: one per batch per bench --------------------------- */
 .sticky {
-  --note: #64748b;
+  --note: var(--rule-strong);
+  position: relative;
   display: block;
-  border-radius: 6px;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--note) 38%, #f8fafc);
-  color: #0f172a;
-  border: 3px solid transparent;
+  padding: 10px 12px 10px 18px;
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
   line-height: 1.35;
   font-size: 14px;
   text-align: left;
+  font-family: var(--font);
 }
-.sticky b { display: block; font-size: 15px; }
-.sticky-sub { display: block; font-size: 13px; color: #334155; margin-top: 2px; }
-.sticky-status { display: block; margin-top: 6px; font-weight: 900; font-size: 15px; }
-.sticky.status-waiting { opacity: 0.55; }
-.sticky.status-in_progress { border-color: #2563eb; }
-.sticky.status-hit { border-color: #16a34a; }
-.sticky.status-hit .sticky-status { color: #14532d; }
-.sticky.status-short { border-color: #d97706; }
-.sticky.status-short .sticky-status { color: #7c2d12; }
-.sticky.clickable { cursor: pointer; }
-.sticky.clickable:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+/* Configuration colour as a swatch rail inside the note */
+.sticky::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  bottom: 8px;
+  width: 5px;
+  border-radius: 1px;
+  background: var(--note);
+}
+.sticky b { display: block; font-size: 15px; font-weight: 600; }
+.sticky-sub { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+.sticky-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sticky.status-waiting { background: var(--inset); }
+.sticky.status-in_progress { border-color: var(--accent); }
+.sticky.status-in_progress .sticky-status { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.sticky.status-hit { border-color: var(--ok); }
+.sticky.status-hit .sticky-status { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.sticky.status-short { border-color: var(--red); }
+.sticky.status-short .sticky-status { color: var(--red); border-color: var(--red); background: var(--red-soft); }
+.sticky.clickable { cursor: pointer; transition: background-color 0.12s ease, box-shadow 0.12s ease; }
+.sticky.clickable:hover { box-shadow: 0 0 0 3px var(--accent-soft); }
+.sticky.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Pinned note: a markup note on the sheet ------------------------------ */
 .pinned {
-  border-radius: 6px;
   padding: 10px 12px;
-  background: #fde68a;
-  color: #422006;
+  border-radius: var(--radius);
+  background: var(--note);
+  border: 1px solid var(--note-rule);
+  color: var(--note-ink);
   font-size: 14px;
   line-height: 1.4;
 }
-.pinned-text { white-space: pre-line; font-weight: 700; }
-.pinned-photo { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: 4px; margin-top: 6px; cursor: zoom-in; }
-.pinned-meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: #713f12; }
+.pinned-text { white-space: pre-line; font-weight: 600; }
+.pinned-photo { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: 2px; border: 1px solid var(--note-rule); margin-top: 6px; cursor: zoom-in; }
+.pinned-meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: #6b4d0b; }
 .pinned-actions { display: inline-flex; gap: 10px; }
 
 button.link {
+  min-height: 0;
   background: none;
   border: none;
   padding: 0;
   color: inherit;
   text-decoration: underline;
-  font-weight: 800;
+  text-underline-offset: 2px;
+  font-weight: 600;
   font-size: 12px;
   cursor: pointer;
 }
+button.link:hover { background: none; color: var(--ink); }
 
+/* Dialogs -------------------------------------------------------------- */
 .floor-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -57,21 +94,32 @@ button.link {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(2, 6, 23, 0.85);
+  background: rgba(15, 39, 71, 0.42);
 }
 .floor-dialog {
   width: min(480px, 100%);
   max-height: calc(100vh - 40px);
   overflow: auto;
-  background: #111827;
-  color: #f8fafc;
-  border: 1px solid #334155;
-  border-radius: 16px;
+  background: var(--sheet);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-top: 4px solid var(--print);
+  border-radius: var(--radius);
   padding: 20px;
+  box-shadow: 0 24px 48px -24px rgba(15, 39, 71, 0.55);
 }
-.floor-dialog h3 { margin: 0 0 6px; font-size: 20px; }
-.floor-dialog p { margin: 0 0 12px; color: #94a3b8; }
-.floor-dialog label { display: block; margin: 0 0 12px; color: #cbd5e1; font-weight: 700; font-size: 14px; }
+.floor-dialog h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
+.floor-dialog p { margin: 0 0 12px; color: var(--muted); }
+.floor-dialog label {
+  display: block;
+  margin: 0 0 12px;
+  color: var(--ink-2);
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .floor-dialog input,
 .floor-dialog select,
 .floor-dialog textarea {
@@ -79,57 +127,79 @@ button.link {
   width: 100%;
   margin-top: 6px;
   padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #334155;
-  background: #020617;
-  color: #f8fafc;
   font-size: 16px;
-  font-family: inherit;
+  font-family: var(--font);
+  letter-spacing: 0;
+  text-transform: none;
 }
 .floor-dialog .floor-choices { display: grid; gap: 10px; }
 .floor-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-.floor-error { color: #f87171 !important; font-weight: 700; min-height: 1px; }
-.floor-photo-preview img { display: block; max-width: 100%; max-height: 200px; border-radius: 8px; margin-bottom: 6px; }
-.floor-photo-preview { color: #94a3b8; margin-bottom: 8px; }
-.photo-full { display: block; max-width: 100%; max-height: 75vh; margin: 0 auto 12px; border-radius: 8px; }
+.floor-error { color: var(--red) !important; font-weight: 600; min-height: 1px; }
+.floor-photo-preview img { display: block; max-width: 100%; max-height: 200px; border-radius: 2px; margin-bottom: 6px; }
+.floor-photo-preview { color: var(--muted); margin-bottom: 8px; }
+.photo-full { display: block; max-width: 100%; max-height: 75vh; margin: 0 auto 12px; border-radius: 2px; }
 
-/* Requests: help, stock (Maged's Mart), faulty --------------------------- */
+/* Requests: help, stock, faulty ------------------------------------------ */
 .req-list { display: grid; gap: 8px; }
 .req {
   display: grid;
   grid-template-columns: 40px 1fr auto auto auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 12px;
-  border-radius: 14px;
-  border: 2px solid #334155;
-  background: #0b1220;
-  color: #f8fafc;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule-strong);
+  background: var(--raised);
+  color: var(--ink);
 }
-.req-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #1e293b; border: 2px solid #1e293b; }
-.req-icon svg { width: 24px; height: 24px; }
-.req-help .req-icon { background: #fbbf24; }
-.req-stock .req-icon { background: #2dd4bf; }
-.req-faulty .req-icon { background: #fb7185; }
+.req-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  border: 1px solid currentColor;
+  background: var(--sheet);
+}
+.req-icon svg { width: 22px; height: 22px; }
+.req-help .req-icon { color: var(--amber); background: var(--amber-soft); }
+.req-stock .req-icon { color: var(--accent); background: var(--accent-soft); }
+.req-faulty .req-icon { color: var(--red); background: var(--red-soft); }
 .req-body { min-width: 0; }
-.req-body b { display: block; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.req-body span { font-size: 13px; color: #94a3b8; font-weight: 700; }
-.req-photo { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; cursor: zoom-in; }
-.req-status { font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: #1e293b; color: #fde68a; white-space: nowrap; }
-.req.st-accepted .req-status { color: #93c5fd; }
-.req.st-done { opacity: 0.55; }
-.req.st-done .req-status { color: #86efac; }
-.req-go { padding: 10px 14px; border-radius: 10px; border: none; background: #38bdf8; color: #00111f; font-weight: 800; font-size: 15px; cursor: pointer; white-space: nowrap; }
-.req.st-open.req-help { border-color: #fbbf24; animation: reqPulse 1.6s ease-in-out infinite; }
-@keyframes reqPulse { 50% { box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.35); } }
+.req-body b { display: block; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.req-body span { font-size: 13px; color: var(--muted); font-weight: 500; }
+.req-photo { width: 44px; height: 44px; object-fit: cover; border-radius: 2px; border: 1px solid var(--rule); cursor: zoom-in; }
+.req-status {
+  padding: 3px 9px;
+  border-radius: var(--radius);
+  border: 1px solid currentColor;
+  font-family: var(--font-label);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+.req.st-accepted .req-status { color: var(--accent); background: var(--accent-soft); }
+.req.st-done { background: var(--inset); }
+.req.st-done .req-body b { color: var(--ink-2); }
+.req.st-done .req-status { color: var(--ok); background: var(--ok-soft); }
+.req-go { white-space: nowrap; }
+.req.st-open.req-help { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); animation: reqPulse 1.6s ease-in-out infinite; }
+@keyframes reqPulse { 50% { box-shadow: 0 0 0 1px var(--amber), 0 0 0 5px color-mix(in srgb, var(--amber) 22%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .req.st-open.req-help { animation: none; } }
 
 .req-dialog h3 { display: flex; align-items: center; gap: 10px; }
-.req-dialog-icon { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: #1e293b; border: 2px solid #1e293b; }
+.req-dialog-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: var(--radius); border: 1px solid currentColor; }
 .req-dialog-icon svg { width: 22px; height: 22px; }
-.req-dialog-icon.help { background: #fbbf24; } .req-dialog-icon.stock { background: #2dd4bf; } .req-dialog-icon.faulty { background: #fb7185; }
+.req-dialog-icon.help { color: var(--amber); background: var(--amber-soft); }
+.req-dialog-icon.stock { color: var(--accent); background: var(--accent-soft); }
+.req-dialog-icon.faulty { color: var(--red); background: var(--red-soft); }
 .quick-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
-.quick-chips button { padding: 9px 14px; border-radius: 999px; font-size: 15px; }
-.req-dialog > input { display: block; width: 100%; margin-bottom: 12px; padding: 12px; border-radius: 10px; border: 1px solid #334155; background: #020617; color: #f8fafc; font-size: 16px; }
+.quick-chips button { padding: 9px 14px; font-size: 15px; }
+.req-dialog > input { display: block; width: 100%; margin-bottom: 12px; padding: 12px; font-size: 16px; }
 
 @media (max-width: 700px) {
   .req { grid-template-columns: 36px 1fr auto; }

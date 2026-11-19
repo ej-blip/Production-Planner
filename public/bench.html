@@ -9,109 +9,19 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Bench" />
-  <meta name="theme-color" content="#020617" />
+  <meta name="theme-color" content="#173f6e" />
   <link rel="apple-touch-icon" href="icons/bench.png" />
   <link rel="icon" type="image/png" href="icons/bench.png" />
+  <link rel="stylesheet" href="css/blueprint.css" />
   <link rel="stylesheet" href="css/floor.css" />
-  <link rel="stylesheet" href="css/game.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
   <style>
-    :root {
-      --page: #020617;
-      --page-2: #0f172a;
-      --card: rgba(17, 24, 39, 0.94);
-      --border: #334155;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --accent: #38bdf8;
-      --good: #22c55e;
-      --warn: #fbbf24;
-      --bad: #f87171;
-      --verizon: #dc2626;
-      --global: #2563eb;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: linear-gradient(135deg, var(--page), var(--page-2));
-      color: var(--text);
-      min-height: 100vh;
-    }
-
-    .top {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      padding: 14px 20px;
-      background: rgba(2, 6, 23, 0.94);
-      border-bottom: 1px solid var(--border);
-    }
-
-    h1 { margin: 0; font-size: 26px; }
-    .sub { color: var(--muted); font-weight: 700; margin-top: 2px; }
-    .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-    button {
-      padding: 11px 16px;
-      border-radius: 10px;
-      border: none;
-      background: var(--accent);
-      color: #00111f;
-      font-weight: 800;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    button.secondary { background: #334155; color: var(--text); }
-    button:disabled { opacity: 0.55; cursor: not-allowed; }
-
-    input[type="date"] {
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #020617;
-      color: var(--text);
-      font-size: 16px;
-      font-weight: 700;
-    }
-
-    .live {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: #14532d;
-      color: #dcfce7;
-      font-weight: 800;
-      font-size: 13px;
-    }
-
-    .live::before {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--good);
-    }
-
-    .live.offline { background: #7f1d1d; color: #fee2e2; }
-    .live.offline::before { background: var(--bad); }
 
     main { max-width: 1400px; margin: 0 auto; padding: 18px 20px 40px; }
 
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 16px;
+      border-radius: var(--radius);
       padding: 18px;
       margin-bottom: 18px;
     }
@@ -127,17 +37,17 @@
     }
 
     .stat {
-      background: #020617;
+      background: var(--inset);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: var(--radius);
       padding: 14px 16px;
     }
 
-    .stat .label { color: var(--muted); font-weight: 700; font-size: 14px; }
-    .stat .value { font-size: 40px; font-weight: 900; margin-top: 4px; line-height: 1; }
+    .stat .label { color: var(--muted); font-weight: 600; font-size: 14px; }
+    .stat .value { font-size: 40px; font-weight: 700; margin-top: 4px; line-height: 1; }
     .stat .value.small-value { font-size: 22px; line-height: 1.3; }
     .stat .value.down { color: var(--warn); }
-    .stat .note { color: #cbd5e1; font-size: 13px; margin-top: 6px; font-weight: 700; }
+    .stat .note { color: var(--ink-2); font-size: 13px; margin-top: 6px; font-weight: 600; }
 
     .setup-grid {
       display: grid;
@@ -146,24 +56,24 @@
     }
 
     .setup {
-      border-radius: 14px;
+      border-radius: var(--radius);
       border: 2px solid var(--border);
-      background: #020617;
+      background: var(--inset);
       padding: 14px;
     }
 
     .setup.verizon { border-color: var(--verizon); }
     .setup.global { border-color: var(--global); }
     .setup h3 { margin: 0 0 4px; font-size: 21px; }
-    .setup .setup-sub { color: #cbd5e1; font-weight: 700; margin-bottom: 10px; }
+    .setup .setup-sub { color: var(--ink-2); font-weight: 600; margin-bottom: 10px; }
     .setup table { width: 100%; border-collapse: collapse; }
     .setup th, .setup td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); font-size: 15px; }
     .setup th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .setup .phases { margin-top: 10px; color: #cbd5e1; font-size: 14px; line-height: 1.6; }
+    .setup .phases { margin-top: 10px; color: var(--ink-2); font-size: 14px; line-height: 1.6; }
 
     .phase-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-    .phase-tabs button { background: #334155; color: var(--text); }
-    .phase-tabs button.active { background: var(--accent); color: #00111f; }
+    .phase-tabs button { background: var(--btn); color: var(--text); }
+    .phase-tabs button.active { background: var(--accent); color: var(--on-accent); }
 
     .hint { color: var(--muted); margin: -4px 0 14px; line-height: 1.45; }
 
@@ -175,9 +85,9 @@
 
     .zone {
       min-height: 160px;
-      border-radius: 14px;
-      border: 2px dashed #475569;
-      background: #020617;
+      border-radius: var(--radius);
+      border: 2px dashed var(--rule-strong);
+      background: var(--inset);
       padding: 12px;
       transition: border-color 0.12s, background 0.12s;
     }
@@ -186,8 +96,8 @@
     .zone.job.verizon { border-color: var(--verizon); }
     .zone.job.global { border-color: var(--global); }
     .zone h3 { margin: 0 0 4px; font-size: 18px; }
-    .zone .zone-detail { color: #cbd5e1; font-size: 13px; font-weight: 700; margin-bottom: 10px; min-height: 18px; }
-    .zone.drop-target { background: #0c4a6e; border-color: var(--accent); }
+    .zone .zone-detail { color: var(--ink-2); font-size: 13px; font-weight: 600; margin-bottom: 10px; min-height: 18px; }
+    .zone.drop-target { background: var(--accent-soft); border-color: var(--accent); }
     .zone.tap-ready { cursor: pointer; }
 
     .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -196,11 +106,11 @@
       display: inline-flex;
       align-items: center;
       padding: 12px 16px;
-      border-radius: 999px;
-      background: #1e293b;
-      border: 1px solid #475569;
+      border-radius: var(--radius);
+      background: var(--sheet);
+      border: 1px solid var(--rule-strong);
       color: var(--text);
-      font-weight: 800;
+      font-weight: 600;
       font-size: 16px;
       cursor: grab;
       user-select: none;
@@ -208,13 +118,13 @@
       touch-action: none;
     }
 
-    .chip.selected { background: var(--accent); color: #00111f; border-color: var(--accent); }
-    .chip.ghost { position: fixed; pointer-events: none; z-index: 1000; opacity: 0.92; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+    .chip.selected { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+    .chip.ghost { position: fixed; pointer-events: none; z-index: 1000; opacity: 0.92; box-shadow: 0 8px 24px rgba(15, 39, 71, 0.23); }
     .empty { color: var(--muted); font-size: 14px; }
 
     .events { list-style: none; margin: 0; padding: 0; }
     .events li { padding: 10px 0; border-bottom: 1px solid var(--border); line-height: 1.4; }
-    .events .time { color: var(--muted); font-weight: 800; margin-right: 8px; }
+    .events .time { color: var(--muted); font-weight: 600; margin-right: 8px; }
     .events .who { color: var(--muted); font-size: 13px; margin-left: 6px; }
 
     .dialog-backdrop {
@@ -225,14 +135,14 @@
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: rgba(2, 6, 23, 0.82);
+      background: var(--inset);
     }
 
     .dialog {
       width: min(460px, 100%);
-      background: #111827;
+      background: var(--sheet);
       border: 1px solid var(--border);
-      border-radius: 16px;
+      border-radius: var(--radius);
       padding: 20px;
     }
 
@@ -243,9 +153,9 @@
     .dialog input {
       width: 100%;
       padding: 12px;
-      border-radius: 10px;
+      border-radius: var(--radius);
       border: 1px solid var(--border);
-      background: #020617;
+      background: var(--inset);
       color: var(--text);
       font-size: 16px;
     }
@@ -258,21 +168,20 @@
       z-index: 1600;
       max-width: calc(100% - 32px);
       padding: 12px 18px;
-      border-radius: 12px;
-      background: #111827;
+      border-radius: var(--radius);
+      background: var(--sheet);
       border: 1px solid var(--good);
-      font-weight: 800;
+      font-weight: 600;
     }
 
-    .toast.error { border-color: var(--bad); color: #fecaca; }
-
+    .toast.error { border-color: var(--bad); color: var(--red); }
 
     /* Crew-style job board ------------------------------------------- */
     .crew-layout { display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.6fr); gap: 14px; align-items: start; }
-    .crew-panel { background: #020617; border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .crew-panel { background: var(--inset); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
     .crew-panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
-    .crew-panel-head h3 { margin: 0; font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em; color: #c7d2fe; }
-    .crew-panel-head span { color: var(--muted); font-size: 13px; font-weight: 700; }
+    .crew-panel-head h3 { margin: 0; font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+    .crew-panel-head span { color: var(--muted); font-size: 13px; font-weight: 600; }
     .zone.crew-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; min-height: 110px; padding: 4px; border: 2px dashed transparent; background: transparent; }
     .chip.crew-card {
       display: grid;
@@ -280,81 +189,73 @@
       gap: 4px 10px;
       align-items: center;
       padding: 10px 12px;
-      border-radius: 12px;
-      background: #0d1526;
-      border: 1px solid #263452;
+      border-radius: var(--radius);
+      background: var(--sheet);
+      border: 1px solid var(--rule);
       font-size: 14px;
       font-weight: 400;
     }
-    .chip.crew-card.selected { background: #0d1526; color: var(--text); border-color: #5eead4; box-shadow: inset 0 0 0 2px #5eead4; }
+    .chip.crew-card.selected { background: var(--sheet); color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
     .chip.crew-card.ghost { width: 240px; }
-    .crew-avatar { grid-row: span 2; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 16px; color: #0b1220; }
-    .kind-assembly.crew-avatar { background: #fcd34d; } .kind-testing.crew-avatar { background: #93c5fd; }
-    .kind-hardware.crew-avatar { background: #c4b5fd; } .kind-packing.crew-avatar { background: #86efac; } .kind-none.crew-avatar { background: #cbd5e1; }
+    .crew-avatar { grid-row: span 2; width: 46px; height: 46px; border-radius: var(--radius); display: grid; place-items: center; font-weight: 700; font-size: 16px; --k: var(--k-cage); color: var(--k); background: color-mix(in srgb, var(--k) 9%, var(--raised)); border: 1px solid var(--k); font-family: var(--font-label); letter-spacing: 0.04em; }
     .crew-who { min-width: 0; }
     .crew-who b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .crew-who span { font-size: 13px; color: var(--muted); font-weight: 700; }
+    .crew-who span { font-size: 13px; color: var(--muted); font-weight: 600; }
     .crew-skills { grid-column: 2; display: flex; gap: 4px; flex-wrap: wrap; }
-    .crew-skill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 900; background: #0a101d; border: 1px solid #263452; }
-    .crew-skill i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #334155; }
-    .crew-skill i.on { background: currentColor; }
+    .crew-skill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: var(--radius); font-size: 11px; font-weight: 700; background: var(--inset); border: 1px solid var(--rule); }
+    .crew-skill i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--raised); box-shadow: inset 0 0 0 1px var(--rule-strong); }
+    .crew-skill i.on { background: currentColor; box-shadow: none; }
     .crew-skill.none { opacity: 0.35; }
-    .crew-skill.k-assembly { color: #f59e0b; } .crew-skill.k-testing { color: #3b82f6; }
-    .crew-skill.k-hardware { color: #a855f7; } .crew-skill.k-packing { color: #22c55e; }
+    .crew-skill.k-assembly { color: var(--amber); } .crew-skill.k-testing { color: var(--accent); }
+    .crew-skill.k-hardware { color: var(--violet); } .crew-skill.k-packing { color: var(--ok); }
     .crew-pips { grid-column: 2; display: flex; gap: 3px; }
-    .crew-pips i { width: 24px; height: 6px; border-radius: 3px; background: #1e293b; }
+    .crew-pips i { width: 24px; height: 6px; border-radius: 2px; background: var(--btn); }
     .crew-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-    .zone.crew-station { min-height: 150px; border: 2px solid #263452; border-radius: 14px; background: #0d1526; padding: 12px; transition: border-color 0.12s, background 0.12s, opacity 0.12s; }
+    .zone.crew-station { min-height: 150px; border: 2px solid var(--rule); border-radius: var(--radius); background: var(--sheet); padding: 12px; transition: border-color 0.12s, background 0.12s, opacity 0.12s; }
     .crew-station-head { display: flex; align-items: center; gap: 8px; }
     .crew-station-head b { font-size: 17px; }
-    .crew-icon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 900; color: #0b1220; flex: none; }
-    .kind-assembly.crew-icon { background: #f59e0b; } .kind-testing.crew-icon { background: #3b82f6; } .kind-hardware.crew-icon { background: #a855f7; }
-    .kind-packing.crew-icon { background: #22c55e; } .kind-final.crew-icon { background: #64748b; }
-    .verizon .crew-icon { background: var(--verizon); color: #fff; } .global .crew-icon { background: var(--global); color: #fff; }
-    .crew-state { font-size: 13px; font-weight: 800; margin: 6px 0 10px; color: var(--muted); }
-    .crew-state.ok { color: #5eead4; }
+    .crew-icon { width: 32px; height: 32px; border-radius: var(--radius); display: grid; place-items: center; font-size: 12px; font-weight: 700; --k: var(--k-cage); color: var(--k); background: color-mix(in srgb, var(--k) 9%, var(--raised)); border: 1px solid var(--k); font-family: var(--font-label); letter-spacing: 0.04em; flex: none; }
+    .crew-state { font-size: 13px; font-weight: 600; margin: 6px 0 10px; color: var(--muted); }
+    .crew-state.ok { color: var(--accent); }
     .crew-state.short { color: var(--warn); }
-    .crew-detail-line { font-size: 12px; color: #cbd5e1; font-weight: 700; margin: -4px 0 8px; }
+    .crew-detail-line { font-size: 12px; color: var(--ink-2); font-weight: 600; margin: -4px 0 8px; }
     .crew-slots { display: flex; flex-direction: column; gap: 8px; }
     .crew-slots .chip.crew-card { grid-template-columns: 38px 1fr; padding: 8px 10px; }
     .crew-slots .crew-avatar { width: 38px; height: 38px; font-size: 13px; }
     .crew-slots .crew-skills, .crew-slots .crew-pips { display: none; }
-    .crew-drop { border: 1px dashed #334155; border-radius: 10px; padding: 10px; text-align: center; color: #475569; font-size: 13px; font-weight: 800; }
-    .crew-station .cant { display: none; margin-left: auto; font-size: 12px; font-weight: 900; color: var(--bad); }
-    .zone.crew-station.fit-3 { border-color: #5eead4; background: #0c2a2a; }
-    .zone.crew-station.fit-2 { border-color: #3b82f6; }
+    .crew-drop { border: 1px dashed var(--rule); border-radius: var(--radius); padding: 10px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; }
+    .crew-station .cant { display: none; margin-left: auto; font-size: 12px; font-weight: 700; color: var(--bad); }
+    .zone.crew-station.fit-3 { border-color: var(--accent); background: var(--sheet); }
+    .zone.crew-station.fit-2 { border-color: var(--accent); }
     .zone.crew-station.fit-0 { opacity: 0.35; }
     .zone.crew-station.fit-0 .cant { display: inline; }
-    .zone.crew-station.drop-target, .zone.crew-roster.drop-target { background: #10324a; border-color: #38bdf8; }
+    .zone.crew-station.drop-target, .zone.crew-roster.drop-target { background: var(--accent-soft); border-color: var(--accent); }
     .crew-detail { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
     .crew-detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .crew-detail-head b { font-size: 17px; }
     .crew-detail-skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
-    .crew-detail-skills div { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-radius: 8px; background: #0a101d; border: 1px solid #263452; font-size: 13px; font-weight: 800; }
-    .crew-dots i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #334155; margin-left: 3px; }
-    .crew-dots i.on { background: #5eead4; }
-    .crew-today { margin-top: 8px; font-size: 14px; color: #c7d2fe; line-height: 1.6; }
+    .crew-detail-skills div { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-radius: var(--radius); background: var(--inset); border: 1px solid var(--rule); font-size: 13px; font-weight: 600; }
+    .crew-dots i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--raised); box-shadow: inset 0 0 0 1px var(--rule-strong); margin-left: 3px; }
+    .crew-dots i.on { background: var(--accent); box-shadow: none; }
+    .crew-today { margin-top: 8px; font-size: 14px; color: var(--accent); line-height: 1.6; }
     @media (max-width: 900px) { .crew-layout { grid-template-columns: 1fr; } }
 
-
-    /* Bench room (game look) and request buttons ---------------------- */
-    .hero { margin-bottom: 18px; font-family: "Fredoka", Arial, sans-serif; color: #1e293b; }
-    .hero .room-scene { min-height: 250px; }
-    .hero .room-crew { min-height: 250px; gap: 4px 14px; }
-    .hero .ch { width: 86px; }
-    .hero .ch svg { width: 86px; height: 132px; }
-    .hero .ch-name { font-size: 15px; max-width: 110px; }
-    .hero-delivery { position: absolute; right: 14px; bottom: 6px; width: 120px; height: 40px; z-index: 2; overflow: visible; }
-    .action-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
+    /* Request buttons ------------------------------------------------- */
+    .action-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
     .action {
+      position: relative;
       display: flex; align-items: center; justify-content: center; gap: 12px;
-      padding: 18px 16px; border-radius: 20px; border: 3px solid #1e293b; color: #1e293b;
-      font-family: "Fredoka", Arial, sans-serif; font-size: 22px; font-weight: 700;
-      box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45); cursor: pointer;
+      min-height: 72px; padding: 16px; border-radius: var(--radius);
+      border: 1px solid var(--rule-strong);
+      background: var(--raised); color: var(--ink);
+      font-family: var(--font-label); font-size: 22px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      box-shadow: var(--shadow);
     }
-    .action:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45); }
-    .action svg { width: 32px; height: 32px; }
-    .action.help { background: #fbbf24; } .action.stock { background: #2dd4bf; } .action.faulty { background: #fb7185; }
+    .action:hover { background: var(--inset); }
+    .action:active { background: var(--btn); }
+    .action svg { width: 30px; height: 30px; flex: none; }
+    .action.help svg { color: var(--amber); } .action.stock svg { color: var(--accent); } .action.faulty svg { color: var(--red); }
+    .action-count { min-width: 28px; padding: 2px 8px; border-radius: var(--radius); background: var(--ink); color: var(--raised); font-size: 17px; letter-spacing: 0; }
 
     @media (max-width: 700px) {
       .top { padding: 12px 16px; }
@@ -364,18 +265,18 @@
     }
 
     /* Every bench ---------------------------------------------------- */
-    .zone.job.bench-assembly { border-color: #f59e0b; }
-    .zone.job.bench-hardware { border-color: #a855f7; }
-    .zone.job.bench-packing { border-color: #22c55e; }
+    .zone.job.bench-assembly { border-color: var(--amber); }
+    .zone.job.bench-hardware { border-color: var(--violet); }
+    .zone.job.bench-packing { border-color: var(--ok); }
 
     .batch-table { width: 100%; border-collapse: collapse; }
     .batch-table th, .batch-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); font-size: 16px; vertical-align: top; }
     .batch-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .batch-table td.units { font-size: 22px; font-weight: 900; white-space: nowrap; }
-    .batch-table td.units small { font-size: 13px; color: var(--muted); font-weight: 700; }
-    .batch-table .setup-text { white-space: pre-line; color: #e2e8f0; }
+    .batch-table td.units { font-size: 22px; font-weight: 700; white-space: nowrap; }
+    .batch-table td.units small { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .batch-table .setup-text { white-space: pre-line; color: var(--ink); }
     .table-scroll { overflow-x: auto; }
-    .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -2px; border: 1px solid rgba(255, 255, 255, 0.35); }
+    .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; margin-right: 6px; vertical-align: -2px; border: 1px solid var(--rule-strong); }
 
     .notes-card { border-color: var(--warn); }
     .notes-text { white-space: pre-line; font-size: 17px; line-height: 1.5; }
@@ -397,15 +298,15 @@
     .chooser-grid a {
       display: block;
       padding: 18px;
-      border-radius: 14px;
+      border-radius: var(--radius);
       border: 2px solid var(--border);
-      background: #020617;
+      background: var(--inset);
       color: var(--text);
       text-decoration: none;
-      font-weight: 900;
+      font-weight: 700;
       font-size: 20px;
     }
-    .chooser-grid a span { display: block; font-size: 13px; color: var(--muted); font-weight: 700; margin-top: 4px; }
+    .chooser-grid a span { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -437,7 +338,7 @@
     </section>
 
     <div id="planArea" class="hidden">
-      <section class="hero" id="hero"></section>
+      <section class="action-bar" id="actionBar" aria-label="Requests"></section>
 
       <section class="card hidden" id="requestsCard">
         <h2 id="requestsTitle">Requests</h2>
@@ -494,9 +395,7 @@
       floorBatches, batchTitle, progressOf, expectedUnits, statusText, statusNoteHtml, pinnedNoteHtml,
       watchFloor, setBatchStatus, askUnitsDone, askNote, addNote, editNote, removeNote, showPhoto
     } from "./js/floor.js";
-    import { characterSvg, decorSvg } from "./js/characters.js";
     import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
-    import { phaseOutput } from "./js/capacity.js";
 
     // Jobs on the bench screens. Who can do each one comes from their
     // skill dots in Worker Admin (js/skills.js).
@@ -955,7 +854,7 @@
         return;
       }
 
-      renderHero();
+      renderActions();
       renderRequests();
       renderSummary();
       renderBatchStatuses();
@@ -1037,61 +936,17 @@
     }
 
     // ------------------------------------------------------------------
-    // The bench's room (game look) with its request buttons
+    // Request buttons: help, stock and faulty (the cage has no stock button)
     // ------------------------------------------------------------------
-    const WORK_FOR = {
-      subAssembly: "subAssembly", assembly: "assembly", assemblyGen4: "assembly", assemblyTap: "assembly",
-      testing: "testing", testingVerizon: "testing", testingGlobal: "testing",
-      hardware: "hardware", packing: "packing", finalPackaging: "final"
-    };
-    const ROOM_ICON = { assembly: "AS", testing: "TE", hardware: "HW", packing: "PK", cage: "MM" };
     const BENCH_ACTIONS = { cage: ["help", "faulty"] };
 
-    function heroOutput(crew) {
-      if (state.plan.workMode === "mixed" || !(CAPACITY_STATIONS[benchKey] || benchKey === "testing")) return null;
-      const batch = activeBatches()[0];
-      if (!batch) return null;
-      const counts = {};
-      state.assignments.filter(item => item.phase === state.phase).forEach(item => { counts[item.station] = (counts[item.station] || 0) + 1; });
-      return phaseOutput(benchKey, counts, batch.unitType, batch.commsType);
-    }
-
-    function renderHero() {
-      const cage = benchKey === "cage";
-      const phaseName = (PHASES.find(([key]) => key === state.phase) || PHASES[0])[1];
-      const crew = cage
-        ? (state.staff.has("maged") ? [{ staffKey: "maged", station: null }] : [])
-        : benchPeople(state.phase);
-      const mine = state.requests.filter(request => request.bench === benchKey && request.status !== "done");
-      const help = mine.find(request => request.kind === "help");
-      const deliveries = mine.filter(request => request.kind === "stock" && request.status === "accepted").slice(0, 3);
-      const orders = cage ? state.requests.filter(request => request.kind === "stock" && request.status === "open").length : 0;
-      const output = cage ? null : heroOutput(crew);
-
-      const chars = crew.map((item, index) => {
-        const work = item.station ? WORK_FOR[item.station] || "final" : null;
-        return `
-          <div class="ch ${work ? `working w-${work}` : ""} ${help && index === 0 ? "hand-up" : ""}" style="--d:${(index % 7) * -0.37}s">
-            <div class="ch-inner">${characterSvg(item.staffKey, work)}</div>
-            <div class="ch-name">${escapeHtml(staffName(item.staffKey))}</div>
-          </div>`;
-      }).join("");
-      const bubble = help
-        ? `<div class="bubble ${help.status === "open" ? "urgent" : ""}">${help.status === "open" ? "Help called!" : "Help on the way"}</div>`
-        : "";
-      const boxes = deliveries.length
-        ? `<svg class="hero-delivery" viewBox="0 0 120 40">${deliveries.map((_, index) => `<g class="delivery" style="animation-delay:${index * 0.15}s"><rect x="${84 - index * 36}" y="6" width="32" height="28" rx="3" fill="#d6a46b" stroke="#1e293b" stroke-width="2.4"/><line x1="${100 - index * 36}" y1="6" x2="${100 - index * 36}" y2="34" stroke="#a16207" stroke-width="3"/></g>`).join("")}</svg>`
-        : "";
-      const badge = cage ? (orders ? `${orders} order${orders === 1 ? "" : "s"}` : "") : phaseName;
+    function renderActions() {
       const actions = BENCH_ACTIONS[benchKey] || ["help", "stock", "faulty"];
-
-      $("hero").innerHTML = `
-        <div class="room r-${cage ? "cage" : benchKey} ${crew.length ? "active" : ""}">
-          <div class="room-head"><span class="room-icon">${ROOM_ICON[benchKey] || ""}</span><b>${escapeHtml(cage ? "Maged's Mart" : bench.label)}</b><span class="room-badge">${escapeHtml(badge)}</span></div>
-          <div class="room-scene ${cage ? "cage-scene" : ""}">${decorSvg(cage ? "cage" : benchKey, crew.length)}${bubble}<div class="room-crew">${chars}</div>${boxes}</div>
-          <div class="room-foot"><span class="room-out">${output === null ? "&nbsp;" : `${output}<small>units</small>`}</span><span class="room-count">${crew.length}</span></div>
-        </div>
-        <div class="action-bar">${actions.map(kind => `<button type="button" class="action ${kind}" data-action="${kind}">${REQUEST_KINDS[kind].icon}${escapeHtml(REQUEST_KINDS[kind].label)}</button>`).join("")}</div>`;
+      const waiting = kind => state.requests.filter(request => request.bench === benchKey && request.kind === kind && request.status !== "done").length;
+      $("actionBar").innerHTML = actions.map(kind => {
+        const count = waiting(kind);
+        return `<button type="button" class="action ${kind}" data-action="${kind}">${REQUEST_KINDS[kind].icon}<span>${escapeHtml(REQUEST_KINDS[kind].label)}</span>${count ? `<b class="action-count" aria-label="${count} open">${count}</b>` : ""}</button>`;
+      }).join("");
     }
 
     // What this screen can do with a request.
@@ -1100,7 +955,7 @@
       if (benchKey === "cage" && request.kind === "stock" && request.status === "open") return { label: "Send", to: "accepted" };
       if (request.bench !== benchKey) return null;
       if (request.kind === "stock" && request.status === "accepted") return { label: "Received", to: "done" };
-      if (request.kind === "help") return { label: "Sorted", to: "done" };
+      if (request.kind === "help") return { label: "Resolved", to: "done" };
       return null;
     }
 
@@ -1108,7 +963,7 @@
       const cage = benchKey === "cage";
       const list = state.requests.filter(request => cage ? request.kind === "stock" || request.bench === "cage" : request.bench === benchKey);
       $("requestsCard").classList.toggle("hidden", !list.length);
-      $("requestsTitle").textContent = cage ? "Orders" : "Requests";
+      $("requestsTitle").textContent = cage ? "Stock requests" : "Requests";
       const ordered = [...list].sort((a, b) => Number(a.status === "done") - Number(b.status === "done"));
       $("requestList").innerHTML = ordered.map(request => requestCardHtml(request, requestActionFor)).join("");
     }
@@ -1123,7 +978,7 @@
         if (!kind) return;
         const was = before.get(request.id);
         if (benchKey === "cage" && request.kind === "stock" && was === undefined) {
-          toast(`New order: ${requestTitle(request)}`);
+          toast(`Stock request: ${requestTitle(request)}`);
         } else if (request.bench === benchKey && was && was !== request.status) {
           toast(`${requestTitle(request)}: ${kind.status[request.status]}`);
         }
@@ -1137,7 +992,7 @@
       try {
         await makeRequest(state.date, { ...fields, bench: benchKey }, ACTOR);
         await logEvent({ kind: "note", message: `${bench.label}: ${REQUEST_KINDS[kind].label} · ${requestTitle(fields)}` });
-        toast(kind === "help" ? "Help called" : kind === "stock" ? "Order sent to Maged's Mart" : "Fault reported");
+        toast(kind === "help" ? "Help requested" : kind === "stock" ? "Stock requested" : "Fault reported");
       } catch (error) {
         toast(`That wasn't sent: ${friendlyError(error)}`, true);
       }
