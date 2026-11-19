@@ -1444,6 +1444,7 @@
       <button class="tab-button" onclick="openWorkerAdmin()">Worker Admin</button>
       <a class="tab-button tab-link board-link" data-board-link href="board.html" target="_blank" rel="noopener">Floor board ↗</a>
       <a class="tab-button tab-link" data-crew-link href="crew.html" target="_blank" rel="noopener">Crew board (test) ↗</a>
+      <a class="tab-button tab-link" data-game-link href="game.html" target="_blank" rel="noopener">Shift Planner (test) ↗</a>
       <span class="bench-links" aria-label="Bench screens">
         <span class="work-mode-label">Bench screens</span>
         <a class="tab-button tab-link" data-bench="assembly" href="bench.html?bench=assembly" target="_blank" rel="noopener">Assembly ↗</a>
@@ -3096,6 +3097,9 @@
       });
       document.querySelectorAll("a[data-crew-link]").forEach(link => {
         link.href = `crew.html${date ? `?date=${date}` : ""}`;
+      });
+      document.querySelectorAll("a[data-game-link]").forEach(link => {
+        link.href = `game.html${date ? `?date=${date}` : ""}`;
       });
 
       renderReleaseSummary(statuses);
