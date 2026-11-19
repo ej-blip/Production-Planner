@@ -110,7 +110,7 @@ function showPinScreen({ title, intro, pinLabel, allowed, wrongRoleMessage, note
           background-image: linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
             linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
           background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px; }
-        #plannerPinOverlay .pin-box { width: min(420px, 100%); background: #f9fbfd; border: 1px solid #0f2f55; border-top: 6px solid #0f2f55;
+        #plannerPinOverlay .pin-box { width: min(420px, 100%); background: #f9fbfd; border: 1px solid #0f2f55;
           border-radius: 3px; padding: 22px 22px 18px; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6); }
         #plannerPinOverlay h2 { margin: 0 0 6px; font-family: "Barlow Condensed", "Barlow", sans-serif; font-weight: 600; font-size: 26px;
           letter-spacing: 0.05em; text-transform: uppercase; }
@@ -137,7 +137,7 @@ function showPinScreen({ title, intro, pinLabel, allowed, wrongRoleMessage, note
         <p class="pin-message" role="status"></p>
       </form>`;
     overlay.querySelector("h2").textContent = title;
-    overlay.querySelector(".pin-intro").textContent = intro;
+    overlay.querySelector(".pin-intro").remove();
     overlay.querySelector("label").textContent = pinLabel;
     const noteElement = overlay.querySelector(".pin-note");
     noteElement.textContent = note || "";

@@ -107,7 +107,6 @@
   <header class="top">
     <div>
       <h1>Setup</h1>
-      <div class="sub">Production Planner</div>
     </div>
   </header>
   <main class="container">
@@ -118,7 +117,7 @@
     </section>
 
     <section id="pinCard" class="card hidden">
-      <h2>Enter the management PIN</h2>
+      <h2>Management PIN</h2>
       <p id="pinNote" class="hidden"></p>
       <form id="pinForm" class="inline-form">
         <div>
@@ -289,11 +288,11 @@
             await loadPins();            // only works while the PIN is still valid
             isManagement = true;
           } else if (role === "bench" && !pinNote) {
-            pinNote = "This screen is unlocked for a bench. Enter the management PIN to use this page.";
+            pinNote = "Bench PIN in use";
           }
         } catch (error) {
           if (error?.code === "permission-denied") {
-            pinNote = pinNote || "The management PIN has changed. Enter the new one.";
+            pinNote = pinNote || "PIN changed";
           } else {
             pinNote = friendlyError(error);
           }

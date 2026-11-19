@@ -12,7 +12,6 @@
     .hidden { display: none !important; }
 
     main { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; }
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px; }
     .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
     .stat .label { color: var(--muted); font-size: 13px; font-weight: 600; }
     .stat .value { font-size: 30px; font-weight: 700; line-height: 1.15; }
@@ -59,8 +58,8 @@
   <header class="top">
     <div>
       <h1>History</h1>
-      <div class="sub" id="rangeLabel">Loading…</div>
     </div>
+    <div class="tb-cell"><span class="tb-label">Range</span><span class="tb-value" id="rangeLabel">Loading…</span></div>
     <div class="actions">
       <select id="rangeSelect" aria-label="Range">
         <option value="7">1 week</option>
@@ -75,7 +74,7 @@
 
   <div class="notice" id="notice">Loading…</div>
   <main id="history" class="hidden">
-    <div class="stats" id="stats"></div>
+    <div class="stats figures" id="stats"></div>
 
     <section class="card">
       <h2>Packed and target</h2>
@@ -389,7 +388,7 @@
     // Start
     // ------------------------------------------------------------------
     async function start() {
-      await ensureAccess({ title: "History", intro: "Enter the management PIN.", pinLabel: "Management PIN", allowed: ["management"], wrongRoleMessage: "This page needs the management PIN." });
+      await ensureAccess({ title: "History", pinLabel: "Management PIN", allowed: ["management"], wrongRoleMessage: "This page needs the management PIN." });
       try {
         const staff = await getDocs(collection(db, "staff"));
         state.staff = new Map(staff.docs.map(entry => [entry.id, entry.data()]));

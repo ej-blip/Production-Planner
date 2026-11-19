@@ -42,7 +42,7 @@
 
     .floor {
       display: grid;
-      grid-template-columns: repeat(5, minmax(170px, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 12px;
       overflow-x: auto;
       padding-bottom: 6px;
@@ -65,6 +65,12 @@
     .column-foot button { width: 100%; }
     .empty { color: var(--muted); font-size: 14px; }
 
+    @media (max-width: 900px) {
+      .column { padding: 8px; }
+      .magnet { font-size: 11px; padding: 2px 6px; }
+      .column .sticky { padding: 8px; font-size: 13px; }
+      .column .sticky b { font-size: 14px; }
+    }
     .toast {
       position: fixed;
       bottom: 20px;
@@ -91,14 +97,16 @@
   <header class="top">
     <div>
       <h1>Floor board</h1>
-      <div class="sub" id="dateLabel">Loading…</div>
     </div>
+    <div class="tb-cell"><span class="tb-label">Date</span><span class="tb-value" id="dateLabel">Loading…</span></div>
+    <div class="tb-cell"><span class="tb-label">Target</span><span class="tb-value" id="tbTarget">–</span></div>
+    <div class="tb-cell"><span class="tb-label">Packed</span><span class="tb-value" id="tbPacked">–</span></div>
+    <div class="tb-cell"><span class="tb-label">Connection</span><span id="liveBadge" class="live">Live</span></div>
     <div class="top-actions">
-      <button type="button" class="secondary" id="prevDay" aria-label="Previous day">◀</button>
+      <button type="button" class="secondary" id="prevDay" aria-label="Previous day"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
       <input type="date" id="dateInput" aria-label="Plan date" />
-      <button type="button" class="secondary" id="nextDay" aria-label="Next day">▶</button>
+      <button type="button" class="secondary" id="nextDay" aria-label="Next day"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
       <button type="button" class="secondary" id="todayButton">Today</button>
-      <span id="liveBadge" class="live">Live</span>
       <a class="button secondary" id="summaryLink" href="summary.html">Summary</a>
       <a class="button secondary hidden" id="planningLink" href="index.html#release">Planning</a>
       <button type="button" class="secondary" id="lockButton">Lock</button>
@@ -113,7 +121,6 @@
     </section>
 
     <div id="boardArea" class="hidden">
-      <section class="strip" id="strip"></section>
 
       <section class="everyone hidden" id="requestsSection">
         <div class="everyone-head"><h2>Requests</h2></div>
@@ -145,6 +152,7 @@
     import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./js/requests.js";
 
     const $ = id => document.getElementById(id);
+    const cellDate = value => { const [y, m, d] = String(value).split("-").map(Number); return new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(y, m - 1, d, 12)).replace(/,/g, ""); };
     const state = {
       role: null,
       date: "",
@@ -280,7 +288,7 @@
     // Rendering
     // ------------------------------------------------------------------
     function render() {
-      $("dateLabel").textContent = state.date ? longDate(state.date) : "";
+      $("dateLabel").textContent = state.date ? cellDate(state.date) : "";
       $("liveBadge").textContent = state.live ? "Live" : "Offline";
       $("liveBadge").classList.toggle("offline", !state.live);
 
@@ -330,13 +338,9 @@
           packingFinished++;
         }
       });
-      $("strip").innerHTML = `
-        <div class="stat"><div class="label">Day target</div>
-          <div class="value ${current < planned ? "down" : ""}">${current}</div>
-          <div class="note">${current < planned ? `Down from ${planned}` : ""}</div></div>
-        <div class="stat"><div class="label">Packed</div>
-          <div class="value">${packed}</div>
-          <div class="note">${packingFinished} of ${batches.length} batch${batches.length === 1 ? "" : "es"}</div></div>`;
+      $("tbTarget").innerHTML = current < planned ? `${current} <small>of ${planned}</small>` : String(current);
+      $("tbTarget").classList.toggle("down", current < planned);
+      $("tbPacked").innerHTML = `${packed} <small>${packingFinished} of ${batches.length} batch${batches.length === 1 ? "" : "es"}</small>`;
     }
 
     // Open requests from every bench, oldest first, each with its next step.
@@ -510,7 +514,6 @@
     async function start() {
       state.role = await ensureAccess({
         title: "Floor board",
-        intro: "Enter the management or bench PIN.",
         pinLabel: "PIN",
         allowed: ["management", "bench"],
         wrongRoleMessage: "That PIN isn't right."

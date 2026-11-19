@@ -417,7 +417,6 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 18px;
-      box-shadow: var(--shadow);
       margin-bottom: 18px;
     }
 
@@ -488,6 +487,10 @@
       background: var(--sheet);
       border-color: var(--amber);
     }
+
+    .crew-detail:empty { display: none; }
+
+    .card h2.section-title { font-size: 19px; letter-spacing: 0.06em; text-transform: uppercase; }
 
     .section-title {
       margin-bottom: 10px;
@@ -941,7 +944,7 @@
     .crew-slots .chip.crew-card { grid-template-columns: 32px 1fr; padding: 6px 8px; }
     .crew-slots .crew-avatar { width: 32px; height: 32px; font-size: 12px; }
     .crew-slots .crew-skills, .crew-slots .crew-pips { display: none; }
-    .crew-drop { border: 1px dashed var(--rule); border-radius: var(--radius); padding: 8px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
+    .crew-drop { min-height: 40px; border: 1px dashed var(--rule-strong); border-radius: var(--radius); padding: 8px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
     .crew-station .cant { display: none; margin-left: auto; font-size: 11px; font-weight: 700; color: var(--bad); }
     .bench-board .zone.crew-station.fit-3 { border-color: var(--accent); background: var(--sheet); opacity: 1; }
     .bench-board .zone.crew-station.fit-2 { border-color: var(--accent); opacity: 1; }
@@ -1405,15 +1408,17 @@
   <header class="top mgmt-top">
     <div>
       <h1>Production Planner</h1>
-      <div class="sub">Management</div>
     </div>
+    <div class="tb-cell"><span class="tb-label">Day</span><span class="tb-value" id="tbDate">–</span></div>
+    <div class="tb-cell"><span class="tb-label">Plan</span><span class="tb-value" id="tbPlan">–</span></div>
+    <div class="tb-cell"><span class="tb-label">Target</span><span class="tb-value" id="tbTarget">–</span></div>
     <nav class="top-actions" aria-label="Screens">
       <button type="button" class="alerts-button" id="alertsButton" aria-expanded="false" aria-controls="alertsPanel">Requests<span class="alerts-count" id="alertsCount" hidden>0</span></button>
-      <a class="button" data-board-link href="board.html" target="_blank" rel="noopener">Floor board ↗</a>
-      <a class="button" href="summary.html" target="_blank" rel="noopener">Day summary ↗</a>
-      <a class="button" href="history.html" target="_blank" rel="noopener">History ↗</a>
+      <a class="button" data-board-link href="board.html" target="_blank" rel="noopener">Floor board</a>
+      <a class="button" href="summary.html" target="_blank" rel="noopener">Day summary</a>
+      <a class="button" href="history.html" target="_blank" rel="noopener">History</a>
       <button type="button" onclick="openWorkerAdmin()">Workers</button>
-      <a class="button" href="setup.html" target="_blank" rel="noopener">Setup ↗</a>
+      <a class="button" href="setup.html" target="_blank" rel="noopener">Setup</a>
       <button type="button" onclick="lockPlannerScreen()">Lock</button>
     </nav>
   </header>
@@ -1421,11 +1426,11 @@
   <div class="container">
     <nav class="bench-strip" aria-label="Bench screens">
       <span class="work-mode-label">Bench screens</span>
-      <a class="button secondary" data-bench="assembly" href="bench.html?bench=assembly" target="_blank" rel="noopener">Assembly ↗</a>
-      <a class="button secondary" data-bench="testing" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing ↗</a>
-      <a class="button secondary" data-bench="hardware" href="bench.html?bench=hardware" target="_blank" rel="noopener">Hardware ↗</a>
-      <a class="button secondary" data-bench="packing" href="bench.html?bench=packing" target="_blank" rel="noopener">Packing ↗</a>
-      <a class="button secondary" data-bench="cage" href="bench.html?bench=cage" target="_blank" rel="noopener">Cage ↗</a>
+      <a class="button secondary" data-bench="assembly" href="bench.html?bench=assembly" target="_blank" rel="noopener">Assembly</a>
+      <a class="button secondary" data-bench="testing" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing</a>
+      <a class="button secondary" data-bench="hardware" href="bench.html?bench=hardware" target="_blank" rel="noopener">Hardware</a>
+      <a class="button secondary" data-bench="packing" href="bench.html?bench=packing" target="_blank" rel="noopener">Packing</a>
+      <a class="button secondary" data-bench="cage" href="bench.html?bench=cage" target="_blank" rel="noopener">Cage</a>
       <div id="activeUnitBadge" class="active-unit-badge">Active Unit: Gen4</div>
     </nav>
 
@@ -1434,7 +1439,7 @@
         <b>Today's requests</b>
         <span>
           <button type="button" class="secondary" id="alertsSound" aria-label="Sound"></button>
-          <button type="button" class="secondary" id="alertsClose" aria-label="Close">✕</button>
+          <button type="button" class="secondary" id="alertsClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </span>
       </div>
       <div class="req-list" id="alertsList"></div>
@@ -1584,9 +1589,9 @@
     <div class="card roster-card" data-step="who">
       <h2 class="section-title">Who's In</h2>
       <div class="week-strip">
-        <button type="button" class="secondary week-nav" onclick="shiftAttendanceWeek(-1)" aria-label="Previous week">◀</button>
+        <button type="button" class="secondary week-nav" onclick="shiftAttendanceWeek(-1)" aria-label="Previous week"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
         <div id="weekDays" class="week-days"></div>
-        <button type="button" class="secondary week-nav" onclick="shiftAttendanceWeek(1)" aria-label="Next week">▶</button>
+        <button type="button" class="secondary week-nav" onclick="shiftAttendanceWeek(1)" aria-label="Next week"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
       </div>
       <div class="attendance-head">
         <strong id="attendanceTitle"></strong>
@@ -1686,7 +1691,7 @@
       <div class="release-actions">
         <button type="button" class="secondary" data-plan-action="draft" onclick="savePlanDraft()">Save draft</button>
         <button type="button" data-plan-action="release" onclick="releaseCurrentPlan()">Release plan</button>
-        <a class="button secondary" data-board-link href="board.html" target="_blank" rel="noopener">Open floor board ↗</a>
+        <a class="button secondary" data-board-link href="board.html" target="_blank" rel="noopener">Open floor board</a>
       </div>
     </div>
 
@@ -2120,7 +2125,7 @@
           <td><input class="name-input" data-field="name" type="text" value="${safeAttr(worker.name)}" aria-label="Name" /></td>
           <td class="center"><input type="checkbox" data-field="inProduction" ${worker.inProduction ? "checked" : ""} aria-label="In production" /></td>
           ${window.PlannerSkills.SKILL_KEYS.map(skill => `<td class="center">${skillDotsHtml(skill, worker.skills[skill])}</td>`).join("")}
-          <td><button class="danger icon-button" onclick="removeAdminWorker('${safeJs(worker.key)}')" aria-label="Remove ${safeAttr(worker.name)}">✕</button></td>
+          <td><button class="danger icon-button" onclick="removeAdminWorker('${safeJs(worker.key)}')" aria-label="Remove ${safeAttr(worker.name)}"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></td>
         </tr>
       `).join("");
     }
@@ -3205,12 +3210,16 @@
       const back = document.getElementById("flowBack");
       const next = document.getElementById("flowNext");
       back.disabled = index <= 0;
-      back.textContent = index > 0 ? `← ${FLOW_STEP_NAMES[FLOW_STEPS[index - 1]]}` : "←";
+      back.innerHTML = index > 0 ? `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m11 18-6-6 6-6"/></svg> ${FLOW_STEP_NAMES[FLOW_STEPS[index - 1]]}` : '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m11 18-6-6 6-6"/></svg>';
       next.classList.toggle("hidden", index >= FLOW_STEPS.length - 1);
-      if (index < FLOW_STEPS.length - 1) next.textContent = `${FLOW_STEP_NAMES[FLOW_STEPS[index + 1]]} →`;
+      if (index < FLOW_STEPS.length - 1) next.innerHTML = `${FLOW_STEP_NAMES[FLOW_STEPS[index + 1]]} <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>`;
 
       const date = planDateValue();
       document.getElementById("dayBarLabel").textContent = date ? longDayLabel(date) : "";
+      const titleTarget = attendanceReady() ? currentPlanTarget() : null;
+      document.getElementById("tbDate").textContent = date ? longDayLabel(date) : "–";
+      document.getElementById("tbPlan").textContent = statuses.release.text;
+      document.getElementById("tbTarget").textContent = titleTarget === null ? "–" : String(titleTarget);
       document.querySelectorAll("a[data-bench]").forEach(link => {
         link.href = `bench.html?bench=${link.dataset.bench}${date ? `&date=${date}` : ""}`;
       });
@@ -3377,7 +3386,7 @@
         <div class="crew-layout">
           <section class="crew-panel">
             <div class="crew-panel-head"><h3>Crew</h3><span>${free.length} free</span></div>
-            <div class="zone crew-roster" data-zone="none">${free.map(person => crewCardHtml(person, selectedKey)).join("") || '<span class="empty">—</span>'}</div>
+            <div class="zone crew-roster" data-zone="none">${free.map(person => crewCardHtml(person, selectedKey)).join("")}</div>
             <div class="crew-detail">${crewDetailHtml(selectedKey)}</div>
           </section>
           <section class="crew-panel">
@@ -3471,14 +3480,14 @@
           ${state}
           <div class="crew-slots">
             ${inZone.map(person => crewCardHtml(person, selectedKey)).join("")}
-            <div class="crew-drop">Drop here</div>
+            <div class="crew-drop" aria-label="Empty slot"></div>
           </div>
         </div>`;
     }
 
     function crewDetailHtml(key) {
       const worker = key ? (lastWorkflowModel?.usableWorkers || []).find(item => item.key === key) : null;
-      if (!worker) return '<span class="empty">—</span>';
+      if (!worker) return "";
       const skills = window.PlannerSkills.SKILL_KEYS.map(skill => {
         const level = skillLevel(worker, skill);
         return `<div><span>${escapeHtml(window.PlannerSkills.SKILL_LABELS[skill])}</span><span class="crew-dots">${level ? [1, 2, 3].map(n => `<i class="${level >= n ? "on" : ""}"></i>`).join("") : "Can't"}</span></div>`;

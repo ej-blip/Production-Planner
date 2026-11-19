@@ -29,12 +29,6 @@
     .card h2 { margin: 0 0 12px; font-size: 20px; }
     .hidden { display: none !important; }
 
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
-    }
 
     .stat {
       background: var(--inset);
@@ -223,7 +217,7 @@
     .crew-slots .chip.crew-card { grid-template-columns: 38px 1fr; padding: 8px 10px; }
     .crew-slots .crew-avatar { width: 38px; height: 38px; font-size: 13px; }
     .crew-slots .crew-skills, .crew-slots .crew-pips { display: none; }
-    .crew-drop { border: 1px dashed var(--rule); border-radius: var(--radius); padding: 10px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; }
+    .crew-drop { min-height: 40px; border: 1px dashed var(--rule-strong); border-radius: var(--radius); padding: 10px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; }
     .crew-station .cant { display: none; margin-left: auto; font-size: 12px; font-weight: 700; color: var(--bad); }
     .zone.crew-station.fit-3 { border-color: var(--accent); background: var(--sheet); }
     .zone.crew-station.fit-2 { border-color: var(--accent); }
@@ -249,7 +243,6 @@
       border: 1px solid var(--rule-strong);
       background: var(--raised); color: var(--ink);
       font-family: var(--font-label); font-size: 22px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-      box-shadow: var(--shadow);
     }
     .action:hover { background: var(--inset); }
     .action:active { background: var(--btn); }
@@ -313,14 +306,15 @@
   <header class="top">
     <div>
       <h1 id="benchTitle">Bench</h1>
-      <div class="sub" id="dateLabel">Loading…</div>
     </div>
+    <div class="tb-cell"><span class="tb-label">Date</span><span class="tb-value" id="dateLabel">Loading…</span></div>
+    <div class="tb-cell"><span class="tb-label">Target</span><span class="tb-value" id="tbTarget">–</span></div>
+    <div class="tb-cell"><span class="tb-label">Connection</span><span id="liveBadge" class="live">Live</span></div>
     <div class="top-actions" id="topActions">
-      <button type="button" class="secondary" id="prevDay" aria-label="Previous day">◀</button>
+      <button type="button" class="secondary" id="prevDay" aria-label="Previous day"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
       <input type="date" id="dateInput" aria-label="Plan date" />
-      <button type="button" class="secondary" id="nextDay" aria-label="Next day">▶</button>
+      <button type="button" class="secondary" id="nextDay" aria-label="Next day"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
       <button type="button" class="secondary" id="todayButton">Today</button>
-      <span id="liveBadge" class="live">Live</span>
       <button type="button" class="secondary" id="lockButton">Lock</button>
     </div>
   </header>
@@ -345,7 +339,7 @@
         <div class="req-list" id="requestList"></div>
       </section>
 
-      <section class="summary" id="summary"></section>
+      <section class="summary figures" id="summary"></section>
 
       <section class="card" id="batchesCard">
         <h2 id="batchesTitle">Your batches</h2>
@@ -465,6 +459,7 @@
     const SICK_REASON = "Sick / gone home";
 
     const $ = id => document.getElementById(id);
+    const cellDate = value => { const [y, m, d] = String(value).split("-").map(Number); return new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(y, m - 1, d, 12)).replace(/,/g, ""); };
 
     const state = {
       date: "",
@@ -841,7 +836,7 @@
       renderPending = false;
 
       $("benchTitle").textContent = bench.label;
-      $("dateLabel").textContent = state.date ? longDate(state.date) : "";
+      $("dateLabel").textContent = state.date ? cellDate(state.date) : "";
       const badge = $("liveBadge");
       badge.textContent = state.live ? "Live" : "Offline";
       badge.classList.toggle("offline", !state.live);
@@ -850,6 +845,7 @@
       $("emptyState").classList.toggle("hidden", hasPlan);
       $("planArea").classList.toggle("hidden", !hasPlan);
       if (!hasPlan) {
+        $("tbTarget").textContent = "–";
         renderEmpty();
         return;
       }
@@ -896,12 +892,8 @@
         .filter(([, units]) => units > 0)
         .map(([unit, units]) => `${UNIT_LABELS[unit]} ${units}`);
 
-      const target = `
-        <div class="stat">
-          <div class="label">Day target</div>
-          <div class="value ${current < planned ? "down" : ""}">${current}</div>
-          <div class="note">${current < planned ? `Down from ${planned}` : ""}</div>
-        </div>`;
+      $("tbTarget").innerHTML = current < planned ? `${current} <small>of ${planned}</small>` : String(current);
+      $("tbTarget").classList.toggle("down", current < planned);
 
       let middle;
       if (benchKey === "testing") {
@@ -932,7 +924,7 @@
           </div>`
         : "";
 
-      $("summary").innerHTML = target + middle + last;
+      $("summary").innerHTML = middle + last;
     }
 
     // ------------------------------------------------------------------
@@ -1282,7 +1274,7 @@
           ${detail ? `<div class="crew-detail-line">${escapeHtml(detail)}</div>` : ""}
           <div class="crew-slots">
             ${people.map(key => crewCardHtml(key, job.station, selectedKey)).join("")}
-            <div class="crew-drop">Drop here</div>
+            <div class="crew-drop" aria-label="Empty slot"></div>
           </div>
         </div>`;
     }
@@ -1335,7 +1327,7 @@
         <div class="crew-layout">
           <section class="crew-panel">
             <div class="crew-panel-head"><h3>Not on ${escapeHtml(bench.label)}</h3><span>${free.length} free</span></div>
-            <div class="zone crew-roster" data-zone="off">${free.map(key => crewCardHtml(key, "off", selectedKey)).join("") || '<span class="empty">—</span>'}</div>
+            <div class="zone crew-roster" data-zone="off">${free.map(key => crewCardHtml(key, "off", selectedKey)).join("")}</div>
             ${detailHtml(selectedKey)}
           </section>
           <section class="crew-panel">
@@ -1555,7 +1547,7 @@
     function showChooser() {
       $("topActions").classList.add("hidden");
       $("benchTitle").textContent = "Bench screens";
-      $("dateLabel").textContent = "Production Planner";
+      $("dateLabel").textContent = "–";
       $("chooserLinks").innerHTML = Object.entries(BENCHES)
         .map(([key, item]) => `<a href="bench.html?bench=${key}">${escapeHtml(item.label)}</a>`)
         .join("");
@@ -1571,7 +1563,6 @@
 
       state.role = await ensureAccess({
         title: bench.label,
-        intro: "Enter the bench PIN.",
         pinLabel: "Bench PIN",
         allowed: ["bench", "management"],
         wrongRoleMessage: "That PIN isn't right."
