@@ -11,12 +11,18 @@
 //   saveAttendance(date, roster) → saves who's in for that day straight away
 //   watchRosters(dates, callback)→ live callback(date, roster | null) for each date;
 //                                  returns a stop function
+//   requests.watch(date, callback) → live list of help / stock / faulty requests
+//   requests.advance(date, request, status) → moves one on (and logs it)
+//   requests.cardHtml(request)   → a request card with its next-step button
+//   showPhoto(src)
 //   lockScreen()
 import {
-  collection, doc, getDoc, getDocs, setDoc, writeBatch, serverTimestamp,
+  collection, doc, getDoc, getDocs, setDoc, addDoc, writeBatch, serverTimestamp,
   onSnapshot, query, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, ensureAccess, lockScreen, friendlyError } from "./session.js";
+import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./requests.js";
+import { showPhoto } from "./floor.js";
 
 const ACTOR = "Management";
 
@@ -176,6 +182,31 @@ function watchRosters(dates, callback) {
 }
 
 // ---------------------------------------------------------------------
+// Requests from the benches (help, Maged's Mart, faulty)
+// ---------------------------------------------------------------------
+async function advanceRequest(date, request, to) {
+  await moveRequest(date, request, to, ACTOR);
+  await addDoc(collection(db, "plans", date, "events"), {
+    bench: "management",
+    kind: "note",
+    message: `${requestTitle(request)} · ${REQUEST_KINDS[request.kind].status[to]}`,
+    createdBy: ACTOR,
+    createdAt: serverTimestamp()
+  });
+}
+
+const requests = {
+  watch: watchRequests,
+  advance: advanceRequest,
+  title: requestTitle,
+  kinds: REQUEST_KINDS,
+  cardHtml: request => requestCardHtml(request, item => {
+    const label = REQUEST_KINDS[item.kind]?.next?.[item.status];
+    return label ? { label, to: nextStatus(item.status) } : null;
+  })
+};
+
+// ---------------------------------------------------------------------
 window.plannerData = {
   async start() {
     await ensureAccess({
@@ -194,6 +225,8 @@ window.plannerData = {
   watchPlan,
   saveAttendance,
   watchRosters,
+  requests,
+  showPhoto,
   lockScreen,
   friendlyError
 };

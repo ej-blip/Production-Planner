@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Planner" />
   <meta name="theme-color" content="#020617" />
   <link rel="apple-touch-icon" href="icons/planner.png" />
+  <link rel="stylesheet" href="css/floor.css" />
   <link rel="icon" type="image/png" href="icons/planner.png" />
   <!-- Phase 4: flexible three-phase workflow planner linked to capacity -->
 
@@ -915,6 +916,29 @@
 
     a.tab-link.board-link { background: #b45309; color: #fff7ed; }
     .release-actions a.tab-link { margin: 0; }
+    /* Request alerts ------------------------------------------------- */
+    .alerts-count {
+      display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; margin-left: 8px;
+      border-radius: 999px; background: #ef4444; color: #fff; font-size: 13px; font-weight: 900;
+    }
+    .alerts-count[hidden] { display: none; }
+    .alerts-button.has-open { animation: alertPulse 1.6s ease-out infinite; }
+    @keyframes alertPulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); } 70%, 100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); } }
+    .alerts-panel {
+      position: fixed; z-index: 60; top: 70px; right: 16px; width: min(500px, calc(100vw - 32px)); max-height: 72vh; overflow: auto;
+      background: #111827; border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+    }
+    .alerts-panel[hidden], .alert-toast[hidden] { display: none; }
+    .alerts-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 17px; }
+    .alerts-head button { margin: 0 0 0 6px; padding: 6px 10px; }
+    .alerts-head svg { width: 18px; height: 18px; vertical-align: -3px; }
+    .alert-toast {
+      position: fixed; z-index: 70; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 12px;
+      max-width: min(480px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 14px; background: #111827;
+      border: 2px solid #fbbf24; font-weight: 800; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    }
+    .alert-toast button { margin: 0; }
+
     .bench-links { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-right: 8px; }
     .bench-links .work-mode-label { margin-right: 2px; }
 
@@ -1442,6 +1466,7 @@
          ========================================================== -->
     <div class="tabs">
       <button class="tab-button" onclick="openWorkerAdmin()">Worker Admin</button>
+      <button type="button" class="tab-button alerts-button" id="alertsButton" aria-expanded="false" aria-controls="alertsPanel">Requests<span class="alerts-count" id="alertsCount" hidden>0</span></button>
       <a class="tab-button tab-link board-link" data-board-link href="board.html" target="_blank" rel="noopener">Floor board ↗</a>
       <a class="tab-button tab-link" data-crew-link href="crew.html" target="_blank" rel="noopener">Crew board (test) ↗</a>
       <a class="tab-button tab-link" data-game-link href="game.html" target="_blank" rel="noopener">Shift Planner (test) ↗</a>
@@ -1456,6 +1481,21 @@
       <a class="tab-button tab-link" href="setup.html" target="_blank" rel="noopener">Setup ↗</a>
       <button class="tab-button" onclick="lockPlannerScreen()">Lock screen</button>
       <div id="activeUnitBadge" class="active-unit-badge">Active Unit: Gen4</div>
+    </div>
+
+    <div class="alerts-panel" id="alertsPanel" hidden>
+      <div class="alerts-head">
+        <b>Today's requests</b>
+        <span>
+          <button type="button" class="secondary" id="alertsSound" aria-label="Sound"></button>
+          <button type="button" class="secondary" id="alertsClose" aria-label="Close">✕</button>
+        </span>
+      </div>
+      <div class="req-list" id="alertsList"></div>
+    </div>
+    <div class="alert-toast" id="alertToast" role="status" hidden>
+      <span id="alertToastText"></span>
+      <button type="button" id="alertToastView">View</button>
     </div>
 
     <!-- ==========================================================
@@ -1891,6 +1931,7 @@
       init();
       renderPlanStatus();
       if (data && currentPlanState.status !== "error") {
+        wireAlerts();
         await loadPlanForSelectedDate();
       } else {
         setAttendanceFor(planDateValue(), null);
@@ -2991,6 +3032,141 @@
       document.getElementById("planDate").value = value;
       syncDaySelectToPlanDate();
       loadPlanForSelectedDate();
+    }
+
+    /* ============================================================
+       REQUEST ALERTS
+       Help calls, Maged's Mart orders and faulty reports from today's
+       benches, live (whatever day is being planned). The Requests button
+       shows how many are waiting; a new one pops up with a chime, and
+       the browser tab shows the count.
+       ============================================================ */
+    const ALERT_BENCH = { cage: "Cage", assembly: "Assembly", testing: "Testing", hardware: "Hardware", packing: "Packing", management: "Management" };
+    let alertRequests = [];
+    let alertsLoaded = false;
+    let alertsDate = "";
+    let stopAlerts = null;
+    let alertAudio = null;
+    let alertToastTimer = null;
+    let alertsMuted = false;
+    try { alertsMuted = localStorage.getItem("plannerAlertsMuted") === "1"; } catch { /* sound on */ }
+
+    function watchAlerts() {
+      const requests = window.plannerData?.requests;
+      if (!requests) return;
+      const today = dateToInputValue(new Date());
+      if (today === alertsDate) return;
+      if (stopAlerts) stopAlerts();
+      alertsDate = today;
+      alertsLoaded = false;
+      alertRequests = [];
+      stopAlerts = requests.watch(today, list => {
+        if (alertsLoaded) announceNewRequests(list);
+        alertRequests = list;
+        alertsLoaded = true;
+        renderAlerts();
+      });
+    }
+
+    function announceNewRequests(list) {
+      const known = new Set(alertRequests.map(request => request.id));
+      const fresh = list.filter(request => !known.has(request.id) && request.status === "open");
+      if (!fresh.length) return;
+      const request = fresh[0];
+      const kinds = window.plannerData.requests.kinds;
+      showAlertToast(`${ALERT_BENCH[request.bench] || request.bench}: ${kinds[request.kind]?.label || "Request"} · ${window.plannerData.requests.title(request)}`);
+      playAlertChime(request.kind === "help" ? 3 : 2);
+    }
+
+    function renderAlerts() {
+      const open = alertRequests.filter(request => request.status === "open").length;
+      const active = alertRequests.filter(request => request.status !== "done").reverse();
+      const count = document.getElementById("alertsCount");
+      count.hidden = open === 0;
+      count.textContent = String(open);
+      document.getElementById("alertsButton").classList.toggle("has-open", open > 0);
+      document.title = open ? `(${open}) Production Planner` : "Production Planner";
+      document.getElementById("alertsList").innerHTML = active.length
+        ? active.map(request => window.plannerData.requests.cardHtml(request)).join("")
+        : '<p class="small">No open requests.</p>';
+      drawAlertSound();
+    }
+
+    function showAlertToast(text) {
+      const toast = document.getElementById("alertToast");
+      document.getElementById("alertToastText").textContent = text;
+      toast.hidden = false;
+      clearTimeout(alertToastTimer);
+      alertToastTimer = setTimeout(() => { toast.hidden = true; }, 9000);
+    }
+
+    function playAlertChime(beeps) {
+      if (alertsMuted) return;
+      try {
+        alertAudio = alertAudio || new (window.AudioContext || window.webkitAudioContext)();
+        if (alertAudio.state === "suspended") alertAudio.resume();
+        for (let i = 0; i < beeps; i++) {
+          const start = alertAudio.currentTime + i * 0.22;
+          const osc = alertAudio.createOscillator();
+          const gain = alertAudio.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(i % 2 ? 660 : 880, start);
+          gain.gain.setValueAtTime(0.09, start);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+          osc.connect(gain).connect(alertAudio.destination);
+          osc.start(start);
+          osc.stop(start + 0.2);
+        }
+      } catch { /* no sound available */ }
+    }
+
+    function drawAlertSound() {
+      document.getElementById("alertsSound").innerHTML = alertsMuted
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+    }
+
+    function setAlertsPanel(open) {
+      document.getElementById("alertsPanel").hidden = !open;
+      document.getElementById("alertsButton").setAttribute("aria-expanded", String(open));
+      if (open) document.getElementById("alertToast").hidden = true;
+    }
+
+    function wireAlerts() {
+      // Browsers only allow sound after the first tap or click on the page.
+      document.addEventListener("pointerdown", () => {
+        try {
+          alertAudio = alertAudio || new (window.AudioContext || window.webkitAudioContext)();
+          if (alertAudio.state === "suspended") alertAudio.resume();
+        } catch { /* no sound available */ }
+      }, { once: true });
+      document.getElementById("alertsButton").addEventListener("click", () => setAlertsPanel(document.getElementById("alertsPanel").hidden));
+      document.getElementById("alertsClose").addEventListener("click", () => setAlertsPanel(false));
+      document.getElementById("alertToastView").addEventListener("click", () => setAlertsPanel(true));
+      document.getElementById("alertsSound").addEventListener("click", () => {
+        alertsMuted = !alertsMuted;
+        try { localStorage.setItem("plannerAlertsMuted", alertsMuted ? "1" : "0"); } catch { /* fine */ }
+        drawAlertSound();
+        if (!alertsMuted) playAlertChime(1);
+      });
+      document.getElementById("alertsList").addEventListener("click", async event => {
+        const photo = event.target.closest("[data-photo]");
+        if (photo) return window.plannerData.showPhoto(photo.getAttribute("src"));
+        const move = event.target.closest("button[data-req-move]");
+        if (!move) return;
+        const request = alertRequests.find(item => item.id === move.dataset.reqMove);
+        if (!request) return;
+        move.disabled = true;
+        try {
+          await window.plannerData.requests.advance(alertsDate, request, move.dataset.reqTo);
+        } catch (error) {
+          move.disabled = false;
+          window.alert(`That wasn't saved: ${window.plannerData.friendlyError(error)}`);
+        }
+      });
+      drawAlertSound();
+      watchAlerts();
+      setInterval(watchAlerts, 60000);   // picks up the new day after midnight
     }
 
     /* ============================================================
