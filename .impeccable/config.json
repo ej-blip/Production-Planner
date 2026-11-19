@@ -10,6 +10,11 @@
         "value": "arial",
         "createdAt": "2026-11-14T12:12:32.672Z",
         "reason": "Claude: setup.html deliberately matches the existing calculator (public/index.html), which uses Arial, Helvetica throughout"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "menlo",
+        "createdAt": "2026-11-19T09:59:41.344Z"
       }
     ]
   }
