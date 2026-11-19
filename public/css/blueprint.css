@@ -352,6 +352,12 @@ td { font-variant-numeric: tabular-nums; }
 
 .hidden { display: none !important; }
 
+@media (max-width: 700px) {
+  .top > div:first-child { flex: 1 1 100%; border-right: none; border-bottom: 1px solid var(--print-rule); padding: 10px 16px; }
+  .top-actions, .top .actions { padding: 10px 16px; }
+  .top h1 { font-size: 23px; }
+}
+
 @media print {
   body { background: #ffffff; }
   .top { position: static; }
