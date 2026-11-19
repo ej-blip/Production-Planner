@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Shift Planner (test) · Production Planner</title>
   <link rel="icon" type="image/png" href="icons/planner.png" />
+  <link rel="stylesheet" href="css/game.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
   <style>
@@ -69,112 +70,6 @@
     /* Floor ---------------------------------------------------------- */
     main { padding: 18px; display: grid; grid-template-columns: minmax(250px, 0.8fr) minmax(0, 2.2fr); gap: 18px; align-items: start; }
     .stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 18px; }
-    .room {
-      position: relative; background: var(--paper); border: 3px solid var(--ink); border-radius: 22px;
-      box-shadow: 0 6px 0 rgba(30, 41, 59, 0.22); overflow: hidden;
-      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s, filter 0.15s;
-    }
-    .room-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; color: var(--ink); background: var(--k); border-bottom: 3px solid var(--ink); }
-    .room-head b { font-size: 18px; font-weight: 700; }
-    .room-icon { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.9); color: var(--ink); font-size: 12px; font-weight: 700; border: 2px solid var(--ink); }
-    .room-badge { margin-left: auto; font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.92); color: var(--ink); border: 2px solid var(--ink); }
-    .room-badge.good { background: #dcfce7; color: #14532d; }
-    .room-badge.warn { background: #fef3c7; color: #7c2d12; }
-    .room-badge:empty { display: none; }
-    .room-scene { position: relative; min-height: 170px; background: linear-gradient(#f8fafc 0 62%, #e2e8f0 62% 100%); }
-    .room-decor { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 86px; pointer-events: none; }
-    .room-crew { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-content: flex-end; justify-content: center; gap: 2px 8px; min-height: 170px; padding: 10px 8px 6px; }
-    .room-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 6px 12px; border-top: 3px solid var(--ink); background: #f8fafc; }
-    .room-out { font-size: 24px; font-weight: 700; }
-    .room-out small { font-size: 13px; color: var(--muted); font-weight: 600; margin-left: 3px; }
-    .room-count { font-size: 13px; color: var(--muted); font-weight: 600; }
-    .r-assembly { --k: var(--k-assembly); } .r-testing { --k: var(--k-testing); } .r-hardware { --k: var(--k-hardware); }
-    .r-packing { --k: var(--k-packing); } .r-final { --k: var(--k-final); } .r-break { --k: var(--k-break); }
-    .room.fit-3 { transform: translateY(-4px); box-shadow: 0 0 0 5px #fbbf24, 0 10px 0 rgba(30, 41, 59, 0.22); }
-    .room.fit-2 { box-shadow: 0 0 0 4px #93c5fd, 0 6px 0 rgba(30, 41, 59, 0.22); }
-    .room.fit-0 { opacity: 0.45; filter: grayscale(0.7); }
-    .room .cant { display: none; position: absolute; z-index: 3; top: 56px; left: 50%; transform: translateX(-50%) rotate(-8deg); padding: 4px 14px; border: 3px solid var(--bad); border-radius: 10px; color: var(--bad); background: rgba(255, 255, 255, 0.92); font-weight: 700; font-size: 20px; }
-    .room.fit-0 .cant { display: block; }
-    .room.drop-hover { transform: translateY(-6px) scale(1.02); }
-    .room.selecting { cursor: pointer; }
-    .break .room-scene { min-height: 260px; background: linear-gradient(#fdf2f8 0 70%, #fce7f3 70% 100%); }
-    .break .room-crew { min-height: 260px; }
-
-    /* Decor animations (only while the room has people) */
-    .spark { opacity: 0; }
-    .active .spark { animation: spark 0.55s infinite; }
-    .active .spark.b { animation-delay: 0.27s; }
-    @keyframes spark { 0%, 40% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1.2); } 80%, 100% { opacity: 0; } }
-    .spark { transform-box: fill-box; transform-origin: center; }
-    .screen { fill: #cbd5e1; }
-    .active .screen { animation: screen 1.2s infinite; }
-    .active .screen.b { animation-delay: 0.6s; }
-    @keyframes screen { 0%, 100% { fill: #4ade80; } 50% { fill: #bbf7d0; } }
-    .beam { opacity: 0; }
-    .active .beam { opacity: 0.55; animation: beam 1.6s ease-in-out infinite; }
-    @keyframes beam { 50% { opacity: 0.25; } }
-    .box-stack .box { opacity: 0; transition: opacity 0.3s; }
-    .box-stack .box.on { opacity: 1; }
-    .steam { opacity: 0.5; animation: steam 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom; }
-    @keyframes steam { 50% { transform: translateY(-4px) scaleY(1.2); opacity: 0.2; } }
-
-    /* Characters ----------------------------------------------------- */
-    .ch { position: relative; width: 58px; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; display: flex; flex-direction: column; align-items: center; }
-    .ch svg { width: 58px; height: 90px; overflow: visible; display: block; }
-    .ch-inner { animation: bob 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
-    @keyframes bob { 50% { transform: translateY(-3px); } }
-    .ch-name { margin-top: -2px; max-width: 64px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-weight: 600; background: rgba(255, 255, 255, 0.92); border: 2px solid var(--ink); border-radius: 999px; padding: 0 6px; white-space: nowrap; }
-    .ch.selected .ch-name { background: #fbbf24; }
-    .ch.selected::before { content: ""; position: absolute; left: 50%; bottom: 12px; width: 52px; height: 14px; transform: translateX(-50%); border-radius: 50%; background: rgba(251, 191, 36, 0.55); }
-    .ch.lifting { opacity: 0.25; }
-    .ch.landing .ch-inner { animation: land 0.4s ease-out; }
-    @keyframes land { 0% { transform: scale(1.1, 0.8) translateY(6px); } 55% { transform: scale(0.95, 1.08); } 100% { transform: none; } }
-    .ch.nope .ch-inner { animation: nope 0.45s ease; }
-    @keyframes nope { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
-
-    .ch svg .arm, .ch svg .leg, .ch svg .head { transform-box: view-box; }
-    .ch svg .arm-l { transform-origin: 11.5px 46px; }
-    .ch svg .arm-r { transform-origin: 52.5px 46px; }
-    .ch svg .leg-l { transform-origin: 26px 66px; }
-    .ch svg .leg-r { transform-origin: 38px 66px; }
-    .ch svg .head { transform-origin: 32px 40px; }
-    .ch .mouth-oh, .ch .tool { display: none; }
-
-    /* Held: arms up, legs kicking, surprised face */
-    .held-wrap { position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none; transform-origin: 50% 6px; will-change: transform; }
-    .held-wrap .ch { cursor: grabbing; }
-    .held-wrap .ch-inner { animation: none; }
-    .held-wrap .ch-name { display: none; }
-    .ch.held .mouth-smile { display: none; }
-    .ch.held .mouth-oh { display: inline; }
-    .ch.held .arm-l { animation: flailL 0.28s ease-in-out infinite alternate; }
-    .ch.held .arm-r { animation: flailR 0.28s ease-in-out infinite alternate; }
-    .ch.held .leg-l { animation: kick 0.2s ease-in-out infinite alternate; }
-    .ch.held .leg-r { animation: kick 0.2s ease-in-out infinite alternate-reverse; }
-    @keyframes flailL { from { transform: rotate(125deg); } to { transform: rotate(165deg); } }
-    @keyframes flailR { from { transform: rotate(-125deg); } to { transform: rotate(-165deg); } }
-    @keyframes kick { from { transform: rotate(22deg); } to { transform: rotate(-16deg); } }
-
-    /* Working: a tool and a loop for each bench */
-    .ch.working .ch-inner { animation: none; }
-    .ch.working .tool { display: inline; }
-    .w-assembly .arm-r { animation: hammer 0.55s ease-in-out infinite; }
-    @keyframes hammer { 0%, 100% { transform: rotate(-150deg); } 45% { transform: rotate(-55deg); } }
-    .w-subAssembly .arm-r { animation: twist 0.25s ease-in-out infinite alternate; }
-    @keyframes twist { from { transform: rotate(-55deg); } to { transform: rotate(-75deg); } }
-    .w-testing .arm-r { transform: rotate(-70deg); }
-    .w-testing .head { animation: nod 1.4s ease-in-out infinite; }
-    @keyframes nod { 50% { transform: rotate(-6deg); } }
-    .w-testing .tool .lcd { animation: lcd 0.9s steps(2) infinite; }
-    @keyframes lcd { 50% { fill: #86efac; } }
-    .w-hardware .arm-r { animation: sweep 1.5s ease-in-out infinite; }
-    @keyframes sweep { 0%, 100% { transform: rotate(-95deg); } 50% { transform: rotate(-35deg); } }
-    .w-packing .ch-inner { animation: lift 0.8s ease-in-out infinite; }
-    @keyframes lift { 50% { transform: translateY(4px) scaleY(0.96); } }
-    .w-packing .arm-l { transform: rotate(-20deg); } .w-packing .arm-r { transform: rotate(20deg); }
-    .w-final .arm-r { animation: tape 0.5s ease-in-out infinite alternate; }
-    @keyframes tape { from { transform: rotate(-60deg); } to { transform: rotate(-95deg); } }
-
     /* Worker card ---------------------------------------------------- */
     .card { position: fixed; z-index: 30; left: 18px; bottom: 18px; width: 300px; background: var(--paper); border: 3px solid var(--ink); border-radius: 20px; box-shadow: 0 6px 0 rgba(30, 41, 59, 0.25); padding: 12px 14px; }
     .card-top { display: flex; align-items: center; gap: 10px; }
@@ -243,6 +138,7 @@
     import { collection, doc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, friendlyError } from "./js/session.js";
     import { dailyLimit, phaseOutput, dayEstimate } from "./js/capacity.js";
+    import { characterSvg, decorSvg } from "./js/characters.js";
 
     const PHASES = ["start", "second", "finish"];
     const SKILL = window.PlannerSkills;
@@ -305,82 +201,6 @@
         : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
     }
 
-    // ------------------------------------------------------------------
-    // Characters: drawn in code, each worker's look picked from their name
-    // so it's the same every time.
-    // ------------------------------------------------------------------
-    const SKINS = ["#f9d7b9", "#f1c27d", "#e0ac69", "#c68642", "#9c6b3f", "#6b4226"];
-    const HAIR = ["#2b1d14", "#4a3122", "#6b3e1f", "#a0522d", "#d4a64a", "#111827", "#9ca3af"];
-    const SHIRTS = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#0ea5e9"];
-    const PANTS = ["#334155", "#1e3a8a", "#3f3f46", "#4b5563", "#1f2937"];
-    const STYLES = ["short", "spiky", "long", "bun", "curly", "bald", "short", "long"];
-
-    function hash(text) {
-      let h = 2166136261;
-      for (const ch of String(text)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-      return h >>> 0;
-    }
-    function lookFor(key) {
-      const h = hash(key);
-      return {
-        skin: SKINS[h % SKINS.length],
-        hair: HAIR[(h >>> 4) % HAIR.length],
-        shirt: SHIRTS[(h >>> 8) % SHIRTS.length],
-        pants: PANTS[(h >>> 12) % PANTS.length],
-        style: STYLES[(h >>> 16) % STYLES.length]
-      };
-    }
-
-    const S = 'stroke="#1e293b" stroke-width="2.4" stroke-linejoin="round"';
-    function hairSvg(style, colour) {
-      const fill = `fill="${colour}" ${S}`;
-      if (style === "bald") return "";
-      if (style === "spiky") return `<path d="M13 24 L15 9 L20 15 L24 4 L29 12 L33 3 L37 12 L42 5 L44 15 L49 10 L51 24 Q44 15 32 15 Q20 15 13 24Z" ${fill}/>`;
-      if (style === "bun") return `<circle cx="32" cy="4" r="6.5" ${fill}/><path d="M13.5 24 Q13 5 32 5 Q51 5 50.5 24 Q45 13 32 13 Q19 13 13.5 24Z" ${fill}/>`;
-      if (style === "curly") return `<path d="M13 25 Q9 18 14 13 Q14 5 22 6 Q26 1 32 4 Q38 1 42 6 Q50 5 50 13 Q55 18 51 25 Q47 15 32 15 Q17 15 13 25Z" ${fill}/>`;
-      if (style === "long") return `<path d="M13.5 24 Q13 5 32 5 Q51 5 50.5 24 Q45 13 32 13 Q19 13 13.5 24Z" ${fill}/>`;
-      return `<path d="M13.5 23 Q13 5 32 5 Q51 5 50.5 23 Q46 12 32 12 Q18 12 13.5 23Z" ${fill}/>`;
-    }
-    function backHairSvg(style, colour) {
-      return style === "long" ? `<path d="M13 22 L12 44 Q16 48 22 44 L22 30 M42 30 L42 44 Q48 48 52 44 L51 22 Z" fill="${colour}" ${S}/>` : "";
-    }
-    const TOOLS = {
-      assembly: `<rect x="50.8" y="60" width="3.6" height="17" rx="1.5" fill="#92400e" ${S}/><rect x="44.5" y="56" width="16" height="7" rx="2" fill="#94a3b8" ${S}/>`,
-      subAssembly: `<rect x="50.3" y="62" width="4.6" height="9" rx="2" fill="#ef4444" ${S}/><rect x="51.8" y="71" width="1.8" height="9" fill="#94a3b8" stroke="#1e293b" stroke-width="1.2"/>`,
-      testing: `<rect x="44" y="58" width="17" height="13" rx="2.5" fill="#1e3a8a" ${S}/><rect class="lcd" x="46.5" y="60.5" width="12" height="8" rx="1" fill="#4ade80"/>`,
-      hardware: `<line x1="54" y1="68" x2="58" y2="77" stroke="#475569" stroke-width="3.4" stroke-linecap="round"/><circle cx="52" cy="62" r="6.5" fill="#bae6fd" fill-opacity="0.75" ${S}/>`,
-      packing: `<rect x="18" y="54" width="28" height="19" rx="2" fill="#d6a46b" ${S}/><line x1="32" y1="54" x2="32" y2="73" stroke="#a16207" stroke-width="3"/>`,
-      final: `<circle cx="53" cy="70" r="5.5" fill="#fbbf24" ${S}/><circle cx="53" cy="70" r="2" fill="#fff"/>`
-    };
-
-    function characterSvg(key, work) {
-      const look = lookFor(key);
-      const tool = work ? TOOLS[work] || "" : "";
-      const box = work === "packing";
-      return `
-        <svg viewBox="0 0 64 98" aria-hidden="true">
-          <ellipse cx="32" cy="93" rx="17" ry="4" fill="rgba(30,41,59,0.18)"/>
-          <g class="leg leg-l"><rect x="22" y="66" width="9" height="22" rx="4" fill="${look.pants}" ${S}/><ellipse cx="25.5" cy="89" rx="7" ry="4" fill="#1e293b"/></g>
-          <g class="leg leg-r"><rect x="33" y="66" width="9" height="22" rx="4" fill="${look.pants}" ${S}/><ellipse cx="38.5" cy="89" rx="7" ry="4" fill="#1e293b"/></g>
-          <g class="arm arm-l"><rect x="7" y="44" width="9" height="22" rx="4.5" fill="${look.shirt}" ${S}/><circle cx="11.5" cy="67" r="4.6" fill="${look.skin}" ${S}/></g>
-          <rect x="15" y="40" width="34" height="32" rx="12" fill="${look.shirt}" ${S}/>
-          <rect x="35" y="47" width="8" height="5" rx="1.5" fill="#fff" opacity="0.85"/>
-          ${box ? `<g class="tool">${tool}</g>` : ""}
-          <g class="arm arm-r"><rect x="48" y="44" width="9" height="22" rx="4.5" fill="${look.shirt}" ${S}/><circle cx="52.5" cy="67" r="4.6" fill="${look.skin}" ${S}/>${box ? "" : `<g class="tool">${tool}</g>`}</g>
-          <g class="head">
-            ${backHairSvg(look.style, look.hair)}
-            <circle cx="32" cy="24" r="18" fill="${look.skin}" ${S}/>
-            ${hairSvg(look.style, look.hair)}
-            <ellipse cx="25.5" cy="26" rx="2.6" ry="3.2" fill="#1e293b"/>
-            <ellipse cx="38.5" cy="26" rx="2.6" ry="3.2" fill="#1e293b"/>
-            <circle cx="20.5" cy="31.5" r="3" fill="#f472b6" opacity="0.35"/>
-            <circle cx="43.5" cy="31.5" r="3" fill="#f472b6" opacity="0.35"/>
-            <path class="mouth-smile" d="M26.5 33 Q32 38.5 37.5 33" fill="none" stroke="#1e293b" stroke-width="2.4" stroke-linecap="round"/>
-            <ellipse class="mouth-oh" cx="32" cy="35" rx="3.2" ry="3.8" fill="#1e293b"/>
-          </g>
-        </svg>`;
-    }
-
     function firstName(key) {
       const person = state.staff.get(key);
       return person?.firstName || String(person?.name || key).split(/\s+/)[0];
@@ -395,54 +215,6 @@
           <div class="ch-inner">${characterSvg(key, work)}</div>
           <div class="ch-name">${escapeHtml(firstName(key))}</div>
         </div>`;
-    }
-
-    // ------------------------------------------------------------------
-    // Bench scenes
-    // ------------------------------------------------------------------
-    function decorSvg(kind, count) {
-      const v = 'viewBox="0 0 300 86" preserveAspectRatio="xMidYMax meet"';
-      if (kind === "break") return `
-        <svg class="room-decor" ${v}>
-          <rect x="20" y="40" width="96" height="30" rx="10" fill="#f9a8d4" ${S}/><rect x="14" y="30" width="18" height="40" rx="8" fill="#f472b6" ${S}/><rect x="104" y="30" width="18" height="40" rx="8" fill="#f472b6" ${S}/>
-          <rect x="196" y="22" width="34" height="48" rx="5" fill="#cbd5e1" ${S}/><rect x="204" y="30" width="18" height="10" rx="2" fill="#1e293b"/><rect x="207" y="50" width="12" height="12" rx="2" fill="#fff" ${S}/>
-          <path class="steam" d="M213 44 q-3 -5 0 -9 q3 -4 0 -9" fill="none" stroke="#94a3b8" stroke-width="2"/>
-          <rect x="252" y="48" width="20" height="22" rx="4" fill="#d97706" ${S}/><circle cx="262" cy="36" r="13" fill="#4ade80" ${S}/>
-        </svg>`;
-      if (kind === "testing") return `
-        <svg class="room-decor" ${v}>
-          <rect x="30" y="58" width="240" height="10" rx="3" fill="#94a3b8" ${S}/>
-          <rect x="70" y="20" width="56" height="36" rx="4" fill="#1e293b" ${S}/><rect class="screen" x="76" y="26" width="44" height="24" rx="2"/>
-          <rect x="174" y="20" width="56" height="36" rx="4" fill="#1e293b" ${S}/><rect class="screen b" x="180" y="26" width="44" height="24" rx="2"/>
-        </svg>`;
-      if (kind === "hardware") return `
-        <svg class="room-decor" ${v}>
-          <path class="beam" d="M220 18 L190 58 L250 58 Z" fill="#fde68a"/>
-          <rect x="30" y="58" width="240" height="10" rx="3" fill="#a78bfa" ${S}/>
-          <path d="M210 58 L210 30 L222 14" fill="none" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/><path d="M212 10 L234 20 L226 26 Z" fill="#7c3aed" ${S}/>
-          <rect x="60" y="46" width="22" height="12" rx="2" fill="#e2e8f0" ${S}/><rect x="92" y="46" width="22" height="12" rx="2" fill="#e2e8f0" ${S}/>
-        </svg>`;
-      if (kind === "packing" || kind === "final") {
-        const boxes = Array.from({ length: 6 }, (_, i) => {
-          const col = i % 3, row = Math.floor(i / 3);
-          return `<rect class="box ${i < Math.min(6, count * 2) ? "on" : ""}" x="${196 + col * 24}" y="${44 - row * 18}" width="22" height="17" rx="2" fill="${kind === "final" ? "#cbd5e1" : "#d6a46b"}" ${S}/>`;
-        }).join("");
-        return `
-          <svg class="room-decor" ${v}>
-            <rect x="186" y="62" width="84" height="8" rx="2" fill="#92400e" ${S}/>
-            <g class="box-stack">${boxes}</g>
-            <rect x="26" y="58" width="140" height="10" rx="3" fill="#6ee7b7" ${S}/>
-            <circle cx="40" cy="74" r="5" fill="#475569" ${S}/><circle cx="150" cy="74" r="5" fill="#475569" ${S}/>
-          </svg>`;
-      }
-      return `
-        <svg class="room-decor" ${v}>
-          <rect x="24" y="56" width="252" height="12" rx="3" fill="#b45309" ${S}/>
-          <rect x="36" y="68" width="10" height="16" fill="#92400e" ${S}/><rect x="254" y="68" width="10" height="16" fill="#92400e" ${S}/>
-          <rect x="60" y="44" width="30" height="12" rx="2" fill="#fde68a" ${S}/><rect x="210" y="40" width="22" height="16" rx="2" fill="#93c5fd" ${S}/>
-          <path class="spark" d="M120 40 l5 -10 l2 8 l8 -4 l-5 9 l9 3 l-10 2 z" fill="#facc15" ${S}/>
-          <path class="spark b" d="M180 36 l4 -8 l2 6 l7 -3 l-4 7 l7 2 l-8 2 z" fill="#facc15" ${S}/>
-        </svg>`;
     }
 
     // ------------------------------------------------------------------

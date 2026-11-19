@@ -1,0 +1,129 @@
+/* Production Planner — game look: bench rooms and worker characters.
+   Shared by the Shift Planner (game.html) and the bench screens. */
+:root {
+  --ink: #1e293b;
+  --k-assembly: #f59e0b;
+  --k-testing: #3b82f6;
+  --k-hardware: #8b5cf6;
+  --k-packing: #10b981;
+  --k-final: #94a3b8;
+  --k-break: #f472b6;
+  --k-cage: #14b8a6;
+}
+.r-cage { --k: var(--k-cage); }
+.cage-scene { background: linear-gradient(#f0fdfa 0 62%, #ccfbf1 62% 100%); }
+.delivery { animation: delivery 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) both; transform-box: fill-box; transform-origin: bottom; }
+@keyframes delivery { 0% { transform: translateY(-60px); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; } }
+.bubble { position: absolute; z-index: 4; top: 10px; left: 50%; transform: translateX(-50%); padding: 4px 12px; border-radius: 14px; border: 3px solid var(--ink); background: #fff; font-weight: 700; font-size: 15px; white-space: nowrap; animation: bubble 1.2s ease-in-out infinite; }
+.bubble.urgent { background: #fef08a; }
+@keyframes bubble { 50% { transform: translateX(-50%) translateY(-4px); } }
+.ch.hand-up .arm-l { animation: wave 0.6s ease-in-out infinite alternate !important; }
+@keyframes wave { from { transform: rotate(150deg); } to { transform: rotate(175deg); } }
+
+.room {
+  position: relative; background: #ffffff; border: 3px solid var(--ink); border-radius: 22px;
+  box-shadow: 0 6px 0 rgba(30, 41, 59, 0.22); overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s, filter 0.15s;
+}
+.room-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; color: var(--ink); background: var(--k); border-bottom: 3px solid var(--ink); }
+.room-head b { font-size: 18px; font-weight: 700; }
+.room-icon { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.9); color: var(--ink); font-size: 12px; font-weight: 700; border: 2px solid var(--ink); }
+.room-badge { margin-left: auto; font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.92); color: var(--ink); border: 2px solid var(--ink); }
+.room-badge.good { background: #dcfce7; color: #14532d; }
+.room-badge.warn { background: #fef3c7; color: #7c2d12; }
+.room-badge:empty { display: none; }
+.room-scene { position: relative; min-height: 170px; background: linear-gradient(#f8fafc 0 62%, #e2e8f0 62% 100%); }
+.room-decor { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 86px; pointer-events: none; }
+.room-crew { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-content: flex-end; justify-content: center; gap: 2px 8px; min-height: 170px; padding: 10px 8px 6px; }
+.room-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 6px 12px; border-top: 3px solid var(--ink); background: #f8fafc; }
+.room-out { font-size: 24px; font-weight: 700; }
+.room-out small { font-size: 13px; color: #64748b; font-weight: 600; margin-left: 3px; }
+.room-count { font-size: 13px; color: #64748b; font-weight: 600; }
+.r-assembly { --k: var(--k-assembly); } .r-testing { --k: var(--k-testing); } .r-hardware { --k: var(--k-hardware); }
+.r-packing { --k: var(--k-packing); } .r-final { --k: var(--k-final); } .r-break { --k: var(--k-break); }
+.room.fit-3 { transform: translateY(-4px); box-shadow: 0 0 0 5px #fbbf24, 0 10px 0 rgba(30, 41, 59, 0.22); }
+.room.fit-2 { box-shadow: 0 0 0 4px #93c5fd, 0 6px 0 rgba(30, 41, 59, 0.22); }
+.room.fit-0 { opacity: 0.45; filter: grayscale(0.7); }
+.room .cant { display: none; position: absolute; z-index: 3; top: 56px; left: 50%; transform: translateX(-50%) rotate(-8deg); padding: 4px 14px; border: 3px solid #ef4444; border-radius: 10px; color: #ef4444; background: rgba(255, 255, 255, 0.92); font-weight: 700; font-size: 20px; }
+.room.fit-0 .cant { display: block; }
+.room.drop-hover { transform: translateY(-6px) scale(1.02); }
+.room.selecting { cursor: pointer; }
+.break .room-scene { min-height: 260px; background: linear-gradient(#fdf2f8 0 70%, #fce7f3 70% 100%); }
+.break .room-crew { min-height: 260px; }
+
+/* Decor animations (only while the room has people) */
+.spark { opacity: 0; }
+.active .spark { animation: spark 0.55s infinite; }
+.active .spark.b { animation-delay: 0.27s; }
+@keyframes spark { 0%, 40% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1.2); } 80%, 100% { opacity: 0; } }
+.spark { transform-box: fill-box; transform-origin: center; }
+.screen { fill: #cbd5e1; }
+.active .screen { animation: screen 1.2s infinite; }
+.active .screen.b { animation-delay: 0.6s; }
+@keyframes screen { 0%, 100% { fill: #4ade80; } 50% { fill: #bbf7d0; } }
+.beam { opacity: 0; }
+.active .beam { opacity: 0.55; animation: beam 1.6s ease-in-out infinite; }
+@keyframes beam { 50% { opacity: 0.25; } }
+.box-stack .box { opacity: 0; transition: opacity 0.3s; }
+.box-stack .box.on { opacity: 1; }
+.steam { opacity: 0.5; animation: steam 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom; }
+@keyframes steam { 50% { transform: translateY(-4px) scaleY(1.2); opacity: 0.2; } }
+
+/* Characters ----------------------------------------------------- */
+.ch { position: relative; width: 58px; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; display: flex; flex-direction: column; align-items: center; }
+.ch svg { width: 58px; height: 90px; overflow: visible; display: block; }
+.ch-inner { animation: bob 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+.ch-name { margin-top: -2px; max-width: 64px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-weight: 600; background: rgba(255, 255, 255, 0.92); border: 2px solid var(--ink); border-radius: 999px; padding: 0 6px; white-space: nowrap; }
+.ch.selected .ch-name { background: #fbbf24; }
+.ch.selected::before { content: ""; position: absolute; left: 50%; bottom: 12px; width: 52px; height: 14px; transform: translateX(-50%); border-radius: 50%; background: rgba(251, 191, 36, 0.55); }
+.ch.lifting { opacity: 0.25; }
+.ch.landing .ch-inner { animation: land 0.4s ease-out; }
+@keyframes land { 0% { transform: scale(1.1, 0.8) translateY(6px); } 55% { transform: scale(0.95, 1.08); } 100% { transform: none; } }
+.ch.nope .ch-inner { animation: nope 0.45s ease; }
+@keyframes nope { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+.ch svg .arm, .ch svg .leg, .ch svg .head { transform-box: view-box; }
+.ch svg .arm-l { transform-origin: 11.5px 46px; }
+.ch svg .arm-r { transform-origin: 52.5px 46px; }
+.ch svg .leg-l { transform-origin: 26px 66px; }
+.ch svg .leg-r { transform-origin: 38px 66px; }
+.ch svg .head { transform-origin: 32px 40px; }
+.ch .mouth-oh, .ch .tool { display: none; }
+
+/* Held: arms up, legs kicking, surprised face */
+.held-wrap { position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none; transform-origin: 50% 6px; will-change: transform; }
+.held-wrap .ch { cursor: grabbing; }
+.held-wrap .ch-inner { animation: none; }
+.held-wrap .ch-name { display: none; }
+.ch.held .mouth-smile { display: none; }
+.ch.held .mouth-oh { display: inline; }
+.ch.held .arm-l { animation: flailL 0.28s ease-in-out infinite alternate; }
+.ch.held .arm-r { animation: flailR 0.28s ease-in-out infinite alternate; }
+.ch.held .leg-l { animation: kick 0.2s ease-in-out infinite alternate; }
+.ch.held .leg-r { animation: kick 0.2s ease-in-out infinite alternate-reverse; }
+@keyframes flailL { from { transform: rotate(125deg); } to { transform: rotate(165deg); } }
+@keyframes flailR { from { transform: rotate(-125deg); } to { transform: rotate(-165deg); } }
+@keyframes kick { from { transform: rotate(22deg); } to { transform: rotate(-16deg); } }
+
+/* Working: a tool and a loop for each bench */
+.ch.working .ch-inner { animation: none; }
+.ch.working .tool { display: inline; }
+.w-assembly .arm-r { animation: hammer 0.55s ease-in-out infinite; }
+@keyframes hammer { 0%, 100% { transform: rotate(-150deg); } 45% { transform: rotate(-55deg); } }
+.w-subAssembly .arm-r { animation: twist 0.25s ease-in-out infinite alternate; }
+@keyframes twist { from { transform: rotate(-55deg); } to { transform: rotate(-75deg); } }
+.w-testing .arm-r { transform: rotate(-70deg); }
+.w-testing .head { animation: nod 1.4s ease-in-out infinite; }
+@keyframes nod { 50% { transform: rotate(-6deg); } }
+.w-testing .tool .lcd { animation: lcd 0.9s steps(2) infinite; }
+@keyframes lcd { 50% { fill: #86efac; } }
+.w-hardware .arm-r { animation: sweep 1.5s ease-in-out infinite; }
+@keyframes sweep { 0%, 100% { transform: rotate(-95deg); } 50% { transform: rotate(-35deg); } }
+.w-packing .ch-inner { animation: lift 0.8s ease-in-out infinite; }
+@keyframes lift { 50% { transform: translateY(4px) scaleY(0.96); } }
+.w-packing .arm-l { transform: rotate(-20deg); } .w-packing .arm-r { transform: rotate(20deg); }
+.w-final .arm-r { animation: tape 0.5s ease-in-out infinite alternate; }
+@keyframes tape { from { transform: rotate(-60deg); } to { transform: rotate(-95deg); } }
+
+.cage-scene .room-decor { height: 92%; }

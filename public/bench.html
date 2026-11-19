@@ -13,6 +13,8 @@
   <link rel="apple-touch-icon" href="icons/bench.png" />
   <link rel="icon" type="image/png" href="icons/bench.png" />
   <link rel="stylesheet" href="css/floor.css" />
+  <link rel="stylesheet" href="css/game.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
       --page: #020617;
@@ -334,6 +336,26 @@
     .crew-today { margin-top: 8px; font-size: 14px; color: #c7d2fe; line-height: 1.6; }
     @media (max-width: 900px) { .crew-layout { grid-template-columns: 1fr; } }
 
+
+    /* Bench room (game look) and request buttons ---------------------- */
+    .hero { margin-bottom: 18px; font-family: "Fredoka", Arial, sans-serif; color: #1e293b; }
+    .hero .room-scene { min-height: 250px; }
+    .hero .room-crew { min-height: 250px; gap: 4px 14px; }
+    .hero .ch { width: 86px; }
+    .hero .ch svg { width: 86px; height: 132px; }
+    .hero .ch-name { font-size: 15px; max-width: 110px; }
+    .hero-delivery { position: absolute; right: 14px; bottom: 6px; width: 120px; height: 40px; z-index: 2; overflow: visible; }
+    .action-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; }
+    .action {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: 18px 16px; border-radius: 20px; border: 3px solid #1e293b; color: #1e293b;
+      font-family: "Fredoka", Arial, sans-serif; font-size: 22px; font-weight: 700;
+      box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45); cursor: pointer;
+    }
+    .action:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45); }
+    .action svg { width: 32px; height: 32px; }
+    .action.help { background: #fbbf24; } .action.stock { background: #2dd4bf; } .action.faulty { background: #fb7185; }
+
     @media (max-width: 700px) {
       .top { padding: 12px 16px; }
       main { padding: 14px 16px 32px; }
@@ -415,6 +437,13 @@
     </section>
 
     <div id="planArea" class="hidden">
+      <section class="hero" id="hero"></section>
+
+      <section class="card hidden" id="requestsCard">
+        <h2 id="requestsTitle">Requests</h2>
+        <div class="req-list" id="requestList"></div>
+      </section>
+
       <section class="summary" id="summary"></section>
 
       <section class="card" id="batchesCard">
@@ -465,6 +494,9 @@
       floorBatches, batchTitle, progressOf, expectedUnits, statusText, statusNoteHtml, pinnedNoteHtml,
       watchFloor, setBatchStatus, askUnitsDone, askNote, addNote, editNote, removeNote, showPhoto
     } from "./js/floor.js";
+    import { characterSvg, decorSvg } from "./js/characters.js";
+    import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
+    import { phaseOutput } from "./js/capacity.js";
 
     // Jobs on the bench screens. Who can do each one comes from their
     // skill dots in Worker Admin (js/skills.js).
@@ -550,7 +582,9 @@
       nextPlan: null,     // { from, date } once the next released plan has been looked up
       role: null,         // "bench" or "management"
       progress: new Map(),
-      notes: []
+      notes: [],
+      requests: [],
+      requestsLoaded: false
     };
 
     let stops = [];
@@ -803,7 +837,7 @@
     function openDate(date) {
       stopAll();
       board?.clearSelection();
-      Object.assign(state, { date, plan: null, reachable: true, assignments: [], events: [], roster: null, nextPlan: null, progress: new Map(), notes: [] });
+      Object.assign(state, { date, plan: null, reachable: true, assignments: [], events: [], roster: null, nextPlan: null, progress: new Map(), notes: [], requests: [], requestsLoaded: false });
       $("dateInput").value = date;
       render();
 
@@ -873,6 +907,13 @@
         state.assignments = snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() }));
         render();
       }, () => {}));
+      detailStops.push(watchRequests(date, list => {
+        if (state.date !== date) return;
+        announceRequestChanges(list);
+        state.requests = list;
+        state.requestsLoaded = true;
+        render();
+      }));
       detailStops.push(watchFloor(date, ({ progress, notes }) => {
         if (state.date !== date) return;
         state.progress = progress;
@@ -914,6 +955,8 @@
         return;
       }
 
+      renderHero();
+      renderRequests();
       renderSummary();
       renderBatchStatuses();
       renderPinned();
@@ -991,6 +1034,124 @@
         : "";
 
       $("summary").innerHTML = target + middle + last;
+    }
+
+    // ------------------------------------------------------------------
+    // The bench's room (game look) with its request buttons
+    // ------------------------------------------------------------------
+    const WORK_FOR = {
+      subAssembly: "subAssembly", assembly: "assembly", assemblyGen4: "assembly", assemblyTap: "assembly",
+      testing: "testing", testingVerizon: "testing", testingGlobal: "testing",
+      hardware: "hardware", packing: "packing", finalPackaging: "final"
+    };
+    const ROOM_ICON = { assembly: "AS", testing: "TE", hardware: "HW", packing: "PK", cage: "MM" };
+    const BENCH_ACTIONS = { cage: ["help", "faulty"] };
+
+    function heroOutput(crew) {
+      if (state.plan.workMode === "mixed" || !(CAPACITY_STATIONS[benchKey] || benchKey === "testing")) return null;
+      const batch = activeBatches()[0];
+      if (!batch) return null;
+      const counts = {};
+      state.assignments.filter(item => item.phase === state.phase).forEach(item => { counts[item.station] = (counts[item.station] || 0) + 1; });
+      return phaseOutput(benchKey, counts, batch.unitType, batch.commsType);
+    }
+
+    function renderHero() {
+      const cage = benchKey === "cage";
+      const phaseName = (PHASES.find(([key]) => key === state.phase) || PHASES[0])[1];
+      const crew = cage
+        ? (state.staff.has("maged") ? [{ staffKey: "maged", station: null }] : [])
+        : benchPeople(state.phase);
+      const mine = state.requests.filter(request => request.bench === benchKey && request.status !== "done");
+      const help = mine.find(request => request.kind === "help");
+      const deliveries = mine.filter(request => request.kind === "stock" && request.status === "accepted").slice(0, 3);
+      const orders = cage ? state.requests.filter(request => request.kind === "stock" && request.status === "open").length : 0;
+      const output = cage ? null : heroOutput(crew);
+
+      const chars = crew.map((item, index) => {
+        const work = item.station ? WORK_FOR[item.station] || "final" : null;
+        return `
+          <div class="ch ${work ? `working w-${work}` : ""} ${help && index === 0 ? "hand-up" : ""}" style="--d:${(index % 7) * -0.37}s">
+            <div class="ch-inner">${characterSvg(item.staffKey, work)}</div>
+            <div class="ch-name">${escapeHtml(staffName(item.staffKey))}</div>
+          </div>`;
+      }).join("");
+      const bubble = help
+        ? `<div class="bubble ${help.status === "open" ? "urgent" : ""}">${help.status === "open" ? "Help called!" : "Help on the way"}</div>`
+        : "";
+      const boxes = deliveries.length
+        ? `<svg class="hero-delivery" viewBox="0 0 120 40">${deliveries.map((_, index) => `<g class="delivery" style="animation-delay:${index * 0.15}s"><rect x="${84 - index * 36}" y="6" width="32" height="28" rx="3" fill="#d6a46b" stroke="#1e293b" stroke-width="2.4"/><line x1="${100 - index * 36}" y1="6" x2="${100 - index * 36}" y2="34" stroke="#a16207" stroke-width="3"/></g>`).join("")}</svg>`
+        : "";
+      const badge = cage ? (orders ? `${orders} order${orders === 1 ? "" : "s"}` : "") : phaseName;
+      const actions = BENCH_ACTIONS[benchKey] || ["help", "stock", "faulty"];
+
+      $("hero").innerHTML = `
+        <div class="room r-${cage ? "cage" : benchKey} ${crew.length ? "active" : ""}">
+          <div class="room-head"><span class="room-icon">${ROOM_ICON[benchKey] || ""}</span><b>${escapeHtml(cage ? "Maged's Mart" : bench.label)}</b><span class="room-badge">${escapeHtml(badge)}</span></div>
+          <div class="room-scene ${cage ? "cage-scene" : ""}">${decorSvg(cage ? "cage" : benchKey, crew.length)}${bubble}<div class="room-crew">${chars}</div>${boxes}</div>
+          <div class="room-foot"><span class="room-out">${output === null ? "&nbsp;" : `${output}<small>units</small>`}</span><span class="room-count">${crew.length}</span></div>
+        </div>
+        <div class="action-bar">${actions.map(kind => `<button type="button" class="action ${kind}" data-action="${kind}">${REQUEST_KINDS[kind].icon}${escapeHtml(REQUEST_KINDS[kind].label)}</button>`).join("")}</div>`;
+    }
+
+    // What this screen can do with a request.
+    function requestActionFor(request) {
+      if (request.status === "done") return null;
+      if (benchKey === "cage" && request.kind === "stock" && request.status === "open") return { label: "Send", to: "accepted" };
+      if (request.bench !== benchKey) return null;
+      if (request.kind === "stock" && request.status === "accepted") return { label: "Received", to: "done" };
+      if (request.kind === "help") return { label: "Sorted", to: "done" };
+      return null;
+    }
+
+    function renderRequests() {
+      const cage = benchKey === "cage";
+      const list = state.requests.filter(request => cage ? request.kind === "stock" || request.bench === "cage" : request.bench === benchKey);
+      $("requestsCard").classList.toggle("hidden", !list.length);
+      $("requestsTitle").textContent = cage ? "Orders" : "Requests";
+      const ordered = [...list].sort((a, b) => Number(a.status === "done") - Number(b.status === "done"));
+      $("requestList").innerHTML = ordered.map(request => requestCardHtml(request, requestActionFor)).join("");
+    }
+
+    // Tell the bench when something it asked for moves on (or, for the
+    // cage, when a new order comes in).
+    function announceRequestChanges(list) {
+      if (!state.requestsLoaded) return;
+      const before = new Map(state.requests.map(request => [request.id, request.status]));
+      list.forEach(request => {
+        const kind = REQUEST_KINDS[request.kind];
+        if (!kind) return;
+        const was = before.get(request.id);
+        if (benchKey === "cage" && request.kind === "stock" && was === undefined) {
+          toast(`New order: ${requestTitle(request)}`);
+        } else if (request.bench === benchKey && was && was !== request.status) {
+          toast(`${requestTitle(request)}: ${kind.status[request.status]}`);
+        }
+      });
+    }
+
+    async function makeBenchRequest(kind) {
+      const batches = floorBatches(state.plan).map(batch => ({ key: batch.key, title: batchTitle(batch) }));
+      const fields = kind === "help" ? await askHelp() : kind === "stock" ? await askStock() : await askFaulty(batches);
+      if (!fields) return;
+      try {
+        await makeRequest(state.date, { ...fields, bench: benchKey }, ACTOR);
+        await logEvent({ kind: "note", message: `${bench.label}: ${REQUEST_KINDS[kind].label} · ${requestTitle(fields)}` });
+        toast(kind === "help" ? "Help called" : kind === "stock" ? "Order sent to Maged's Mart" : "Fault reported");
+      } catch (error) {
+        toast(`That wasn't sent: ${friendlyError(error)}`, true);
+      }
+    }
+
+    async function moveBenchRequest(id, to) {
+      const request = state.requests.find(item => item.id === id);
+      if (!request || !["open", "accepted", "done"].includes(to)) return;
+      try {
+        await moveRequest(state.date, request, to, ACTOR);
+        await logEvent({ kind: "note", message: `${bench.label}: ${requestTitle(request)} · ${REQUEST_KINDS[request.kind].status[to]}` });
+      } catch (error) {
+        toast(`That wasn't saved: ${friendlyError(error)}`, true);
+      }
     }
 
     // This bench's sticky note for each batch, with big buttons to update it.
@@ -1575,6 +1736,10 @@
         if (event.target.value) openDate(event.target.value);
       });
       $("planArea").addEventListener("click", event => {
+        const action = event.target.closest("button[data-action]");
+        if (action) return makeBenchRequest(action.dataset.action);
+        const move = event.target.closest("button[data-req-move]");
+        if (move) return moveBenchRequest(move.dataset.reqMove, move.dataset.reqTo);
         const setButton = event.target.closest("button[data-set]");
         if (setButton) return setStatus(setButton.dataset.batch, setButton.dataset.set);
         const photo = event.target.closest("[data-photo]");

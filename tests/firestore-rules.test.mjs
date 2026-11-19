@@ -88,7 +88,8 @@ async function seed() {
       [`plans/${RELEASED}/progress`, "assembly_batch-1", { bench: "assembly", batchId: "batch-1", status: "in_progress", updatedAt: now }],
       [`plans/${RELEASED}/notes`, "from-management", { bench: "packing", text: "Pallet split 2 x 15", role: "management", createdAt: now, updatedAt: now }],
       [`plans/${RELEASED}/notes`, "from-bench", { bench: "packing", text: "Short on boxes", role: "bench", createdAt: now, updatedAt: now }],
-      [`plans/${DRAFT}/notes`, "draft-note", { bench: "all", text: "Draft only", role: "management", createdAt: now, updatedAt: now }]
+      [`plans/${DRAFT}/notes`, "draft-note", { bench: "all", text: "Draft only", role: "management", createdAt: now, updatedAt: now }],
+      [`plans/${RELEASED}/requests`, "stock-1", { kind: "stock", bench: "assembly", status: "open", text: "Boxes", qty: 20, createdAt: now, updatedAt: now }]
     ];
     for (const [path, id, data] of writes) await setDoc(doc(db, path, id), data);
   });
@@ -612,5 +613,64 @@ describe("Floor board – pinned notes and photos", () => {
     const db = management();
     await assertSucceeds(deleteDoc(doc(db, "plans", RELEASED, "notes", "from-bench")));
     await assertSucceeds(deleteDoc(doc(db, "plans", RELEASED, "notes", "from-management")));
+  });
+});
+
+
+describe("Requests – help, stock and faulty reports", () => {
+  const request = fields => ({
+    kind: "help", bench: "testing", status: "open", text: "Need an extra person",
+    createdBy: "Testing bench", createdAt: serverTimestamp(), updatedAt: serverTimestamp(), ...fields
+  });
+  const move = status => ({ status, updatedAt: serverTimestamp(), updatedBy: "Production Cage bench" });
+
+  it("a bench calls for help, orders stock and reports a faulty unit", async () => {
+    const db = bench();
+    await assertSucceeds(addDoc(collection(db, "plans", RELEASED, "requests"), request()));
+    await assertSucceeds(addDoc(collection(db, "plans", RELEASED, "requests"), request({ kind: "stock", bench: "assembly", text: "Labels", qty: 36 })));
+    await assertSucceeds(addDoc(collection(db, "plans", RELEASED, "requests"), request({ kind: "faulty", bench: "hardware", text: "No power", unit: "DCU-1042", batchId: "batch-1", photo: SMALL_JPEG })));
+  });
+
+  it("requests start open and must be well formed", async () => {
+    const db = bench();
+    const col = collection(db, "plans", RELEASED, "requests");
+    await assertFails(addDoc(col, request({ status: "done" })));
+    await assertFails(addDoc(col, request({ kind: "pizza" })));
+    await assertFails(addDoc(col, request({ bench: "office" })));
+    await assertFails(addDoc(col, request({ qty: -2 })));
+    await assertFails(addDoc(col, request({ text: "x".repeat(501) })));
+    await assertFails(addDoc(col, request({ priority: "urgent" })));
+    await assertFails(addDoc(col, request({ photo: "data:image/png;base64,AAAA" })));
+  });
+
+  it("the cage sends stock and the bench marks it received", async () => {
+    const ref = doc(bench(), "plans", RELEASED, "requests", "stock-1");
+    await assertSucceeds(updateDoc(ref, move("accepted")));
+    await assertSucceeds(updateDoc(ref, move("done")));
+  });
+
+  it("only the status can change after a request is made", async () => {
+    const ref = doc(bench(), "plans", RELEASED, "requests", "stock-1");
+    await assertFails(updateDoc(ref, { ...move("accepted"), qty: 500 }));
+    await assertFails(updateDoc(ref, { ...move("accepted"), text: "Changed" }));
+    await assertFails(updateDoc(ref, move("lost")));
+  });
+
+  it("benches only see and make requests on a released plan", async () => {
+    await assertSucceeds(getDocs(collection(bench(), "plans", RELEASED, "requests")));
+    await assertFails(getDocs(collection(bench(), "plans", DRAFT, "requests")));
+    await assertFails(addDoc(collection(bench(), "plans", DRAFT, "requests"), request()));
+  });
+
+  it("only management can delete a request", async () => {
+    await assertFails(deleteDoc(doc(bench(), "plans", RELEASED, "requests", "stock-1")));
+    await assertSucceeds(deleteDoc(doc(management(), "plans", RELEASED, "requests", "stock-1")));
+  });
+
+  it("screens without a working PIN can't see or make requests", async () => {
+    for (const db of [stranger(), revoked(), nobody()]) {
+      await assertFails(getDocs(collection(db, "plans", RELEASED, "requests")));
+      await assertFails(addDoc(collection(db, "plans", RELEASED, "requests"), request()));
+    }
   });
 });

@@ -34,6 +34,8 @@ rules_version = '2';
 //   plans/{date}/progress/{id}       floor board: each bench's status per batch
 //                                    (id = bench_batchId)
 //   plans/{date}/notes/{id}          floor board: pinned notes and photos
+//   plans/{date}/requests/{id}       help, stock (Maged's Mart) and faulty
+//                                    reports from the benches
 // =====================================================================
 
 service cloud.firestore {
@@ -168,6 +170,24 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    // A request from a bench: help, stock or a faulty report.
+    // status: open → accepted → done (e.g. stock: waiting → sent → received).
+    function validRequest() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['kind', 'bench', 'status', 'text', 'createdAt', 'updatedAt'])
+        && d.keys().hasOnly(['kind', 'bench', 'status', 'text', 'qty', 'unit', 'batchId', 'photo', 'createdBy', 'createdAt', 'updatedAt', 'updatedBy'])
+        && d.kind in ['help', 'stock', 'faulty']
+        && d.bench in ['cage', 'assembly', 'testing', 'hardware', 'packing', 'management']
+        && d.status in ['open', 'accepted', 'done']
+        && d.text is string && d.text.size() <= 500
+        && (d.get('qty', null) == null || (d.qty is int && d.qty > 0 && d.qty <= 100000))
+        && (d.get('unit', null) == null || (d.unit is string && d.unit.size() <= 60))
+        && (d.get('batchId', null) == null || (d.batchId is string && d.batchId.size() <= 64))
+        && (d.get('photo', null) == null
+            || (d.photo is string && d.photo.size() <= 900000 && d.photo.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+')))
+        && d.updatedAt == request.time;
+    }
+
     // ---------- PINs and signed-in screens -----------------------------
     match /pins/{pin} {
       allow read, delete: if isManagement();
@@ -227,6 +247,20 @@ service cloud.firestore {
           && (isManagement() || (isBench() && planIsReleased(date) && resource.data.role == 'bench'));
         allow delete: if isManagement()
           || (isBench() && planIsReleased(date) && resource.data.role == 'bench');
+      }
+
+      match /requests/{requestId} {
+        allow read: if isManagement() || (isBench() && planIsReleased(date));
+        allow create: if validRequest()
+          && request.resource.data.status == 'open'
+          && request.resource.data.createdAt == request.time
+          && (isManagement() || (isBench() && planIsReleased(date)));
+        // Moving a request along changes only its status.
+        allow update: if (isManagement() || (isBench() && planIsReleased(date)))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'updatedBy'])
+          && request.resource.data.status in ['open', 'accepted', 'done']
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isManagement();
       }
 
       match /events/{eventId} {

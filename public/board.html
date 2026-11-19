@@ -185,6 +185,11 @@
     <div id="boardArea" class="hidden">
       <section class="strip" id="strip"></section>
 
+      <section class="everyone hidden" id="requestsSection">
+        <div class="everyone-head"><h2>Requests</h2></div>
+        <div class="req-list" id="requestList"></div>
+      </section>
+
       <section class="everyone">
         <div class="everyone-head">
           <h2>For everyone</h2>
@@ -207,6 +212,7 @@
       statusText, statusNoteHtml, pinnedNoteHtml, watchFloor, setBatchStatus, askStatus, askNote,
       addNote, editNote, removeNote, showPhoto, escapeHtml
     } from "./js/floor.js";
+    import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./js/requests.js";
 
     const $ = id => document.getElementById(id);
     const state = {
@@ -220,6 +226,7 @@
       presets: {},
       progress: new Map(),
       notes: [],
+      requests: [],
       nextPlan: null
     };
     let stops = [];
@@ -267,7 +274,7 @@
 
     function openDate(date) {
       stopAll();
-      Object.assign(state, { date, plan: null, reachable: true, assignments: [], progress: new Map(), notes: [], nextPlan: null });
+      Object.assign(state, { date, plan: null, reachable: true, assignments: [], progress: new Map(), notes: [], requests: [], nextPlan: null });
       $("dateInput").value = date;
       $("planningLink").href = `index.html#release`;
       render();
@@ -304,6 +311,11 @@
         state.assignments = snapshot.docs.map(entry => entry.data());
         render();
       }, () => {}));
+      detailStops.push(watchRequests(date, list => {
+        if (state.date !== date) return;
+        state.requests = list;
+        render();
+      }));
       detailStops.push(watchFloor(date, ({ progress, notes }) => {
         if (state.date !== date) return;
         state.progress = progress;
@@ -349,6 +361,7 @@
         return;
       }
       renderStrip();
+      renderRequests();
       renderEveryone();
       renderFloor();
     }
@@ -393,6 +406,33 @@
         <div class="stat"><div class="label">Packed</div>
           <div class="value">${packed}</div>
           <div class="note">${packingFinished} of ${batches.length} batch${batches.length === 1 ? "" : "es"}</div></div>`;
+    }
+
+    // Open requests from every bench, oldest first, each with its next step.
+    function renderRequests() {
+      const open = state.requests.filter(request => request.status !== "done").reverse();
+      $("requestsSection").classList.toggle("hidden", !open.length);
+      $("requestList").innerHTML = open.map(request => requestCardHtml(request, item => {
+        const label = REQUEST_KINDS[item.kind]?.next?.[item.status];
+        return label ? { label, to: nextStatus(item.status) } : null;
+      })).join("");
+    }
+
+    async function advanceRequest(id, to) {
+      const request = state.requests.find(item => item.id === id);
+      if (!request || !["accepted", "done"].includes(to)) return;
+      try {
+        await moveRequest(state.date, request, to, actor());
+        await addDoc(collection(db, "plans", state.date, "events"), {
+          bench: state.role === "management" ? "management" : request.bench,
+          kind: "note",
+          message: `${requestTitle(request)} · ${REQUEST_KINDS[request.kind].status[to]}`,
+          createdBy: actor(),
+          createdAt: serverTimestamp()
+        });
+      } catch (error) {
+        toast(`That wasn't saved: ${friendlyError(error)}`, true);
+      }
     }
 
     function renderEveryone() {
@@ -496,6 +536,8 @@
       $("boardArea").addEventListener("click", event => {
         const photo = event.target.closest("[data-photo]");
         if (photo) return showPhoto(photo.getAttribute("src"));
+        const move = event.target.closest("button[data-req-move]");
+        if (move) return advanceRequest(move.dataset.reqMove, move.dataset.reqTo);
         const edit = event.target.closest("[data-edit-note]");
         if (edit) return changeNote(edit.dataset.editNote);
         const remove = event.target.closest("[data-remove-note]");
