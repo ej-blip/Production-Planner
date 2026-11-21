@@ -6685,6 +6685,7 @@
           // not from another day's hand-made bench moves, job cards or notes.
           stationAdjustments = [];
           dayJobs = [];
+          seenPlanJobIds = new Set();
           lastStationIssues = [];
           document.getElementById("notesInstructions").value = "";
           renderStationAdjustmentList();
@@ -6719,6 +6720,7 @@
       latestBenchEvent = null;
       stopPlanWatch = window.plannerData.watchPlan(date, ({ plan, events }) => {
         if (planDateValue() !== date || currentPlanState.date !== date) return;
+        mergePlanJobsFromElsewhere(plan);
         if (plan && plan.status === currentPlanState.status) {
           currentPlanState.plannedTarget = plan.plannedTarget ?? null;
           currentPlanState.currentTarget = plan.currentTarget ?? null;
@@ -6730,8 +6732,22 @@
       });
     }
 
+    // Cards someone else put on this day's plan (the floor board) join the
+    // ones on screen, so saving here doesn't drop them.
+    let seenPlanJobIds = new Set();
+    function mergePlanJobsFromElsewhere(plan) {
+      const carried = Array.isArray(plan?.jobs) ? plan.jobs.filter(job => !job.isNew) : [];
+      const onScreen = new Set(dayJobs.map(job => job.id));
+      const added = carried.filter(job => !seenPlanJobIds.has(job.id) && !onScreen.has(job.id));
+      seenPlanJobIds = new Set(carried.map(job => job.id));
+      if (!added.length) return;
+      dayJobs = [...dayJobs, ...added.map(job => ({ ...job }))];
+      renderJobsBoard();
+    }
+
     function applySavedPlan(plan) {
       dayJobs = Array.isArray(plan.jobs) ? plan.jobs.filter(job => !job.isNew).map(job => ({ ...job })) : [];
+      seenPlanJobIds = new Set(dayJobs.map(job => job.id));
       workDayMode = plan.workMode === "mixed" ? "mixed" : "single";
       workBatches = Array.isArray(plan.batches) && plan.batches.length
         ? plan.batches.map((batch, index) => normalizeWorkBatch(batch, index))

@@ -60,6 +60,15 @@ export const JOB_STAGES = ["assembly", "testing", "hardware", "packing"];
 export const nextStage = bench => JOB_STAGES[JOB_STAGES.indexOf(bench) + 1] || "done";
 const stageIndex = stage => (stage === "done" ? JOB_STAGES.length : JOB_STAGES.indexOf(stage));
 
+// The benches a card visits when put on a day's plan, by the bench it starts at.
+// Onto Hardware Check it goes on to Packing the same day.
+export const LANE_ROUTES = {
+  assembly: ["assembly", "testing"],
+  testing: ["testing"],
+  hardware: ["hardware", "packing"],
+  packing: ["packing"]
+};
+
 // Does this batch go through this bench today? (Older plans: every bench.)
 export const onRoute = (batch, bench) => !Array.isArray(batch.route) || batch.route.includes(bench);
 
@@ -284,6 +293,63 @@ function noteColour(batch, presets) {
   return presets?.[batch.configKey]?.colourHex || "#64748b";
 }
 
+const shortDay = value => {
+  const [y, m, d] = String(value || "").split("-").map(Number);
+  return y ? new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(new Date(y, m - 1, d, 12)).replace(/,/g, "") : "";
+};
+
+// Live cards waiting at this bench that the day's plan doesn't put there.
+export function waitingJobsAt(jobs, plan, bench) {
+  const today = floorBatches(plan);
+  return jobs.filter(job => job.stage === bench && !today.some(batch => batch.key === job.id && onRoute(batch, bench)));
+}
+
+// A card waiting at a bench (not on the day's plan there), with the day it
+// was made.
+export function waitingJobHtml(job, { presets, clickable = false } = {}) {
+  return `
+    <div class="sticky wip ${clickable ? "clickable" : ""}" style="--note:${escapeHtml(noteColour(job, presets))}"
+      data-wip="${escapeHtml(job.id)}" ${clickable ? 'role="button" tabindex="0"' : ""}>
+      <b>${escapeHtml(batchTitle(job))}</b>
+      <span class="sticky-sub"><span class="nw">${escapeHtml(presets?.[job.configKey]?.label || job.configKey || "")}</span> · <span class="nw">${Number(job.quantity)} units</span></span>
+      <span class="sticky-status">Since ${escapeHtml(shortDay(job.day))}</span>
+    </div>`;
+}
+
+// Puts a waiting card on a day's plan at a bench: adds it to the plan's job
+// cards with its route, and moves the card there if it waits elsewhere.
+export async function placeJobOnPlan(date, job, lane, actor) {
+  const planRef = doc(db, "plans", date);
+  const snap = await getDoc(planRef);
+  const plan = snap.exists() ? snap.data() : null;
+  if (!plan) throw new Error("There's no plan for this day yet.");
+  if (!Array.isArray(plan.jobs)) throw new Error("This day was planned before job cards. Add it from the Management screen.");
+  const entry = {
+    id: job.id,
+    isNew: false,
+    orderId: job.orderId ?? null,
+    customer: job.customer,
+    unitType: job.unitType,
+    commsType: job.commsType,
+    simType: job.simType,
+    configKey: job.configKey,
+    configText: job.configText ?? "",
+    quantity: job.quantity,
+    route: LANE_ROUTES[lane],
+    fromStage: job.stage
+  };
+  const write = writeBatch(db);
+  write.update(planRef, {
+    jobs: [...plan.jobs.filter(item => item.id !== job.id), entry],
+    updatedAt: serverTimestamp(),
+    updatedBy: actor
+  });
+  if (job.stage !== lane) {
+    write.update(doc(db, "jobs", job.id), { stage: lane, updatedAt: serverTimestamp(), updatedBy: actor });
+  }
+  return write.commit();
+}
+
 // One bench's sticky note for one batch.
 export function statusNoteHtml({ bench, batch, progress, presets, clickable = false }) {
   const item = progressOf(progress, bench, batch);
@@ -373,6 +439,28 @@ export function askUnitsDone({ title, expected }) {
 
 // Pick a status for one bench and batch (used on the floor board).
 // Resolves with { status, done } or null.
+// Which bench to put a waiting card on today. Resolves with a bench key or null.
+export function askPlaceJob(job) {
+  const lanes = Object.keys(LANE_ROUTES);
+  const ordered = [job.stage, ...lanes.filter(lane => lane !== job.stage)].filter(lane => LANE_ROUTES[lane]);
+  const label = lane => LANE_ROUTES[lane].map(benchLabel).join(" → ");
+  return new Promise(resolve => {
+    const backdrop = dialog(`
+      <h3></h3>
+      <div class="floor-choices">
+        ${ordered.map((lane, index) => `<button type="button" data-lane="${lane}" class="${index ? "secondary" : ""}">${escapeHtml(label(lane))}</button>`).join("")}
+        <button type="button" data-lane="" class="secondary">Cancel</button>
+      </div>`);
+    backdrop.querySelector("h3").textContent = `${job.quantity} ${batchTitle(job)} · today`;
+    backdrop.addEventListener("click", event => {
+      const choice = event.target.closest("[data-lane]");
+      if (!choice && event.target !== backdrop) return;
+      backdrop.remove();
+      resolve(choice?.dataset.lane || null);
+    });
+  });
+}
+
 export function askStatus({ bench, batch, progress }) {
   const expected = expectedUnits(progress, bench, batch);
   const cage = bench === "cage";

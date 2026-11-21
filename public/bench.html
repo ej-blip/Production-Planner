@@ -286,6 +286,7 @@
     .batch-actions button { flex: 1 1 auto; padding: 14px 12px; font-size: 16px; }
     .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
     .card-head h2 { margin: 0; }
+    .waiting-here { grid-column: 1 / -1; margin: 10px 0 0; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
     .pinned-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 
     .next-plan { margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -385,12 +386,13 @@
   <script type="module">
     import {
       collection, doc, getDoc, getDocs, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc,
-      serverTimestamp, query, orderBy, limit
+      serverTimestamp, query, orderBy, limit, where
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
     import {
       floorBatches, onRoute, batchTitle, progressOf, expectedUnits, statusText, statusNoteHtml, pinnedNoteHtml,
-      watchFloor, setBatchStatus, askUnitsDone, askNote, addNote, editNote, removeNote, showPhoto
+      watchFloor, setBatchStatus, askUnitsDone, askNote, addNote, editNote, removeNote, showPhoto,
+      JOB_STAGES, waitingJobsAt, waitingJobHtml
     } from "./js/floor.js";
     import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
 
@@ -481,7 +483,8 @@
       progress: new Map(),
       notes: [],
       requests: [],
-      requestsLoaded: false
+      requestsLoaded: false,
+      waitingJobs: []     // live job cards waiting at this bench, any day
     };
 
     let stops = [];
@@ -1024,6 +1027,15 @@
             <div class="batch-actions">${buttons.join("")}</div>
           </div>`;
       }).join("") || '<p class="empty">No batches in this plan.</p>';
+
+      // Cards waiting here from earlier days, not on today's plan here.
+      const current = state.date >= toInputDate(new Date());
+      const waiting = current ? waitingJobsAt(state.waitingJobs, state.plan, benchKey) : [];
+      if (waiting.length) {
+        $("batchStatuses").insertAdjacentHTML("beforeend", `
+          <h3 class="waiting-here">Waiting here</h3>
+          ${waiting.map(job => `<div class="batch-status">${waitingJobHtml(job, { presets: state.presets })}</div>`).join("")}`);
+      }
     }
 
     function renderPinned() {
@@ -1599,6 +1611,14 @@
         if (remove) return deleteNote(remove.dataset.removeNote);
       });
       $("pinNoteButton").addEventListener("click", pinNote);
+      if (JOB_STAGES.includes(benchKey)) {
+        onSnapshot(query(collection(db, "jobs"), where("stage", "==", benchKey)), snapshot => {
+          state.waitingJobs = snapshot.docs
+            .map(entry => ({ id: entry.id, ...entry.data() }))
+            .sort((a, b) => String(a.day).localeCompare(String(b.day)) || a.id.localeCompare(b.id));
+          if (state.plan) renderBatchStatuses();
+        }, () => {});
+      }
       $("nextPlan").addEventListener("click", event => {
         const button = event.target.closest("button[data-open-date]");
         if (button) openDate(button.dataset.openDate);

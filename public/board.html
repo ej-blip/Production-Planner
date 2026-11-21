@@ -152,13 +152,14 @@
 
   <script type="module">
     import {
-      collection, doc, getDoc, getDocs, onSnapshot, addDoc, serverTimestamp
+      collection, doc, getDoc, getDocs, onSnapshot, addDoc, serverTimestamp, query, where
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
     import {
       FLOOR_BENCHES, MAGNET_STATIONS, benchLabel, floorBatches, onRoute, batchTitle, progressOf, expectedUnits,
       statusText, statusNoteHtml, pinnedNoteHtml, watchFloor, setBatchStatus, askStatus, askNote,
-      addNote, editNote, removeNote, showPhoto, escapeHtml
+      addNote, editNote, removeNote, showPhoto, escapeHtml,
+      JOB_STAGES, waitingJobsAt, waitingJobHtml, askPlaceJob, placeJobOnPlan
     } from "./js/floor.js";
     import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./js/requests.js";
 
@@ -176,7 +177,8 @@
       progress: new Map(),
       notes: [],
       requests: [],
-      nextPlan: null
+      nextPlan: null,
+      jobs: []            // live job cards not yet done, across all days
     };
     let stops = [];
     let detailStops = [];
@@ -411,6 +413,9 @@
 
     function renderFloor() {
       const batches = floorBatches(state.plan);
+      // Cards waiting from earlier days show on today's and later boards.
+      const current = state.date >= toInputDate(new Date());
+      const management = state.role === "management";
       $("floor").innerHTML = FLOOR_BENCHES.map(bench => {
         const names = magnetsFor(bench.key);
         const magnets = bench.key === "cage"
@@ -423,8 +428,10 @@
               <h2>${escapeHtml(bench.short)}</h2>
               <div class="magnets">${magnets}</div>
             </div>
-            ${batches.filter(batch => onRoute(batch, bench.key)).map(batch => statusNoteHtml({ bench: bench.key, batch, progress: state.progress, presets: state.presets, clickable: true })).join("")
-              || '<span class="empty">No batches</span>'}
+            ${[
+              ...batches.filter(batch => onRoute(batch, bench.key)).map(batch => statusNoteHtml({ bench: bench.key, batch, progress: state.progress, presets: state.presets, clickable: true })),
+              ...(current ? waitingJobsAt(state.jobs, state.plan, bench.key) : []).map(job => waitingJobHtml(job, { presets: state.presets, clickable: management }))
+            ].join("") || '<span class="empty">No batches</span>'}
             ${notes.map(note => pinnedNoteHtml(note, state.role)).join("")}
             <div class="column-foot"><button type="button" class="secondary" data-add-note="${bench.key}">+ Note</button></div>
           </div>`;
@@ -434,6 +441,26 @@
     // ------------------------------------------------------------------
     // Actions
     // ------------------------------------------------------------------
+    // Management puts a waiting card on this day's plan at a bench.
+    async function placeWaitingJob(jobId) {
+      const job = state.jobs.find(item => item.id === jobId);
+      if (!job || state.role !== "management") return;
+      const lane = await askPlaceJob(job);
+      if (!lane) return;
+      try {
+        await placeJobOnPlan(state.date, job, lane, actor());
+        await addDoc(collection(db, "plans", state.date, "events"), {
+          bench: "management",
+          kind: "note",
+          message: `${benchLabel(lane)} · ${batchTitle(job)}: ${job.quantity} put on today's plan.`,
+          createdBy: actor(),
+          createdAt: serverTimestamp()
+        });
+        toast(`${job.quantity} ${batchTitle(job)} on ${benchLabel(lane)}`);
+      } catch (error) {
+        toast(error?.code ? `That wasn't saved: ${friendlyError(error)}` : error.message, true);
+      }
+    }
     async function changeStatus(bench, batchKey) {
       const batch = floorBatches(state.plan).find(item => item.key === batchKey);
       if (!batch) return;
@@ -506,6 +533,8 @@
         if (remove) return deleteNote(remove.dataset.removeNote);
         const add = event.target.closest("[data-add-note]");
         if (add) return pinNote(add.dataset.addNote);
+        const waiting = event.target.closest(".sticky.wip.clickable");
+        if (waiting) return placeWaitingJob(waiting.dataset.wip);
         const sticky = event.target.closest(".sticky.clickable");
         if (sticky) return changeStatus(sticky.dataset.bench, sticky.dataset.batch);
       });
@@ -513,7 +542,8 @@
         const sticky = event.target.closest?.(".sticky.clickable");
         if (sticky && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
-          changeStatus(sticky.dataset.bench, sticky.dataset.batch);
+          if (sticky.classList.contains("wip")) placeWaitingJob(sticky.dataset.wip);
+          else changeStatus(sticky.dataset.bench, sticky.dataset.batch);
         }
       });
       $("addEveryoneNote").addEventListener("click", () => pinNote("all"));
@@ -557,6 +587,12 @@
         toast(friendlyError(error), true);
       }
       wire();
+      onSnapshot(query(collection(db, "jobs"), where("stage", "in", JOB_STAGES)), snapshot => {
+        state.jobs = snapshot.docs
+          .map(entry => ({ id: entry.id, ...entry.data() }))
+          .sort((a, b) => String(a.day).localeCompare(String(b.day)) || a.id.localeCompare(b.id));
+        if (state.plan) renderFloor();
+      }, () => {});
       const requested = new URLSearchParams(window.location.search).get("date");
       openDate(/^\d{4}-\d{2}-\d{2}$/.test(requested || "") ? requested : toInputDate(new Date()));
     }

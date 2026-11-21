@@ -54,6 +54,9 @@
 .sticky.status-hit .sticky-status { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
 .sticky.status-short { border-color: var(--red); }
 .sticky.status-short .sticky-status { color: var(--red); border-color: var(--red); background: var(--red-soft); }
+/* A card waiting at a bench from an earlier day */
+.sticky.wip { border-style: dashed; background: var(--inset); }
+.sticky.wip .sticky-status { color: var(--ink-2); }
 .sticky.clickable { cursor: pointer; transition: background-color 0.12s ease, box-shadow 0.12s ease; }
 .sticky.clickable:hover { box-shadow: 0 0 0 3px var(--accent-soft); }
 .sticky.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
