@@ -14,12 +14,13 @@ rules_version = '2';
 //     If that PIN is later changed or deleted, the screen loses access at once.
 //
 // Who can do what:
-//   management  – full access: roster, build batches, plans, staff, PINs.
+//   management  – full access: roster, work orders, plans, staff, PINs.
 //   bench       – reads staff, colours, rosters and RELEASED plans. On a
 //                 released plan it can move people, log changes, update
 //                 the day's current target, set batch statuses on the floor
 //                 board and pin notes (editing only notes a bench pinned).
-//                 It never sees draft plans.
+//                 It never sees draft plans. It can read work orders but
+//                 not change them.
 //   anyone else – no access.
 //
 // Data layout:
@@ -27,6 +28,7 @@ rules_version = '2';
 //   devices/{uid}                    role, pin, createdAt
 //   staff/{staffKey}                 Worker Admin settings
 //   configPresets/{key}              configuration colours
+//   workOrders/{id}                  customer orders built over several days
 //   rosters/{YYYY-MM-DD}             who is in on that day
 //   plans/{YYYY-MM-DD}               build batches, status, targets, workflow
 //   plans/{date}/assignments/{id}    who works where, per phase (id = phase_staffKey)
@@ -34,8 +36,8 @@ rules_version = '2';
 //   plans/{date}/progress/{id}       floor board: each bench's status per batch
 //                                    (id = bench_batchId)
 //   plans/{date}/notes/{id}          floor board: pinned notes and photos
-//   plans/{date}/requests/{id}       help, stock (Maged's Mart) and faulty
-//                                    reports from the benches
+//   plans/{date}/requests/{id}       help, stock and faulty reports from
+//                                    the benches
 // =====================================================================
 
 service cloud.firestore {
@@ -188,6 +190,23 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    // A customer order: what to build and how many in total. Days take
+    // their batches from it until it is used up.
+    function validWorkOrder() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['customer', 'unitType', 'commsType', 'simType', 'configKey', 'quantity', 'status', 'updatedAt'])
+        && d.keys().hasOnly(['customer', 'unitType', 'commsType', 'simType', 'configKey', 'configText', 'quantity', 'status', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.customer is string && d.customer.size() > 0 && d.customer.size() <= 80
+        && d.unitType in ['gen4', 'tap']
+        && d.commsType in ['verizon', 'global']
+        && d.simType is string && d.simType.size() <= 40
+        && d.configKey is string && d.configKey.size() <= 40
+        && (d.get('configText', null) == null || (d.configText is string && d.configText.size() <= 2000))
+        && d.quantity is int && d.quantity > 0 && d.quantity <= 100000
+        && d.status in ['open', 'closed']
+        && d.updatedAt == request.time;
+    }
+
     // ---------- PINs and signed-in screens -----------------------------
     match /pins/{pin} {
       allow read, delete: if isManagement();
@@ -214,6 +233,12 @@ service cloud.firestore {
     match /rosters/{date} {
       allow read: if isAppUser();
       allow write: if isManagement();
+    }
+
+    match /workOrders/{orderId} {
+      allow read: if isAppUser();
+      allow create, update: if isManagement() && validWorkOrder();
+      allow delete: if isManagement();
     }
 
     // ---------- Daily plans --------------------------------------------

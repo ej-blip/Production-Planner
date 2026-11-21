@@ -674,3 +674,54 @@ describe("Requests – help, stock and faulty reports", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------
+describe("Work orders", () => {
+  // What planner-data.js writes when an order is added or edited.
+  const order = fields => ({
+    customer: "Portland", unitType: "gen4", commsType: "verizon", simType: "verizon",
+    configKey: "blue", configText: "Sensor cable: 9.2 m", quantity: 150, status: "open",
+    createdBy: "Management", createdAt: serverTimestamp(), updatedBy: "Management", updatedAt: serverTimestamp(),
+    ...fields
+  });
+
+  it("management adds, edits, closes and deletes an order", async () => {
+    const db = management();
+    const ref = doc(db, "workOrders", "order-1");
+    await assertSucceeds(setDoc(ref, order()));
+    await assertSucceeds(setDoc(ref, order({ quantity: 300 })));
+    await assertSucceeds(updateDoc(ref, { status: "closed", updatedBy: "Management", updatedAt: serverTimestamp() }));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it("orders must be well formed", async () => {
+    const db = management();
+    const ref = doc(db, "workOrders", "order-2");
+    await assertFails(setDoc(ref, order({ quantity: 0 })));
+    await assertFails(setDoc(ref, order({ quantity: 12.5 })));
+    await assertFails(setDoc(ref, order({ unitType: "gen3" })));
+    await assertFails(setDoc(ref, order({ commsType: "wifi" })));
+    await assertFails(setDoc(ref, order({ status: "lost" })));
+    await assertFails(setDoc(ref, order({ customer: "" })));
+    await assertFails(setDoc(ref, order({ priority: "rush" })));
+    const { quantity, ...noQuantity } = order();
+    await assertFails(setDoc(ref, noQuantity));
+  });
+
+  it("benches read orders but cannot change them", async () => {
+    await assertSucceeds(setDoc(doc(management(), "workOrders", "order-3"), order()));
+    const db = bench();
+    await assertSucceeds(getDoc(doc(db, "workOrders", "order-3")));
+    await assertSucceeds(getDocs(collection(db, "workOrders")));
+    await assertFails(setDoc(doc(db, "workOrders", "order-4"), order()));
+    await assertFails(updateDoc(doc(db, "workOrders", "order-3"), { status: "closed", updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(doc(db, "workOrders", "order-3")));
+  });
+
+  it("screens without a working PIN see nothing", async () => {
+    for (const screen of [stranger, revoked, spoofed, nobody]) {
+      await assertFails(getDocs(collection(screen(), "workOrders")));
+      await assertFails(setDoc(doc(screen(), "workOrders", "order-5"), order()));
+    }
+  });
+});

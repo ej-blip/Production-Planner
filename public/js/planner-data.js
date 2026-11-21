@@ -11,18 +11,24 @@
 //   saveAttendance(date, roster) → saves who's in for that day straight away
 //   watchRosters(dates, callback)→ live callback(date, roster | null) for each date;
 //                                  returns a stop function
+//   orders.watch(callback)       → live list of work orders (open and closed)
+//   orders.save(order)           → adds an order (no id) or updates one
+//   orders.setStatus(id, status) → "open" | "closed"
+//   orders.remove(id)
+//   orders.usage(ids, skipDate)  → Map id → { packed, released } from released
+//                                  days other than skipDate
 //   requests.watch(date, callback) → live list of help / stock / faulty requests
 //   requests.advance(date, request, status) → moves one on (and logs it)
 //   requests.cardHtml(request)   → a request card with its next-step button
 //   showPhoto(src)
 //   lockScreen()
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, writeBatch, serverTimestamp,
-  onSnapshot, query, orderBy, limit
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp,
+  onSnapshot, query, orderBy, limit, where
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, ensureAccess, lockScreen, friendlyError } from "./session.js";
 import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./requests.js";
-import { showPhoto } from "./floor.js";
+import { showPhoto, floorBatches, progressOf, expectedUnits } from "./floor.js";
 
 const ACTOR = "Management";
 
@@ -182,6 +188,85 @@ function watchRosters(dates, callback) {
 }
 
 // ---------------------------------------------------------------------
+// Work orders: a customer order built over several days
+// ---------------------------------------------------------------------
+const ORDER_FIELDS = ["customer", "unitType", "commsType", "simType", "configKey", "configText", "quantity"];
+
+function watchOrders(onChange) {
+  return onSnapshot(collection(db, "workOrders"), snapshot => {
+    const list = snapshot.docs
+      .map(entry => ({ id: entry.id, ...entry.data() }))
+      .sort((a, b) => (a.createdAt?.toMillis?.() || Date.now()) - (b.createdAt?.toMillis?.() || Date.now()));
+    onChange(list);
+  }, () => onChange(null));
+}
+
+async function saveOrder(order) {
+  const fields = {};
+  ORDER_FIELDS.forEach(key => { fields[key] = order[key]; });
+  fields.quantity = Math.floor(Number(fields.quantity) || 0);
+  fields.configText = String(fields.configText ?? "").slice(0, 2000);
+  if (order.id) {
+    await updateDoc(doc(db, "workOrders", order.id), { ...fields, updatedAt: serverTimestamp(), updatedBy: ACTOR });
+    return order.id;
+  }
+  const ref = doc(collection(db, "workOrders"));
+  await setDoc(ref, {
+    ...fields,
+    status: "open",
+    createdAt: serverTimestamp(),
+    createdBy: ACTOR,
+    updatedAt: serverTimestamp(),
+    updatedBy: ACTOR
+  });
+  return ref.id;
+}
+
+function setOrderStatus(id, status) {
+  return updateDoc(doc(db, "workOrders", id), { status, updatedAt: serverTimestamp(), updatedBy: ACTOR });
+}
+
+function removeOrder(id) {
+  return deleteDoc(doc(db, "workOrders", id));
+}
+
+// How much of each order released days have used: what Packing finished
+// (its real number), plus the planned amount of batches not packed yet.
+async function orderUsage(ids, skipDate) {
+  const usage = new Map(ids.map(id => [id, { packed: 0, released: 0 }]));
+  if (!ids.length) return usage;
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+  const snapshots = await Promise.all(chunks.map(part =>
+    getDocs(query(collection(db, "plans"), where("orderIds", "array-contains-any", part)))));
+  const plans = new Map();
+  snapshots.forEach(snapshot => snapshot.docs.forEach(entry => plans.set(entry.id, entry.data())));
+  await Promise.all([...plans].map(async ([date, plan]) => {
+    if (date === skipDate || plan.status !== "released") return;
+    const batches = floorBatches(plan).filter(batch => usage.has(batch.orderId));
+    if (!batches.length) return;
+    const progressDocs = await getDocs(collection(db, "plans", date, "progress"));
+    const progress = new Map(progressDocs.docs.map(entry => [entry.id, entry.data()]));
+    batches.forEach(batch => {
+      const tally = usage.get(batch.orderId);
+      const item = progressOf(progress, "packing", batch);
+      if (item.status === "hit") tally.packed += Number.isInteger(item.done) ? item.done : expectedUnits(progress, "packing", batch);
+      else if (item.status === "short") tally.packed += item.done || 0;
+      else tally.released += batch.planned;
+    });
+  }));
+  return usage;
+}
+
+const orders = {
+  watch: watchOrders,
+  save: saveOrder,
+  setStatus: setOrderStatus,
+  remove: removeOrder,
+  usage: orderUsage
+};
+
+// ---------------------------------------------------------------------
 // Requests from the benches (help, stock, faulty)
 // ---------------------------------------------------------------------
 async function advanceRequest(date, request, to) {
@@ -225,6 +310,7 @@ window.plannerData = {
   watchPlan,
   saveAttendance,
   watchRosters,
+  orders,
   requests,
   showPhoto,
   lockScreen,

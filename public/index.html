@@ -34,6 +34,36 @@
       padding: 18px 24px 48px;
     }
 
+    /* Work orders ------------------------------------------------------ */
+    .orders-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .orders-head .section-title { margin: 0; }
+    .orders-head button { margin: 0; }
+    .order-form { margin-bottom: 16px; padding: 14px; background: var(--inset); border: 1px solid var(--rule); border-radius: var(--radius); }
+    .order-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+    .order-form-wide { grid-column: 1 / -1; }
+    .order-form textarea { min-height: 0; }
+    .order-form-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .order-form-actions button { margin: 0; }
+    .order-form-spacer { flex: 1; }
+    .order-error { margin: 8px 0 0; min-height: 1px; color: var(--red); font-weight: 600; }
+    .order-error:empty { display: none; }
+    .orders-table { width: 100%; border-collapse: collapse; }
+    .orders-table th, .orders-table td { padding: 9px 10px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: middle; font-size: 15px; }
+    .orders-table th { font-size: 13px; }
+    .orders-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .orders-table td.num b { font-family: var(--font-label); font-size: 19px; font-weight: 600; }
+    .orders-table .order-build { color: var(--ink-2); }
+    .orders-table .empty { color: var(--muted); }
+    .orders-table tr.on-today td { background: var(--accent-soft); }
+    .orders-table .row-actions { display: flex; justify-content: flex-end; gap: 6px; white-space: nowrap; }
+    .orders-table .row-actions button { margin: 0; min-height: 36px; padding: 6px 12px; font-size: 14px; }
+    .orders-table .done-tag { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+    .orders-closed { margin-top: 14px; }
+    .orders-closed summary { cursor: pointer; font-family: var(--font-label); font-weight: 600; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+    .orders-closed .orders-table td { color: var(--ink-2); }
+    body.orders-linked .work-mode-bar,
+    body.orders-linked .header-card { display: none !important; }
+
     .bench-strip {
       display: flex;
       align-items: center;
@@ -1470,8 +1500,8 @@
     </div>
 
     <nav id="flowSteps" class="flow-steps" aria-label="Daily plan steps">
-      <button type="button" class="flow-step" data-go="who"><span class="flow-num">1</span><span class="flow-text"><span class="flow-name">Who's in</span><span class="flow-status" id="flowStatus-who"></span></span></button>
-      <button type="button" class="flow-step" data-go="mix"><span class="flow-num">2</span><span class="flow-text"><span class="flow-name">Work mix</span><span class="flow-status" id="flowStatus-mix"></span></span></button>
+      <button type="button" class="flow-step" data-go="mix"><span class="flow-num">1</span><span class="flow-text"><span class="flow-name">Work orders</span><span class="flow-status" id="flowStatus-mix"></span></span></button>
+      <button type="button" class="flow-step" data-go="who"><span class="flow-num">2</span><span class="flow-text"><span class="flow-name">Who's in</span><span class="flow-status" id="flowStatus-who"></span></span></button>
       <button type="button" class="flow-step" data-go="benches"><span class="flow-num">3</span><span class="flow-text"><span class="flow-name">Benches</span><span class="flow-status" id="flowStatus-benches"></span></span></button>
       <button type="button" class="flow-step" data-go="release"><span class="flow-num">4</span><span class="flow-text"><span class="flow-name">Review &amp; release</span><span class="flow-status" id="flowStatus-release"></span></span></button>
     </nav>
@@ -1487,6 +1517,61 @@
         <button type="button" id="saveDraftButton" class="secondary" data-plan-action="draft" onclick="savePlanDraft()">Save draft</button>
         <button type="button" id="releasePlanButton" data-plan-action="release" onclick="releaseCurrentPlan()">Release plan</button>
       </span>
+    </div>
+
+    <!-- ==========================================================
+         WORK ORDERS: customer orders built over several days. Picking
+         one for the day fills the day's build from it.
+         ========================================================== -->
+    <div class="card orders-card" data-step="mix">
+      <div class="orders-head">
+        <h2 class="section-title">Work orders</h2>
+        <button type="button" id="newOrderButton">New order</button>
+      </div>
+
+      <form id="orderForm" class="order-form hidden" autocomplete="off">
+        <div class="order-form-grid">
+          <div><label for="orderCustomer">Customer</label><input id="orderCustomer" type="text" maxlength="80" /></div>
+          <div><label for="orderUnit">Unit type</label><select id="orderUnit"><option value="gen4">Gen4</option><option value="tap">Tap</option></select></div>
+          <div><label for="orderComms">Comms type</label><select id="orderComms"><option value="verizon">Verizon</option><option value="global">Global</option></select></div>
+          <div><label for="orderSim">SIM type</label><select id="orderSim"></select></div>
+          <div><label for="orderConfig">Configuration colour</label><select id="orderConfig"></select></div>
+          <div><label for="orderQuantity">Quantity</label><input id="orderQuantity" type="number" min="1" step="1" inputmode="numeric" /></div>
+          <div class="order-form-wide"><label for="orderConfigText">Component setup</label><textarea id="orderConfigText" rows="2" maxlength="2000"></textarea></div>
+        </div>
+        <p class="order-error" id="orderError" role="alert"></p>
+        <div class="order-form-actions">
+          <button type="button" class="danger hidden" id="orderDelete">Delete</button>
+          <span class="order-form-spacer"></span>
+          <button type="button" class="secondary" id="orderCancel">Cancel</button>
+          <button type="submit" id="orderSave">Save order</button>
+        </div>
+      </form>
+
+      <div class="table-scroll">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Build</th>
+              <th class="num">Ordered</th>
+              <th class="num">Packed</th>
+              <th class="num">In progress</th>
+              <th class="num">Today</th>
+              <th class="num">Left</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+
+      <details class="orders-closed hidden" id="ordersClosed">
+        <summary id="ordersClosedSummary">Closed</summary>
+        <div class="table-scroll">
+          <table class="orders-table"><tbody id="ordersClosedBody"></tbody></table>
+        </div>
+      </details>
     </div>
 
     <!-- ==========================================================
@@ -1887,6 +1972,7 @@
       renderPlanStatus();
       if (data && currentPlanState.status !== "error") {
         wireAlerts();
+        wireOrders();
         window.addEventListener("online", () => renderFlow());
         window.addEventListener("offline", () => renderFlow());
         await loadPlanForSelectedDate();
@@ -2321,7 +2407,8 @@
         simType,
         configKey,
         configText,
-        quantity: Math.max(0, Math.floor(Number(raw.quantity) || 0))
+        quantity: Math.max(0, Math.floor(Number(raw.quantity) || 0)),
+        ...(raw.orderId ? { orderId: String(raw.orderId) } : {})
       };
     }
 
@@ -2329,6 +2416,7 @@
       const configKey = document.getElementById("sensorConfig")?.value || "blue";
       return normalizeWorkBatch({
         id: workBatches[0]?.id || makeWorkBatchId(),
+        orderId: workBatches[0]?.orderId,
         customer: safeValue("customer", "Customer"),
         unitType: document.getElementById("unitType")?.value || "gen4",
         commsType: document.getElementById("commsType")?.value || "verizon",
@@ -2364,6 +2452,7 @@
     }
 
     function applyWorkDayModeUi() {
+      document.body.classList.toggle("orders-linked", workBatches.some(batch => batch.orderId));
       document.body.classList.toggle("mixed-work-active", workDayMode === "mixed");
       document.getElementById("singleWorkModeButton")?.classList.toggle("active", workDayMode === "single");
       document.getElementById("mixedWorkModeButton")?.classList.toggle("active", workDayMode === "mixed");
@@ -2506,6 +2595,10 @@
           .map(([key, config]) => `<option value="${safeAttr(key)}" ${batch.configKey === key ? "selected" : ""}>${escapeHtml(config.label)}</option>`)
           .join("");
 
+        const locked = batch.orderId ? "disabled" : "";
+        const removeAction = batch.orderId
+          ? `toggleOrderToday('${safeJs(batch.orderId)}')`
+          : `removeWorkBatch('${safeJs(batch.id)}')`;
         return `
           <tr>
             <td>
@@ -2513,42 +2606,389 @@
               ${index === 0 ? '<div class="small" style="margin-top:5px;">Primary</div>' : ''}
             </td>
             <td>
-              <input class="batch-customer" type="text" value="${safeAttr(batch.customer)}" onchange="updateWorkBatch('${safeJs(batch.id)}','customer',this.value)" />
+              <input class="batch-customer" type="text" ${locked} value="${safeAttr(batch.customer)}" onchange="updateWorkBatch('${safeJs(batch.id)}','customer',this.value)" />
             </td>
             <td>
-              <select onchange="updateWorkBatch('${safeJs(batch.id)}','unitType',this.value)">
+              <select ${locked} onchange="updateWorkBatch('${safeJs(batch.id)}','unitType',this.value)">
                 <option value="gen4" ${batch.unitType === "gen4" ? "selected" : ""}>Gen4</option>
                 <option value="tap" ${batch.unitType === "tap" ? "selected" : ""}>Tap</option>
               </select>
             </td>
             <td>
-              <select onchange="updateWorkBatch('${safeJs(batch.id)}','commsType',this.value)">
+              <select ${locked} onchange="updateWorkBatch('${safeJs(batch.id)}','commsType',this.value)">
                 <option value="verizon" ${batch.commsType === "verizon" ? "selected" : ""}>Verizon</option>
                 <option value="global" ${batch.commsType === "global" ? "selected" : ""}>Global</option>
               </select>
             </td>
             <td>
-              <select ${batch.commsType === "verizon" ? "disabled" : ""} onchange="updateWorkBatch('${safeJs(batch.id)}','simType',this.value)">
+              <select ${batch.commsType === "verizon" || batch.orderId ? "disabled" : ""} onchange="updateWorkBatch('${safeJs(batch.id)}','simType',this.value)">
                 ${globalSimOptions}
               </select>
             </td>
             <td class="config-cell">
-              <select onchange="updateWorkBatch('${safeJs(batch.id)}','configKey',this.value)">
+              <select ${locked} onchange="updateWorkBatch('${safeJs(batch.id)}','configKey',this.value)">
                 ${configOptions}
               </select>
-              <textarea class="batch-config-summary" rows="3" oninput="updateWorkBatch('${safeJs(batch.id)}','configText',this.value)">${escapeHtml(batch.configText ?? configurationComponentSummary(batch.configKey))}</textarea>
+              <textarea class="batch-config-summary" rows="3" ${locked} oninput="updateWorkBatch('${safeJs(batch.id)}','configText',this.value)">${escapeHtml(batch.configText ?? configurationComponentSummary(batch.configKey))}</textarea>
             </td>
             <td>
               <input class="batch-quantity" type="number" min="0" step="1" value="${batch.quantity}" onchange="updateWorkBatch('${safeJs(batch.id)}','quantity',this.value)" />
             </td>
             <td>
-              <button type="button" class="danger" onclick="removeWorkBatch('${safeJs(batch.id)}')">Remove</button>
+              <button type="button" class="danger" onclick="${removeAction}">Remove</button>
             </td>
           </tr>
         `;
       }).join("");
 
       renderWorkMixSummary();
+      renderOrders();
+    }
+
+    /* ============================================================
+       WORK ORDERS
+       A customer order (say 150 Gen4 for Portland) is built over several
+       days. "Build today" makes it the day's build; the day's target never
+       goes past what the order has left. Released days count towards an
+       order: their planned amount until Packing reports, then Packing's
+       real number. An order Packing has finished in full closes itself.
+       ============================================================ */
+    let workOrders = [];
+    let workOrdersLoaded = false;
+    let workOrderUsage = new Map();     // order id → { packed, released }
+    let editingOrderId = null;
+    let orderUsageTicket = 0;
+
+    function wireOrders() {
+      fillOrderConfigOptions();
+      document.getElementById("newOrderButton").addEventListener("click", () => openOrderForm(null));
+      document.getElementById("orderCancel").addEventListener("click", closeOrderForm);
+      document.getElementById("orderComms").addEventListener("change", () => fillOrderSimOptions());
+      document.getElementById("orderConfig").addEventListener("change", event => {
+        document.getElementById("orderConfigText").value = configurationComponentSummary(event.target.value);
+      });
+      document.getElementById("orderForm").addEventListener("submit", event => {
+        event.preventDefault();
+        saveOrderForm();
+      });
+      document.getElementById("orderDelete").addEventListener("click", deleteEditingOrder);
+
+      const onTableClick = event => {
+        const today = event.target.closest("[data-order-today]");
+        if (today) return toggleOrderToday(today.dataset.orderToday);
+        const edit = event.target.closest("[data-order-edit]");
+        if (edit) return openOrderForm(edit.dataset.orderEdit);
+        const close = event.target.closest("[data-order-close]");
+        if (close) return setOrderStatusFromTable(close.dataset.orderClose, "closed", close);
+        const reopen = event.target.closest("[data-order-reopen]");
+        if (reopen) return setOrderStatusFromTable(reopen.dataset.orderReopen, "open", reopen);
+      };
+      document.getElementById("ordersBody").addEventListener("click", onTableClick);
+      document.getElementById("ordersClosedBody").addEventListener("click", onTableClick);
+
+      window.plannerData.orders.watch(list => {
+        if (!list) {
+          if (!workOrdersLoaded) {
+            document.getElementById("ordersBody").innerHTML = '<tr><td colspan="8" class="empty">Orders can\'t be loaded right now.</td></tr>';
+          }
+          return;
+        }
+        workOrders = list;
+        workOrdersLoaded = true;
+        syncLinkedBatches();
+        renderOrders();
+        refreshOrderUsage();
+      });
+    }
+
+    // What released days have used of an order (not counting the day on screen).
+    async function refreshOrderUsage() {
+      if (!window.plannerData?.orders || !workOrdersLoaded) return;
+      const ids = workOrders
+        .filter(order => order.status !== "closed" || workBatches.some(batch => batch.orderId === order.id))
+        .map(order => order.id);
+      const ticket = ++orderUsageTicket;
+      let usage;
+      try {
+        usage = await window.plannerData.orders.usage(ids, planDateValue());
+      } catch (error) {
+        console.warn("Order counts unavailable", error);
+        return;
+      }
+      if (ticket !== orderUsageTicket) return;
+      workOrderUsage = usage;
+
+      workOrders
+        .filter(order => order.status !== "closed" && (workOrderUsage.get(order.id)?.packed || 0) >= order.quantity)
+        .forEach(order => window.plannerData.orders.setStatus(order.id, "closed").catch(() => {}));
+
+      // Today's batches and target may now be capped by what each order has left.
+      syncLinkedBatches();
+      renderOrders();
+      renderBenchBoard();
+      renderFlow();
+    }
+
+    function orderLeftBefore(order) {
+      const usage = workOrderUsage.get(order.id);
+      if (!usage) return null;
+      return Math.max(0, order.quantity - usage.packed - usage.released);
+    }
+
+    // The single-build day's order and what it has left, or null.
+    function singleOrderLeft() {
+      if (workDayMode !== "single") return null;
+      const order = workOrders.find(item => item.id === workBatches[0]?.orderId);
+      return order ? orderLeftBefore(order) : null;
+    }
+
+    function capToOrder(value) {
+      if (value === null || value === undefined) return value;
+      const left = singleOrderLeft();
+      return left === null ? value : Math.min(value, left);
+    }
+
+    // What the day will actually build of an order: the target on a single
+    // build, the batch's achievable share on a mixed day.
+    function todayQuantityFor(orderId) {
+      const index = workBatches.findIndex(item => item.orderId === orderId);
+      if (index < 0) return 0;
+      if (workDayMode === "single") return currentPlanTarget() ?? 0;
+      const share = lastResult?.mixedCapacity?.batches?.find(batch => batch.originalIndex === index);
+      return share ? share.achievable : 0;
+    }
+
+    function batchFromOrder(order, existing = null) {
+      const left = orderLeftBefore(order);
+      return normalizeWorkBatch({
+        id: existing?.id || makeWorkBatchId(),
+        orderId: order.id,
+        customer: order.customer,
+        unitType: order.unitType,
+        commsType: order.commsType,
+        simType: order.simType,
+        configKey: order.configKey,
+        configText: order.configText ?? configurationComponentSummary(order.configKey),
+        quantity: existing && left !== null ? Math.min(existing.quantity, left) : existing ? existing.quantity : (left ?? order.quantity)
+      });
+    }
+
+    function applyWorkBatchChange() {
+      workDayMode = workBatches.length > 1 ? "mixed" : "single";
+      lastStationIssues = [];
+      applyPrimaryBatchToSingleControls();
+      applyWorkDayModeUi();
+      renderWorkMixTable();
+      saveWorkMixState();
+      calculateFromRoster();
+    }
+
+    function toggleOrderToday(orderId) {
+      const onToday = workBatches.some(batch => batch.orderId === orderId);
+      if (onToday) {
+        const removed = workBatches.find(batch => batch.orderId === orderId);
+        workBatches = workBatches.filter(batch => batch.orderId !== orderId);
+        if (!workBatches.length) {
+          const { orderId: _order, ...manual } = removed;
+          workBatches = [normalizeWorkBatch(manual)];
+        }
+      } else {
+        const order = workOrders.find(item => item.id === orderId);
+        if (!order) return;
+        // A single build's batch carries no real quantity; on a mixed day
+        // each order asks for what it has left.
+        const linked = workBatches.filter(batch => batch.orderId).map(batch => {
+          if (workDayMode === "mixed") return batch;
+          const source = workOrders.find(item => item.id === batch.orderId);
+          const left = source ? orderLeftBefore(source) : null;
+          return left === null ? batch : { ...batch, quantity: left };
+        });
+        workBatches = [...linked, batchFromOrder(order)];
+      }
+      applyWorkBatchChange();
+    }
+
+    // Keep the day's batches in step with their orders (an order edited
+    // elsewhere, or deleted).
+    function syncLinkedBatches() {
+      let changed = false;
+      workBatches = workBatches.map(batch => {
+        if (!batch.orderId) return batch;
+        const order = workOrders.find(item => item.id === batch.orderId);
+        if (!order) {
+          changed = true;
+          const { orderId: _order, ...manual } = batch;
+          return normalizeWorkBatch(manual);
+        }
+        const fresh = batchFromOrder(order, batch);
+        if (JSON.stringify(fresh) !== JSON.stringify(batch)) changed = true;
+        return fresh;
+      });
+      if (changed) applyWorkBatchChange();
+      else applyWorkDayModeUi();
+    }
+
+    function orderBuildText(order) {
+      const parts = [unitTypeLabel(order.unitType), getCommsLabel(order.commsType)];
+      if (order.commsType === "global") parts.push(getSimPlanLabel(order.simType));
+      parts.push(configurationLabel(order.configKey));
+      return parts.join(" · ");
+    }
+
+    function renderOrders() {
+      const body = document.getElementById("ordersBody");
+      if (!body || !workOrdersLoaded) return;
+      const open = workOrders.filter(order => order.status !== "closed");
+      const closed = workOrders.filter(order => order.status === "closed");
+      const count = value => (value === null || value === undefined ? "…" : String(value));
+
+      body.innerHTML = open.length
+        ? open.map(order => {
+            const usage = workOrderUsage.get(order.id);
+            const onToday = workBatches.some(batch => batch.orderId === order.id);
+            const today = onToday ? todayQuantityFor(order.id) : 0;
+            const before = orderLeftBefore(order);
+            const left = before === null ? null : Math.max(0, before - today);
+            const nothingLeft = before === 0 && !onToday;
+            return `
+              <tr class="${onToday ? "on-today" : ""}">
+                <td><b>${escapeHtml(order.customer)}</b></td>
+                <td class="order-build">${escapeHtml(orderBuildText(order))}</td>
+                <td class="num">${order.quantity}</td>
+                <td class="num">${count(usage?.packed)}</td>
+                <td class="num">${count(usage?.released)}</td>
+                <td class="num">${onToday ? today : "–"}</td>
+                <td class="num"><b>${count(left)}</b></td>
+                <td>
+                  <div class="row-actions">
+                    <button type="button" class="${onToday ? "" : "secondary"}" data-order-today="${safeAttr(order.id)}" aria-pressed="${onToday}" ${nothingLeft ? "disabled" : ""}>${onToday ? "Building today" : "Build today"}</button>
+                    <button type="button" class="secondary" data-order-edit="${safeAttr(order.id)}">Edit</button>
+                    <button type="button" class="secondary" data-order-close="${safeAttr(order.id)}">Close</button>
+                  </div>
+                </td>
+              </tr>`;
+          }).join("")
+        : '<tr><td colspan="8" class="empty">No open orders</td></tr>';
+
+      const closedBox = document.getElementById("ordersClosed");
+      closedBox.classList.toggle("hidden", !closed.length);
+      document.getElementById("ordersClosedSummary").textContent = `Closed (${closed.length})`;
+      document.getElementById("ordersClosedBody").innerHTML = closed.map(order => `
+        <tr>
+          <td><b>${escapeHtml(order.customer)}</b></td>
+          <td class="order-build">${escapeHtml(orderBuildText(order))}</td>
+          <td class="num">${order.quantity}</td>
+          <td>
+            <div class="row-actions">
+              <button type="button" class="secondary" data-order-reopen="${safeAttr(order.id)}">Reopen</button>
+              <button type="button" class="secondary" data-order-edit="${safeAttr(order.id)}">Edit</button>
+            </div>
+          </td>
+        </tr>`).join("");
+    }
+
+    function fillOrderConfigOptions() {
+      document.getElementById("orderConfig").innerHTML = Object.entries(sensorConfigurations)
+        .map(([key, config]) => `<option value="${safeAttr(key)}">${escapeHtml(config.label)}</option>`)
+        .join("");
+    }
+
+    function fillOrderSimOptions(value) {
+      const comms = document.getElementById("orderComms").value;
+      const sim = document.getElementById("orderSim");
+      if (comms === "verizon") {
+        sim.innerHTML = '<option value="verizon">Verizon</option>';
+        sim.value = "verizon";
+        sim.disabled = true;
+        return;
+      }
+      const previous = value ?? sim.value;
+      sim.disabled = false;
+      sim.innerHTML = '<option value="att">AT&amp;T</option><option value="fusion-na">Fusion NA</option><option value="telstra">Telstra</option>';
+      sim.value = ["att", "fusion-na", "telstra"].includes(previous) ? previous : "att";
+    }
+
+    function openOrderForm(orderId) {
+      const order = orderId ? workOrders.find(item => item.id === orderId) : null;
+      editingOrderId = order ? order.id : null;
+      const source = order || {
+        customer: "", unitType: "gen4", commsType: "verizon", simType: "verizon",
+        configKey: "blue", configText: configurationComponentSummary("blue"), quantity: ""
+      };
+      fillOrderConfigOptions();
+      document.getElementById("orderCustomer").value = source.customer;
+      document.getElementById("orderUnit").value = source.unitType;
+      document.getElementById("orderComms").value = source.commsType;
+      fillOrderSimOptions(source.simType);
+      document.getElementById("orderConfig").value = sensorConfigurations[source.configKey] ? source.configKey : "blue";
+      document.getElementById("orderConfigText").value = source.configText ?? configurationComponentSummary(source.configKey);
+      document.getElementById("orderQuantity").value = source.quantity;
+      document.getElementById("orderDelete").classList.toggle("hidden", !order);
+      document.getElementById("orderSave").textContent = order ? "Save changes" : "Save order";
+      document.getElementById("orderError").textContent = "";
+      document.getElementById("orderForm").classList.remove("hidden");
+      document.getElementById("orderCustomer").focus();
+    }
+
+    function closeOrderForm() {
+      editingOrderId = null;
+      document.getElementById("orderForm").classList.add("hidden");
+    }
+
+    async function saveOrderForm() {
+      const error = document.getElementById("orderError");
+      const customer = document.getElementById("orderCustomer").value.trim();
+      const quantity = Number(document.getElementById("orderQuantity").value);
+      if (!customer) {
+        error.textContent = "Enter the customer.";
+        return;
+      }
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        error.textContent = "Enter the quantity as a whole number.";
+        return;
+      }
+      const save = document.getElementById("orderSave");
+      save.disabled = true;
+      try {
+        await window.plannerData.orders.save({
+          id: editingOrderId,
+          customer,
+          unitType: document.getElementById("orderUnit").value,
+          commsType: document.getElementById("orderComms").value,
+          simType: document.getElementById("orderSim").value,
+          configKey: document.getElementById("orderConfig").value,
+          configText: document.getElementById("orderConfigText").value,
+          quantity
+        });
+        closeOrderForm();
+      } catch (problem) {
+        error.textContent = `That wasn't saved: ${window.plannerData.friendlyError(problem)}`;
+      } finally {
+        save.disabled = false;
+      }
+    }
+
+    async function deleteEditingOrder() {
+      const order = workOrders.find(item => item.id === editingOrderId);
+      if (!order) return;
+      if (!window.confirm(`Delete the ${order.customer} order for ${order.quantity} ${unitTypeLabel(order.unitType)}?`)) return;
+      if (workBatches.some(batch => batch.orderId === order.id)) toggleOrderToday(order.id);
+      try {
+        await window.plannerData.orders.remove(order.id);
+        closeOrderForm();
+      } catch (problem) {
+        document.getElementById("orderError").textContent = `That wasn't deleted: ${window.plannerData.friendlyError(problem)}`;
+      }
+    }
+
+    async function setOrderStatusFromTable(orderId, status, button) {
+      button.disabled = true;
+      try {
+        await window.plannerData.orders.setStatus(orderId, status);
+      } catch (problem) {
+        button.disabled = false;
+        window.alert(`That wasn't saved: ${window.plannerData.friendlyError(problem)}`);
+      }
     }
 
     function getWorkMixTotalQuantity() {
@@ -3133,15 +3573,15 @@
        plan bar (save / release) stay on every step. The step is kept in
        the address (#who, #mix, #benches, #release) so a refresh stays put.
        ============================================================ */
-    const FLOW_STEPS = ["who", "mix", "benches", "release"];
-    const FLOW_STEP_NAMES = { who: "Who's in", mix: "Work mix", benches: "Benches", release: "Review & release" };
+    const FLOW_STEPS = ["mix", "who", "benches", "release"];
+    const FLOW_STEP_NAMES = { mix: "Work orders", who: "Who's in", benches: "Benches", release: "Review & release" };
 
     function currentFlowStep() {
-      return FLOW_STEPS.includes(document.body.dataset.step) ? document.body.dataset.step : "who";
+      return FLOW_STEPS.includes(document.body.dataset.step) ? document.body.dataset.step : "mix";
     }
 
     function showFlowStep(step, options = {}) {
-      const next = FLOW_STEPS.includes(step) ? step : "who";
+      const next = FLOW_STEPS.includes(step) ? step : "mix";
       document.body.dataset.step = next;
       try {
         history.replaceState(null, "", `${location.pathname}${location.search}#${next}`);
@@ -3171,6 +3611,9 @@
     }
 
     function workMixSummaryText() {
+      const linked = workBatches.filter(batch => batch.orderId);
+      if (linked.length === 1 && workDayMode === "single") return `${linked[0].customer} · ${unitTypeLabel(linked[0].unitType)}`;
+      if (linked.length > 1) return `${linked.length} orders · ${getWorkMixTotalQuantity()} units`;
       if (workDayMode === "mixed") {
         const active = workBatches.filter(batch => Number(batch.quantity) > 0);
         if (!active.length) return "No batches yet";
@@ -3352,7 +3795,9 @@
       const bottleneck = workDayMode === "mixed"
         ? lastResult?.mixedCapacity?.bottleneckName
         : lastResult?.workflowCapacity?.bottleneck?.name;
-      return `Target: ${target} units${bottleneck ? ` · limited by ${bottleneck}` : ""}`;
+      const orderCap = singleOrderLeft();
+      const byOrder = orderCap !== null && target === orderCap && target < (lastResult?.workflowCapacity?.finalOutput ?? Infinity);
+      return `Target: ${target} units${byOrder ? " · rest of the order" : bottleneck ? ` · limited by ${bottleneck}` : ""}`;
     }
 
     function renderBenchBoard() {
@@ -5814,6 +6259,7 @@
       renderStationAdjustmentList();
       render(result, day, commsType, unitType);
       renderBenchBoard();
+      renderOrders();
       renderWorkflowChart(result, day, commsType, unitType);
       enhanceCollapsibleSections();
       updateStationAssignmentHint();
@@ -5912,6 +6358,7 @@
       }
 
       if (!loadError) watchPlanForChanges(date);
+      refreshOrderUsage();
     }
 
     /* Live: bench screens change the current target and log what happened.
@@ -5958,7 +6405,8 @@
       if (workDayMode === "mixed") {
         return lastResult.mixedCapacity?.possible ? lastResult.mixedCapacity.realisticOutput : null;
       }
-      return lastResult.possible ? (lastResult.workflowCapacity?.finalOutput ?? lastResult.finalOutput) : null;
+      const capacity = lastResult.possible ? (lastResult.workflowCapacity?.finalOutput ?? lastResult.finalOutput) : null;
+      return capToOrder(capacity);
     }
 
     function buildPlanPayload() {
@@ -5971,6 +6419,7 @@
         day: document.getElementById("daySelect").value,
         workMode: workDayMode,
         batches,
+        orderIds: [...new Set(batches.map(batch => batch.orderId).filter(Boolean))],
         adjustments: stationAdjustments.map(adjustment => ({
           workerKey: adjustment.workerKey,
           phase: adjustment.phase || "start",
@@ -6020,7 +6469,7 @@
           bottleneck: result.workflowCapacity.bottleneck?.name || "",
           stages: { ...result.workflowCapacity.stageCapacityUnits }
         };
-        batchTargets = [{ index: 0, planned: result.workflowCapacity.finalOutput }];
+        batchTargets = [{ index: 0, planned: capToOrder(result.workflowCapacity.finalOutput) }];
       }
 
       return { phases, capacity, batchTargets };
@@ -6120,6 +6569,7 @@
         await window.plannerData.releasePlan(date, buildPlanPayload(), buildRosterPayload(), buildPlanAssignments(), target);
         currentPlanState = { date, status: "released", plannedTarget: target, currentTarget: target };
         planDirty = false;
+        refreshOrderUsage();
       } catch (error) {
         window.alert(`The plan couldn't be released: ${window.plannerData.friendlyError(error)}`);
       } finally {
