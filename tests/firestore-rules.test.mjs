@@ -790,3 +790,36 @@ describe("Job cards", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------
+describe("Custom jobs", () => {
+  // What planner-data.js writes when a custom job name is saved.
+  const name = text => ({ name: text, createdBy: "Management", createdAt: serverTimestamp(), updatedBy: "Management", updatedAt: serverTimestamp() });
+
+  it("management saves and removes custom job names", async () => {
+    const db = management();
+    await assertSucceeds(setDoc(doc(db, "customJobs", "cleaning"), name("Cleaning warehouse")));
+    await assertSucceeds(deleteDoc(doc(db, "customJobs", "cleaning")));
+  });
+
+  it("names must be short and nothing else is stored", async () => {
+    const db = management();
+    await assertFails(setDoc(doc(db, "customJobs", "a"), name("")));
+    await assertFails(setDoc(doc(db, "customJobs", "b"), name("x".repeat(61))));
+    await assertFails(setDoc(doc(db, "customJobs", "c"), { ...name("Stocktake"), people: 3 }));
+  });
+
+  it("benches read the names but cannot change them", async () => {
+    await assertSucceeds(setDoc(doc(management(), "customJobs", "stocktake"), name("Stocktake")));
+    const db = bench();
+    await assertSucceeds(getDocs(collection(db, "customJobs")));
+    await assertFails(setDoc(doc(db, "customJobs", "other"), name("Other")));
+    await assertFails(deleteDoc(doc(db, "customJobs", "stocktake")));
+  });
+
+  it("screens without a working PIN see nothing", async () => {
+    for (const screen of [stranger, revoked, spoofed, nobody]) {
+      await assertFails(getDocs(collection(screen(), "customJobs")));
+    }
+  });
+});

@@ -304,10 +304,18 @@
         }).filter(Boolean);
         return lines.length ? `<p><b>${name}</b> · ${escapeHtml(lines.join(" · "))}</p>` : "";
       }).join("");
+      const custom = state.assignments.filter(item => item.station === "custom");
+      const otherJobs = [...new Set(custom.map(item => item.jobLabel || "Custom job"))].sort((a, b) => a.localeCompare(b)).map(name => {
+        const lines = PHASES.map(([phase, label]) => {
+          const keys = custom.filter(item => (item.jobLabel || "Custom job") === name && item.phase === phase).map(item => item.staffKey);
+          return keys.length ? `${label}: ${keys.map(firstOf).join(", ")}` : "";
+        }).filter(Boolean);
+        return `<p><b>${escapeHtml(name)}</b> · ${escapeHtml(lines.join(" · "))}</p>`;
+      }).join("");
       $("people").innerHTML = `
         <p><b>In (${f.inToday.length})</b> · ${escapeHtml(f.inToday.map(firstOf).sort().join(", ") || "–")}</p>
         <p><b>Away (${f.away.length})</b> · ${escapeHtml(f.away.map(firstOf).sort().join(", ") || "–")}</p>
-        ${byBench}`;
+        ${byBench}${otherJobs}`;
     }
 
     function renderChanges() {
@@ -332,6 +340,11 @@
       lines.push(`Production summary · ${longDate(state.date)}`);
       lines.push(`Packed ${f.packedUnits} of ${f.current}${f.current < f.planned ? ` (target down from ${f.planned})` : ""} · ${f.finished} of ${f.batches.length} batches finished`);
       lines.push(`People: ${f.inToday.length} in${f.away.length ? `, away: ${f.away.map(firstOf).join(", ")}` : ""}`);
+      const custom = state.assignments.filter(item => item.station === "custom");
+      [...new Set(custom.map(item => item.jobLabel || "Custom job"))].sort((x, y) => x.localeCompare(y)).forEach(name => {
+        const people = [...new Set(custom.filter(item => (item.jobLabel || "Custom job") === name).map(item => firstOf(item.staffKey)))];
+        lines.push(`${name}: ${people.join(", ")}`);
+      });
       lines.push("");
       lines.push("Batches");
       f.batches.forEach(batch => {

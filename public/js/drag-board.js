@@ -93,7 +93,7 @@
 
     // With someone selected, tapping a zone (not a name) moves them there.
     root.addEventListener("click", event => {
-      if (event.target.closest(".chip") || performance.now() < ignoreClickUntil) return;
+      if (event.target.closest(".chip, button, input, select, textarea, label") || performance.now() < ignoreClickUntil) return;
       const zone = event.target.closest(".zone[data-zone]");
       if (!zone || !root.contains(zone) || !selected || isBusy()) return;
       move(selected.staffKey, selected.from, zone.dataset.zone);

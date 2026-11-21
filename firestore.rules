@@ -30,6 +30,7 @@ rules_version = '2';
 //   staff/{staffKey}                 Worker Admin settings
 //   configPresets/{key}              configuration colours
 //   workOrders/{id}                  customer orders built over several days
+//   customJobs/{id}                  saved names for other work (cleaning, stocktake)
 //   jobs/{id}                        job cards: units of an order moving bench to
 //                                    bench (assembly → testing → hardware →
 //                                    packing → done), across days
@@ -211,6 +212,15 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    // A saved name for other work people can be put on (cleaning, stocktake).
+    function validCustomJob() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['name', 'updatedAt'])
+        && d.keys().hasOnly(['name', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+        && d.updatedAt == request.time;
+    }
+
     // A job card: some units of an order on their way through the benches.
     function validJob() {
       let d = request.resource.data;
@@ -276,6 +286,12 @@ service cloud.firestore {
     match /workOrders/{orderId} {
       allow read: if isAppUser();
       allow create, update: if isManagement() && validWorkOrder();
+      allow delete: if isManagement();
+    }
+
+    match /customJobs/{customJobId} {
+      allow read: if isAppUser();
+      allow create, update: if isManagement() && validCustomJob();
       allow delete: if isManagement();
     }
 

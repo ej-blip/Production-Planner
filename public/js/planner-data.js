@@ -18,6 +18,8 @@
 //   orders.usage(ids, skipDate)  → Map id → { packed, released }: job cards not
 //                                  made for skipDate, plus older released days
 //                                  saved before job cards
+//   customJobs.watch(callback)   → live list of saved custom job names
+//   customJobs.add(name), customJobs.remove(id)
 //   jobs.watch(callback)         → live list of job cards not yet done
 //   jobs.remove(id)
 //   requests.watch(date, callback) → live list of help / stock / faulty requests
@@ -319,6 +321,25 @@ function watchJobs(onChange) {
   }, () => onChange(null));
 }
 
+// Saved names for other work (cleaning, stocktake), A to Z.
+const customJobs = {
+  watch(onChange) {
+    return onSnapshot(collection(db, "customJobs"), snapshot => {
+      onChange(snapshot.docs
+        .map(entry => ({ id: entry.id, name: entry.data().name }))
+        .sort((a, b) => a.name.localeCompare(b.name)));
+    }, () => onChange(null));
+  },
+  add: name => addDoc(collection(db, "customJobs"), {
+    name: String(name).trim().slice(0, 60),
+    createdAt: serverTimestamp(),
+    createdBy: ACTOR,
+    updatedAt: serverTimestamp(),
+    updatedBy: ACTOR
+  }),
+  remove: id => deleteDoc(doc(db, "customJobs", id))
+};
+
 const jobs = {
   watch: watchJobs,
   remove: id => deleteDoc(doc(db, "jobs", id))
@@ -378,6 +399,7 @@ window.plannerData = {
   watchRosters,
   orders,
   jobs,
+  customJobs,
   requests,
   showPhoto,
   lockScreen,

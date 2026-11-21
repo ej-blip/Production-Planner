@@ -39,6 +39,12 @@
     .everyone-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
     .everyone-head h2 { margin: 0; font-size: 17px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
     .pinned-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+    .other-jobs { margin-top: 16px; }
+    .other-jobs-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+    .other-job { padding: 10px 12px; background: var(--sheet); border: 1px solid var(--rule-strong); border-radius: var(--radius); }
+    .other-job b { display: block; font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .other-job div { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+    .other-job span { font-family: var(--font-label); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
 
     .floor {
       display: grid;
@@ -136,6 +142,11 @@
       </section>
 
       <section class="floor" id="floor" aria-label="Benches"></section>
+
+      <section class="everyone other-jobs hidden" id="otherJobsSection">
+        <div class="everyone-head"><h2>Other jobs</h2></div>
+        <div class="other-jobs-row" id="otherJobs"></div>
+      </section>
     </div>
   </main>
 
@@ -303,6 +314,7 @@
       renderRequests();
       renderEveryone();
       renderFloor();
+      renderOtherJobs();
     }
 
     function renderEmpty() {
@@ -380,6 +392,21 @@
       const stations = MAGNET_STATIONS[bench] || [];
       const people = [...new Set(state.assignments.filter(item => stations.includes(item.station)).map(item => item.staffKey))];
       return people.map(staffName).sort((a, b) => a.localeCompare(b));
+    }
+
+    // People on custom jobs (cleaning, stocktake), by job and phase.
+    function renderOtherJobs() {
+      const phases = [["start", "Start"], ["second", "Second"], ["finish", "Finish"]];
+      const custom = state.assignments.filter(item => item.station === "custom");
+      const names = [...new Set(custom.map(item => item.jobLabel || "Custom job"))].sort((a, b) => a.localeCompare(b));
+      $("otherJobsSection").classList.toggle("hidden", !names.length);
+      $("otherJobs").innerHTML = names.map(name => {
+        const lines = phases.map(([phase, label]) => {
+          const people = custom.filter(item => (item.jobLabel || "Custom job") === name && item.phase === phase).map(item => staffName(item.staffKey));
+          return people.length ? `<div><span>${label}</span>${escapeHtml(people.sort().join(", "))}</div>` : "";
+        }).join("");
+        return `<div class="other-job"><b>${escapeHtml(name)}</b>${lines}</div>`;
+      }).join("");
     }
 
     function renderFloor() {

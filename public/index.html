@@ -34,6 +34,13 @@
       padding: 18px 24px 48px;
     }
 
+    /* Custom jobs on the crew board ------------------------------------ */
+    .bench-board .crew-add { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--inset); }
+    .bench-board .crew-add label { margin: 0; font-family: var(--font-label); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+    .bench-board .crew-add input { padding: 9px 10px; font-size: 15px; }
+    .bench-board .crew-add button { margin: 0; align-self: flex-start; min-height: 36px; padding: 6px 14px; }
+    .bench-board .crew-remove { margin-left: auto; color: var(--muted); }
+
     /* Jobs ------------------------------------------------------------- */
     .job-lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
     .jobs-board .zone.job-lane { min-height: 150px; padding: 10px; border: 0; border-radius: 0; background: var(--sheet); display: flex; flex-direction: column; gap: 8px; transition: background-color 0.12s, box-shadow 0.12s; }
@@ -992,7 +999,8 @@
     .crew-skill.k-hardware { color: var(--violet); } .crew-skill.k-packing { color: var(--ok); }
     .crew-pips { grid-column: 2; display: flex; gap: 3px; }
     .crew-pips i { width: 22px; height: 5px; border-radius: 2px; background: var(--btn); }
-    .bench-board .crew-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1px; background: var(--rule); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+    .bench-board .crew-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1px; padding: 1px 0; background: var(--sheet); }
+    .bench-board .crew-stations > * { box-shadow: 0 0 0 1px var(--rule); }
     .bench-board .zone.crew-station { min-height: 130px; border: 0; border-radius: 0; background: var(--sheet); padding: 10px; transition: box-shadow 0.12s, background 0.12s, opacity 0.12s; }
     .bench-board .zone.crew-station.other { opacity: 0.75; }
     .crew-station-head { display: flex; align-items: center; gap: 8px; }
@@ -1007,11 +1015,11 @@
     .crew-slots .crew-skills, .crew-slots .crew-pips { display: none; }
     .crew-drop { min-height: 40px; border: 1px dashed var(--rule-strong); border-radius: var(--radius); padding: 8px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
     .crew-station .cant { display: none; margin-left: auto; font-size: 11px; font-weight: 700; color: var(--bad); }
-    .bench-board .zone.crew-station.fit-3 { box-shadow: inset 0 0 0 2px var(--accent); background: var(--accent-soft); opacity: 1; }
-    .bench-board .zone.crew-station.fit-2 { box-shadow: inset 0 0 0 1px var(--accent); opacity: 1; }
+    .bench-board .zone.crew-station.fit-3 { box-shadow: 0 0 0 1px var(--rule), inset 0 0 0 2px var(--accent); background: var(--accent-soft); opacity: 1; }
+    .bench-board .zone.crew-station.fit-2 { box-shadow: 0 0 0 1px var(--rule), inset 0 0 0 1px var(--accent); opacity: 1; }
     .bench-board .zone.crew-station.fit-0 { opacity: 0.35; }
     .bench-board .zone.crew-station.fit-0 .cant { display: inline; }
-    .bench-board .zone.drop-target { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+    .bench-board .zone.drop-target { background: var(--accent-soft); box-shadow: 0 0 0 1px var(--rule), inset 0 0 0 2px var(--accent); }
     .crew-detail { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
     .crew-detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .crew-detail-head b { font-size: 16px; }
@@ -2011,6 +2019,7 @@
         wireAlerts();
         wireOrders();
         wireJobs();
+        wireCustomJobs();
         window.addEventListener("online", () => renderFlow());
         window.addEventListener("offline", () => renderFlow());
         await loadPlanForSelectedDate();
@@ -3252,6 +3261,62 @@
           </div>` : ""}`;
     }
 
+    /* ============================================================
+       CUSTOM JOBS
+       Other work people can be put on (cleaning, stocktake). Names are
+       saved for reuse and show as stations in every phase of the crew
+       board; anyone can go on them. People on them appear in the plan
+       picture, on the floor board and in the day summary.
+       ============================================================ */
+    let savedCustomJobs = [];     // [{ id, name }]
+
+    function wireCustomJobs() {
+      const root = document.getElementById("benchBoard");
+      root.addEventListener("submit", event => {
+        const form = event.target.closest("[data-custom-job-form]");
+        if (!form) return;
+        event.preventDefault();
+        addCustomJob();
+      });
+      root.addEventListener("click", event => {
+        const remove = event.target.closest("[data-remove-custom-job]");
+        if (remove) removeCustomJob(remove.dataset.removeCustomJob, remove);
+      });
+      window.plannerData.customJobs.watch(list => {
+        if (!list) return;
+        savedCustomJobs = list;
+        renderBenchBoard();
+      });
+    }
+
+    async function addCustomJob() {
+      const input = document.getElementById("newCustomJob");
+      const name = input.value.trim().replace(/\s+/g, " ").slice(0, 60);
+      if (!name) return;
+      if (savedCustomJobs.some(job => job.name.toLowerCase() === name.toLowerCase())) {
+        input.value = "";
+        return;
+      }
+      input.value = "";
+      try {
+        await window.plannerData.customJobs.add(name);
+      } catch (problem) {
+        const current = document.getElementById("newCustomJob");
+        if (current && !current.value) current.value = name;
+        window.alert(`That wasn't saved: ${window.plannerData.friendlyError(problem)}`);
+      }
+    }
+
+    async function removeCustomJob(id, button) {
+      button.disabled = true;
+      try {
+        await window.plannerData.customJobs.remove(id);
+      } catch (problem) {
+        button.disabled = false;
+        window.alert(`That wasn't removed: ${window.plannerData.friendlyError(problem)}`);
+      }
+    }
+
     function getWorkMixTotalQuantity() {
       return workBatches.reduce((sum, batch) => sum + Math.max(0, Number(batch.quantity) || 0), 0);
     }
@@ -4027,12 +4092,17 @@
         .map(([value]) => value)
         .filter(value => value !== "custom")
         .sort((a, b) => rank(a) - rank(b));
-      // Jobs people are already on (custom jobs, or a job from another mode).
+      // Saved custom jobs, then jobs people are already on (another custom
+      // job, or a job from another mode).
+      savedCustomJobs.forEach(job => {
+        const zone = `custom:${job.name}`;
+        if (!zones.includes(zone)) zones.push(zone);
+      });
       people.forEach(({ zone }) => {
         if (zone !== "none" && !zones.includes(zone)) zones.push(zone);
       });
       zones.push("none");
-      return zones.map(zone => ({ zone, typical: zone === "none" || rank(zone) < 100 }));
+      return zones.map(zone => ({ zone, typical: zone === "none" || zone.startsWith("custom:") || rank(zone) < 100 }));
     }
 
     function benchBoardPeople(phase) {
@@ -4093,6 +4163,9 @@
       message.textContent = notes.join(" ");
       message.classList.toggle("error", notes.length > 0);
 
+      const typing = document.getElementById("newCustomJob");
+      const typed = typing ? typing.value : "";
+      const typingFocused = typing && document.activeElement === typing;
       const people = benchBoardPeople(benchBoardPhase);
       const selectedKey = benchBoard?.selected?.staffKey || null;
       const free = people.filter(person => person.zone === "none");
@@ -4107,9 +4180,19 @@
           </section>
           <section class="crew-panel">
             <div class="crew-panel-head"><h3>Stations</h3></div>
-            <div class="crew-stations">${stations.map(({ zone, typical }) => crewStationHtml(zone, typical, people, selectedKey)).join("")}</div>
+            <div class="crew-stations">
+              ${stations.map(({ zone, typical }) => crewStationHtml(zone, typical, people, selectedKey)).join("")}
+              <form class="crew-add" data-custom-job-form autocomplete="off">
+                <label for="newCustomJob">Custom job</label>
+                <input id="newCustomJob" type="text" maxlength="60" />
+                <button type="submit" class="secondary">Add</button>
+              </form>
+            </div>
           </section>
         </div>`;
+      const input = document.getElementById("newCustomJob");
+      input.value = typed;
+      if (typingFocused) input.focus();
       highlightBenchFit(selectedKey);
     }
 
@@ -4186,12 +4269,14 @@
         : inZone.length
           ? `<div class="crew-state ok">Running${output !== null ? ` · ${output} units` : ""}</div>`
           : '<div class="crew-state">Idle</div>';
+      const saved = zone.startsWith("custom:") ? savedCustomJobs.find(job => `custom:${job.name}` === zone) : null;
       return `
         <div class="zone crew-station ${typical ? "" : "other"}" data-zone="${safeAttr(zone)}" data-station="${safeAttr(zone)}">
           <div class="crew-station-head">
             <span class="crew-icon kind-${kind}">${escapeHtml(icon)}</span>
             <b>${escapeHtml(benchZoneLabel(zone))}</b>
             <span class="cant">Can't</span>
+            ${saved && !inZone.length ? `<button type="button" class="link crew-remove" data-remove-custom-job="${safeAttr(saved.id)}">Remove</button>` : ""}
           </div>
           ${state}
           <div class="crew-slots">
