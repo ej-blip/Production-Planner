@@ -112,7 +112,7 @@
   <script type="module">
     import { collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, friendlyError } from "./js/session.js";
-    import { FLOOR_BENCHES, floorBatches, batchTitle, progressOf, expectedUnits, statusText, watchFloor, showPhoto, escapeHtml } from "./js/floor.js";
+    import { FLOOR_BENCHES, floorBatches, onRoute, batchTitle, progressOf, expectedUnits, statusText, watchFloor, showPhoto, escapeHtml } from "./js/floor.js";
     import { REQUEST_KINDS, requestTitle, watchRequests } from "./js/requests.js";
 
     const $ = id => document.getElementById(id);
@@ -218,7 +218,7 @@
     }
 
     function figures() {
-      const batches = floorBatches(state.plan);
+      const batches = floorBatches(state.plan).filter(batch => onRoute(batch, "packing"));
       const planned = state.plan.plannedTarget ?? batches.reduce((sum, batch) => sum + batch.planned, 0);
       const current = state.plan.currentTarget ?? planned;
       const packedUnits = batches.reduce((sum, batch) => sum + (packed(batch) || 0), 0);
@@ -244,6 +244,7 @@
     }
 
     function cellFor(bench, batch) {
+      if (!onRoute(batch, bench)) return '<span class="st off">–</span>';
       const item = progressOf(state.progress, bench, batch);
       const expected = expectedUnits(state.progress, bench, batch);
       return `<span class="st ${escapeHtml(item.status)}">${escapeHtml(statusText(bench, item, expected))}</span>`;
@@ -334,7 +335,7 @@
       lines.push("");
       lines.push("Batches");
       f.batches.forEach(batch => {
-        const stages = FLOOR_BENCHES.map(bench => {
+        const stages = FLOOR_BENCHES.filter(bench => onRoute(batch, bench.key)).map(bench => {
           const item = progressOf(state.progress, bench.key, batch);
           return `${bench.short} ${statusText(bench.key, item, expectedUnits(state.progress, bench.key, batch))}`;
         }).join(" · ");

@@ -34,6 +34,34 @@
       padding: 18px 24px 48px;
     }
 
+    /* Jobs ------------------------------------------------------------- */
+    .job-lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
+    .jobs-board .zone.job-lane { min-height: 150px; padding: 10px; border: 0; border-radius: 0; background: var(--sheet); display: flex; flex-direction: column; gap: 8px; transition: background-color 0.12s, box-shadow 0.12s; }
+    .job-lane-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-family: var(--font-label); font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+    .job-lane-head b { font-weight: 600; }
+    .job-lane-head span { color: var(--muted); font-weight: 600; letter-spacing: 0.02em; }
+    .job-pools { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+    .jobs-board .zone.job-pool { padding: 10px; border: 1px dashed var(--rule-strong); border-radius: var(--radius); background: var(--inset); display: flex; flex-direction: column; gap: 8px; min-height: 96px; transition: background-color 0.12s, box-shadow 0.12s; }
+    .job-pool-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+    .jobs-board .zone.drop-target { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+    .jobs-board .empty { color: var(--muted); font-size: 14px; }
+    .chip.job-card {
+      display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline;
+      padding: 9px 11px; border: 1px solid var(--rule-strong); border-radius: var(--radius);
+      background: var(--raised); color: var(--ink); cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none;
+    }
+    .chip.job-card b { font-size: 15px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chip.job-card .job-qty { grid-row: span 2; align-self: center; font-family: var(--font-label); font-size: 24px; font-weight: 600; }
+    .chip.job-card .job-meta { font-size: 13px; color: var(--muted); }
+    .chip.job-card .job-route { grid-column: 1 / -1; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--rule); font-family: var(--font-label); font-size: 14px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+    .chip.job-card.fresh .job-route { color: var(--accent); }
+    .chip.job-card.order-chip { border-style: dashed; background: var(--sheet); }
+    .chip.job-card.selected { box-shadow: 0 0 0 2px var(--accent); }
+    .chip.job-card.ghost { position: fixed; z-index: 1000; pointer-events: none; width: 220px; box-shadow: 0 12px 28px -12px rgba(15, 39, 71, 0.5); }
+    .job-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .job-actions button { margin: 0; }
+    .job-actions span { color: var(--ink-2); font-weight: 600; }
+
     /* Work orders ------------------------------------------------------ */
     .orders-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .orders-head .section-title { margin: 0; }
@@ -1694,6 +1722,15 @@
     <!-- ==========================================================
          BENCH ASSIGNMENTS: drag people onto jobs for each phase
          ========================================================== -->
+    <!-- ==========================================================
+         JOBS: job cards on today's benches, cards waiting from earlier
+         days, and open orders to start building
+         ========================================================== -->
+    <div class="card jobs-card" data-step="benches">
+      <h2 class="section-title">Jobs</h2>
+      <div class="jobs-board" id="jobsBoard"></div>
+    </div>
+
     <div class="card bench-card" data-step="benches">
       <h2 class="section-title">Bench Assignments</h2>
       <div id="benchPhaseTabs" class="phase-toggle-group bench-phase-tabs"></div>
@@ -1973,6 +2010,7 @@
       if (data && currentPlanState.status !== "error") {
         wireAlerts();
         wireOrders();
+        wireJobs();
         window.addEventListener("online", () => renderFlow());
         window.addEventListener("offline", () => renderFlow());
         await loadPlanForSelectedDate();
@@ -2989,6 +3027,229 @@
         button.disabled = false;
         window.alert(`That wasn't saved: ${window.plannerData.friendlyError(problem)}`);
       }
+    }
+
+    /* ============================================================
+       JOB CARDS
+       A job card is some units of an order on their way through the
+       benches. Each day's build becomes new cards at release (Assembly,
+       then Testing). Cards waiting from earlier days are dragged onto a
+       bench for the day: onto Hardware Check they go on to Packing the same
+       day. Benches move a card on as they finish it (see js/floor.js).
+       ============================================================ */
+    let activeJobs = [];          // cards not yet done, from the database
+    let dayJobs = [];             // waiting cards put on this day's benches
+    let jobsBoard = null;
+    let jobsRenderPending = false;
+
+    const JOB_LANES = [["assembly", "Assembly"], ["testing", "Testing"], ["hardware", "Hardware Check"], ["packing", "Packing"]];
+    const LANE_ROUTES = { assembly: ["assembly", "testing"], testing: ["testing"], hardware: ["hardware", "packing"], packing: ["packing"] };
+    const STAGE_NAMES = { cage: "Cage", assembly: "Assembly", testing: "Testing", hardware: "Hardware Check", packing: "Packing" };
+
+    function wireJobs() {
+      const root = document.getElementById("jobsBoard");
+      jobsBoard = window.attachDragBoard(root, {
+        onMove: onJobMove,
+        onSelect: () => renderJobsBoard(),
+        onDragEnd: () => {
+          if (!jobsRenderPending) return;
+          jobsRenderPending = false;
+          renderJobsBoard();
+        }
+      });
+      root.addEventListener("click", event => {
+        const remove = event.target.closest("[data-delete-job]");
+        if (remove) deleteWaitingJob(remove.dataset.deleteJob);
+      });
+      window.plannerData.jobs.watch(list => {
+        if (!list) return;
+        activeJobs = list;
+        renderJobsBoard();
+      });
+    }
+
+    // The day's build as new cards, with what each will actually build.
+    function todaysNewJobs() {
+      const prefix = planDateValue().replaceAll("-", "");
+      return workBatches.map((batch, index) => ({
+        id: `${prefix}-${batch.id}`,
+        isNew: true,
+        batchId: batch.id,
+        orderId: batch.orderId || null,
+        customer: batch.customer,
+        unitType: batch.unitType,
+        commsType: batch.commsType,
+        simType: batch.simType,
+        configKey: batch.configKey,
+        configText: batch.configText ?? "",
+        quantity: workDayMode === "single"
+          ? (currentPlanTarget() ?? 0)
+          : (lastResult?.mixedCapacity?.batches?.find(share => share.originalIndex === index)?.achievable ?? 0),
+        route: ["cage", "assembly", "testing"]
+      })).filter(job => job.quantity > 0);
+    }
+
+    function jobEntryFrom(job) {
+      if (!job) return null;
+      return {
+        id: job.id,
+        isNew: false,
+        orderId: job.orderId || null,
+        customer: job.customer,
+        unitType: job.unitType,
+        commsType: job.commsType,
+        simType: job.simType,
+        configKey: job.configKey,
+        configText: job.configText ?? "",
+        quantity: job.quantity
+      };
+    }
+
+    // A card on today's benches, refreshed from its live record.
+    function liveDayJob(entry) {
+      const live = activeJobs.find(job => job.id === entry.id);
+      return live ? { ...entry, ...jobEntryFrom(live), route: entry.route, fromStage: entry.fromStage } : entry;
+    }
+
+    function buildPlanJobs() {
+      const fresh = todaysNewJobs().map(({ batchId, ...job }) => job);
+      return [...fresh, ...dayJobs.map(liveDayJob)];
+    }
+
+    function onJobMove(key, from, to) {
+      const split = key.indexOf(":");
+      const kind = key.slice(0, split);
+      const id = key.slice(split + 1);
+      if (kind === "order") {
+        if (to === "lane:assembly" && !workBatches.some(batch => batch.orderId === id)) toggleOrderToday(id);
+        return;
+      }
+      if (kind === "new") {
+        const batch = workBatches.find(item => item.id === id);
+        if ((to === "orders" || to === "waiting") && batch?.orderId) toggleOrderToday(batch.orderId);
+        return;
+      }
+      if (kind !== "job") return;
+      if (to === "waiting") {
+        dayJobs = dayJobs.filter(job => job.id !== id);
+      } else if (to.startsWith("lane:")) {
+        const lane = to.slice(5);
+        const existing = dayJobs.find(job => job.id === id);
+        const live = activeJobs.find(job => job.id === id);
+        const base = existing || jobEntryFrom(live);
+        if (!base || !LANE_ROUTES[lane]) return;
+        dayJobs = [
+          ...dayJobs.filter(job => job.id !== id),
+          { ...base, route: LANE_ROUTES[lane], fromStage: existing?.fromStage ?? live?.stage ?? lane }
+        ];
+      } else {
+        return;
+      }
+      if (!loadingPlan) {
+        planDirty = true;
+        renderPlanStatus();
+      }
+      renderJobsBoard();
+      renderFlow();
+    }
+
+    async function deleteWaitingJob(jobId) {
+      const job = activeJobs.find(item => item.id === jobId);
+      if (!job) return;
+      if (!window.confirm(`Delete the card for ${job.quantity} ${job.customer} ${unitTypeLabel(job.unitType)}, waiting for ${STAGE_NAMES[job.stage] || job.stage}?`)) return;
+      try {
+        await window.plannerData.jobs.remove(jobId);
+        jobsBoard?.clearSelection();
+      } catch (problem) {
+        window.alert(`That wasn't deleted: ${window.plannerData.friendlyError(problem)}`);
+      }
+    }
+
+    function jobCardHtml(job, { key, zone, note, fresh = false, order = false, selected = false }) {
+      const comms = job.commsType === "global" ? `Global ${getSimPlanLabel(job.simType)}` : getCommsLabel(job.commsType);
+      return `
+        <div class="chip job-card ${fresh ? "fresh" : ""} ${order ? "order-chip" : ""} ${selected ? "selected" : ""}" data-staff="${safeAttr(key)}" data-zone="${safeAttr(zone)}">
+          <b>${escapeHtml(job.customer)} · ${escapeHtml(unitTypeLabel(job.unitType))}</b>
+          <span class="job-qty">${escapeHtml(job.quantity)}</span>
+          <span class="job-meta">${escapeHtml(comms)} · ${escapeHtml(configurationLabel(job.configKey))}</span>
+          <span class="job-route">${escapeHtml(note)}</span>
+        </div>`;
+    }
+
+    const routeText = route => route.filter(bench => bench !== "cage").map(bench => STAGE_NAMES[bench] || bench).join(" → ");
+    const shortDay = value => {
+      const [y, m, d] = String(value).split("-").map(Number);
+      return y ? new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short" }).format(new Date(y, m - 1, d, 12)) : "";
+    };
+
+    function renderJobsBoard() {
+      const root = document.getElementById("jobsBoard");
+      if (!root) return;
+      if (jobsBoard?.isDragging()) {
+        jobsRenderPending = true;
+        return;
+      }
+      const selectedKey = jobsBoard?.selected?.staffKey || null;
+      const fresh = todaysNewJobs();
+      const onToday = new Set([...fresh.map(job => job.id), ...dayJobs.map(job => job.id)]);
+      const waiting = activeJobs.filter(job => !onToday.has(job.id));
+      const openOrders = workOrdersLoaded
+        ? workOrders.filter(order => order.status !== "closed"
+            && !workBatches.some(batch => batch.orderId === order.id)
+            && (orderLeftBefore(order) ?? order.quantity) > 0)
+        : [];
+
+      const lanes = JOB_LANES.map(([lane, label]) => {
+        const cards = [
+          ...(lane === "assembly"
+            ? fresh.map(job => ({ job, key: `new:${job.batchId}`, note: `${routeText(job.route)}${job.orderId ? "" : " · Build setup"}`, fresh: true }))
+            : []),
+          ...dayJobs.filter(job => job.route[0] === lane)
+            .map(job => ({ job: liveDayJob(job), key: `job:${job.id}`, note: routeText(job.route) }))
+        ];
+        const units = cards.reduce((sum, card) => sum + (Number(card.job.quantity) || 0), 0);
+        return `
+          <div class="zone job-lane" data-zone="lane:${lane}">
+            <div class="job-lane-head"><b>${escapeHtml(label)}</b><span>${units || ""}</span></div>
+            ${cards.map(card => jobCardHtml(card.job, { key: card.key, zone: `lane:${lane}`, note: card.note, fresh: card.fresh, selected: card.key === selectedKey })).join("")}
+          </div>`;
+      }).join("");
+
+      const waitingCards = waiting.map(job => jobCardHtml(job, {
+        key: `job:${job.id}`,
+        zone: "waiting",
+        note: `Waiting for ${STAGE_NAMES[job.stage] || job.stage} · ${shortDay(job.day)}`,
+        selected: `job:${job.id}` === selectedKey
+      })).join("");
+      const orderCards = openOrders.map(order => {
+        const left = orderLeftBefore(order);
+        return jobCardHtml({ ...order, quantity: left ?? order.quantity }, {
+          key: `order:${order.id}`,
+          zone: "orders",
+          note: `Left of ${order.quantity}`,
+          order: true,
+          selected: `order:${order.id}` === selectedKey
+        });
+      }).join("");
+
+      const selectedWaiting = selectedKey?.startsWith("job:") ? waiting.find(job => `job:${job.id}` === selectedKey) : null;
+      root.innerHTML = `
+        <div class="job-lanes">${lanes}</div>
+        <div class="job-pools">
+          <div class="zone job-pool" data-zone="waiting">
+            <div class="job-lane-head"><b>Waiting</b><span>${waiting.length || ""}</span></div>
+            <div class="job-pool-cards">${waitingCards || '<span class="empty">None</span>'}</div>
+          </div>
+          <div class="zone job-pool" data-zone="orders">
+            <div class="job-lane-head"><b>Orders</b><span>${openOrders.length || ""}</span></div>
+            <div class="job-pool-cards">${orderCards || '<span class="empty">None</span>'}</div>
+          </div>
+        </div>
+        ${selectedWaiting ? `
+          <div class="job-actions">
+            <span>${escapeHtml(selectedWaiting.quantity)} ${escapeHtml(selectedWaiting.customer)} ${escapeHtml(unitTypeLabel(selectedWaiting.unitType))}</span>
+            <button type="button" class="danger" data-delete-job="${safeAttr(selectedWaiting.id)}">Delete card</button>
+          </div>` : ""}`;
     }
 
     function getWorkMixTotalQuantity() {
@@ -6260,6 +6521,7 @@
       render(result, day, commsType, unitType);
       renderBenchBoard();
       renderOrders();
+      renderJobsBoard();
       renderWorkflowChart(result, day, commsType, unitType);
       enhanceCollapsibleSections();
       updateStationAssignmentHint();
@@ -6335,8 +6597,9 @@
           applySavedPlan(loaded.plan);
         } else if (!loadError) {
           // A day with no saved plan starts from the work mix on screen, but
-          // not from another day's hand-made bench moves or notes.
+          // not from another day's hand-made bench moves, job cards or notes.
           stationAdjustments = [];
+          dayJobs = [];
           lastStationIssues = [];
           document.getElementById("notesInstructions").value = "";
           renderStationAdjustmentList();
@@ -6383,6 +6646,7 @@
     }
 
     function applySavedPlan(plan) {
+      dayJobs = Array.isArray(plan.jobs) ? plan.jobs.filter(job => !job.isNew).map(job => ({ ...job })) : [];
       workDayMode = plan.workMode === "mixed" ? "mixed" : "single";
       workBatches = Array.isArray(plan.batches) && plan.batches.length
         ? plan.batches.map((batch, index) => normalizeWorkBatch(batch, index))
@@ -6420,6 +6684,7 @@
         workMode: workDayMode,
         batches,
         orderIds: [...new Set(batches.map(batch => batch.orderId).filter(Boolean))],
+        jobs: buildPlanJobs(),
         adjustments: stationAdjustments.map(adjustment => ({
           workerKey: adjustment.workerKey,
           phase: adjustment.phase || "start",

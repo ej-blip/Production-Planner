@@ -15,8 +15,11 @@
 //   orders.save(order)           → adds an order (no id) or updates one
 //   orders.setStatus(id, status) → "open" | "closed"
 //   orders.remove(id)
-//   orders.usage(ids, skipDate)  → Map id → { packed, released } from released
-//                                  days other than skipDate
+//   orders.usage(ids, skipDate)  → Map id → { packed, released }: job cards not
+//                                  made for skipDate, plus older released days
+//                                  saved before job cards
+//   jobs.watch(callback)         → live list of job cards not yet done
+//   jobs.remove(id)
 //   requests.watch(date, callback) → live list of help / stock / faulty requests
 //   requests.advance(date, request, status) → moves one on (and logs it)
 //   requests.cardHtml(request)   → a request card with its next-step button
@@ -28,7 +31,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, ensureAccess, lockScreen, friendlyError } from "./session.js";
 import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./requests.js";
-import { showPhoto, floorBatches, progressOf, expectedUnits } from "./floor.js";
+import { showPhoto, floorBatches, progressOf, expectedUnits, JOB_STAGES } from "./floor.js";
 
 const ACTOR = "Management";
 
@@ -107,8 +110,43 @@ async function saveDraft(date, plan, roster) {
 }
 
 async function releasePlan(date, plan, roster, assignments, target) {
-  const previous = await getDocs(collection(db, "plans", date, "assignments"));
+  const jobs = Array.isArray(plan.jobs) ? plan.jobs : [];
+  const [previous, jobSnaps] = await Promise.all([
+    getDocs(collection(db, "plans", date, "assignments")),
+    Promise.all(jobs.map(job => getDoc(doc(db, "jobs", job.id))))
+  ]);
   const batch = writeBatch(db);
+
+  // Job cards: the day's new builds are created (or resized while still
+  // at Assembly); a waiting card the planner moved to another bench moves
+  // there, unless a bench has moved it on since.
+  jobs.forEach((job, index) => {
+    const ref = doc(db, "jobs", job.id);
+    const snap = jobSnaps[index];
+    const fields = {
+      orderId: job.orderId || null,
+      customer: job.customer,
+      unitType: job.unitType,
+      commsType: job.commsType,
+      simType: job.simType,
+      configKey: job.configKey,
+      configText: job.configText ?? "",
+      quantity: job.quantity
+    };
+    if (job.isNew) {
+      if (!snap.exists()) {
+        batch.set(ref, { ...fields, stage: "assembly", day: date, createdAt: serverTimestamp(), createdBy: ACTOR, updatedAt: serverTimestamp(), updatedBy: ACTOR });
+      } else if (snap.data().stage === "assembly") {
+        batch.update(ref, { ...fields, updatedAt: serverTimestamp(), updatedBy: ACTOR });
+      }
+      return;
+    }
+    const first = job.route?.[0];
+    const current = snap.exists() ? snap.data().stage : null;
+    if (current && current === job.fromStage && first !== current && JOB_STAGES.includes(first)) {
+      batch.update(ref, { stage: first, updatedAt: serverTimestamp(), updatedBy: ACTOR });
+    }
+  });
 
   batch.set(doc(db, "plans", date), {
     ...plan,
@@ -230,19 +268,32 @@ function removeOrder(id) {
   return deleteDoc(doc(db, "workOrders", id));
 }
 
-// How much of each order released days have used: what Packing finished
-// (its real number), plus the planned amount of batches not packed yet.
+// How much of each order is used: job cards (done → packed, anything else
+// → in progress), leaving out cards made for skipDate (the day on screen
+// counts those as "today"). Released days saved before job cards count the
+// old way: Packing's real number, or the planned amount until it reports.
 async function orderUsage(ids, skipDate) {
   const usage = new Map(ids.map(id => [id, { packed: 0, released: 0 }]));
   if (!ids.length) return usage;
   const chunks = [];
   for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
-  const snapshots = await Promise.all(chunks.map(part =>
-    getDocs(query(collection(db, "plans"), where("orderIds", "array-contains-any", part)))));
+  const [snapshots, jobSnapshots] = await Promise.all([
+    Promise.all(chunks.map(part =>
+      getDocs(query(collection(db, "plans"), where("orderIds", "array-contains-any", part))))),
+    Promise.all(chunks.map(part =>
+      getDocs(query(collection(db, "jobs"), where("orderId", "in", part)))))
+  ]);
+  jobSnapshots.forEach(snapshot => snapshot.docs.forEach(entry => {
+    const job = entry.data();
+    const tally = usage.get(job.orderId);
+    if (!tally || job.day === skipDate) return;
+    if (job.stage === "done") tally.packed += job.quantity;
+    else tally.released += job.quantity;
+  }));
   const plans = new Map();
   snapshots.forEach(snapshot => snapshot.docs.forEach(entry => plans.set(entry.id, entry.data())));
   await Promise.all([...plans].map(async ([date, plan]) => {
-    if (date === skipDate || plan.status !== "released") return;
+    if (date === skipDate || plan.status !== "released" || Array.isArray(plan.jobs)) return;
     const batches = floorBatches(plan).filter(batch => usage.has(batch.orderId));
     if (!batches.length) return;
     const progressDocs = await getDocs(collection(db, "plans", date, "progress"));
@@ -257,6 +308,21 @@ async function orderUsage(ids, skipDate) {
   }));
   return usage;
 }
+
+// Job cards still on their way (not done), oldest first.
+function watchJobs(onChange) {
+  return onSnapshot(query(collection(db, "jobs"), where("stage", "in", JOB_STAGES)), snapshot => {
+    const list = snapshot.docs
+      .map(entry => ({ id: entry.id, ...entry.data() }))
+      .sort((a, b) => String(a.day).localeCompare(String(b.day)) || a.id.localeCompare(b.id));
+    onChange(list);
+  }, () => onChange(null));
+}
+
+const jobs = {
+  watch: watchJobs,
+  remove: id => deleteDoc(doc(db, "jobs", id))
+};
 
 const orders = {
   watch: watchOrders,
@@ -311,6 +377,7 @@ window.plannerData = {
   saveAttendance,
   watchRosters,
   orders,
+  jobs,
   requests,
   showPhoto,
   lockScreen,

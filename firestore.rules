@@ -20,7 +20,8 @@ rules_version = '2';
 //                 the day's current target, set batch statuses on the floor
 //                 board and pin notes (editing only notes a bench pinned).
 //                 It never sees draft plans. It can read work orders but
-//                 not change them.
+//                 not change them. It moves job cards on (or back) as it
+//                 finishes them and leaves a short remainder as its own card.
 //   anyone else – no access.
 //
 // Data layout:
@@ -29,6 +30,9 @@ rules_version = '2';
 //   staff/{staffKey}                 Worker Admin settings
 //   configPresets/{key}              configuration colours
 //   workOrders/{id}                  customer orders built over several days
+//   jobs/{id}                        job cards: units of an order moving bench to
+//                                    bench (assembly → testing → hardware →
+//                                    packing → done), across days
 //   rosters/{YYYY-MM-DD}             who is in on that day
 //   plans/{YYYY-MM-DD}               build batches, status, targets, workflow
 //   plans/{date}/assignments/{id}    who works where, per phase (id = phase_staffKey)
@@ -207,6 +211,40 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    // A job card: some units of an order on their way through the benches.
+    function validJob() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['customer', 'unitType', 'commsType', 'simType', 'configKey', 'quantity', 'stage', 'day', 'updatedAt'])
+        && d.keys().hasOnly(['orderId', 'customer', 'unitType', 'commsType', 'simType', 'configKey', 'configText', 'quantity', 'stage', 'day', 'parentId', 'doneDay', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.customer is string && d.customer.size() > 0 && d.customer.size() <= 80
+        && d.unitType in ['gen4', 'tap']
+        && d.commsType in ['verizon', 'global']
+        && d.simType is string && d.simType.size() <= 40
+        && d.configKey is string && d.configKey.size() <= 40
+        && (d.get('configText', null) == null || (d.configText is string && d.configText.size() <= 2000))
+        && (d.get('orderId', null) == null || (d.orderId is string && d.orderId.size() <= 64))
+        && (d.get('parentId', null) == null || (d.parentId is string && d.parentId.size() <= 120))
+        && d.quantity is int && d.quantity > 0 && d.quantity <= 100000
+        && d.stage in ['assembly', 'testing', 'hardware', 'packing', 'done']
+        && d.day is string && d.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && (d.get('doneDay', null) == null || (d.doneDay is string && d.doneDay.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+        && d.updatedAt == request.time;
+    }
+
+    // A bench moves a card on (or back) and records how many units went.
+    function benchJobUpdate() {
+      return validJob()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'quantity', 'doneDay', 'updatedAt', 'updatedBy']);
+    }
+
+    // A bench that finished short leaves the rest behind as its own card.
+    function benchJobSplit() {
+      return validJob()
+        && request.resource.data.get('parentId', null) != null
+        && request.resource.data.stage != 'done'
+        && request.resource.data.get('doneDay', null) == null;
+    }
+
     // ---------- PINs and signed-in screens -----------------------------
     match /pins/{pin} {
       allow read, delete: if isManagement();
@@ -239,6 +277,13 @@ service cloud.firestore {
       allow read: if isAppUser();
       allow create, update: if isManagement() && validWorkOrder();
       allow delete: if isManagement();
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isAppUser();
+      allow create: if (isManagement() && validJob()) || (isBench() && benchJobSplit());
+      allow update: if (isManagement() && validJob()) || (isBench() && benchJobUpdate());
+      allow delete: if isManagement() || (isBench() && resource.data.get('parentId', null) != null);
     }
 
     // ---------- Daily plans --------------------------------------------

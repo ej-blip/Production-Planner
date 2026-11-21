@@ -6,11 +6,17 @@
 // the planned number. Notes (text and/or a photo) can be pinned to a bench
 // or to everyone. Used by the floor board (board.html) and the bench screens.
 //
+// A plan saved with job cards (plan.jobs) uses those as its batches: each
+// card lists the benches it visits that day (route), and a bench finishing
+// it moves the card on in jobs/{id} - a short count leaves the rest behind
+// as its own card, waiting at that bench.
+//
 // Firestore:
 //   plans/{date}/progress/{bench}_{batchKey}  bench, batchId, status, done
 //   plans/{date}/notes/{id}                   bench, text, photo, role, createdBy
+//   jobs/{id}                                 stage, quantity, … (job cards)
 import {
-  collection, doc, setDoc, addDoc, deleteDoc, onSnapshot, serverTimestamp
+  collection, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from "./session.js";
 
@@ -49,8 +55,29 @@ export function batchKey(batch, index) {
   return /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : `b${index}`;
 }
 
+// Where a job card is between benches, in order.
+export const JOB_STAGES = ["assembly", "testing", "hardware", "packing"];
+export const nextStage = bench => JOB_STAGES[JOB_STAGES.indexOf(bench) + 1] || "done";
+const stageIndex = stage => (stage === "done" ? JOB_STAGES.length : JOB_STAGES.indexOf(stage));
+
+// Does this batch go through this bench today? (Older plans: every bench.)
+export const onRoute = (batch, bench) => !Array.isArray(batch.route) || batch.route.includes(bench);
+
 // The plan's batches with something to build, with their planned units.
+// A plan with job cards lists those instead.
 export function floorBatches(plan) {
+  if (Array.isArray(plan?.jobs) && plan.jobs.length) {
+    return plan.jobs
+      .map((job, index) => ({
+        ...job,
+        index,
+        key: batchKey(job, index),
+        job: true,
+        planned: Number(job.quantity) || 0,
+        requested: Number(job.quantity) || 0
+      }))
+      .filter(batch => batch.requested > 0);
+  }
   const targets = plan?.snapshot?.batchTargets || [];
   return (plan?.batches || [])
     .map((batch, index) => {
@@ -98,15 +125,68 @@ export function expectedText(progress, bench, batch) {
   return expected < batch.planned ? `${expected} coming (of ${batch.planned})` : `${batch.planned} planned`;
 }
 
-export function setBatchStatus(date, bench, batch, status, done, actor) {
-  return setDoc(doc(db, "plans", date, "progress", `${bench}_${batch.key}`), {
+// Sets a bench's status for a batch. For a job card it also moves the card:
+// finished in full → on to the next bench (or done); finished short → the
+// finished units move on and the rest stay here as their own card; set back
+// to waiting or in progress → the card returns to this bench.
+export async function setBatchStatus(date, bench, batch, status, done, actor, expected = batch.planned) {
+  const progressRef = doc(db, "plans", date, "progress", `${bench}_${batch.key}`);
+  const progress = {
     bench,
     batchId: batch.key,
     status,
     done: Number.isInteger(done) ? done : null,
     updatedBy: actor,
     updatedAt: serverTimestamp()
-  });
+  };
+  if (!batch.job || !JOB_STAGES.includes(bench)) return setDoc(progressRef, progress);
+
+  const jobRef = doc(db, "jobs", batch.key);
+  const restRef = doc(db, "jobs", `${batch.key}-${bench}`);
+  const [jobSnap, restSnap] = await Promise.all([getDoc(jobRef), getDoc(restRef)]);
+  const write = writeBatch(db);
+  write.set(progressRef, progress);
+  if (jobSnap.exists()) {
+    const job = jobSnap.data();
+    const stamp = { updatedAt: serverTimestamp(), updatedBy: actor };
+    const units = Number.isInteger(done) ? done : expected;
+    const restHere = restSnap.exists() && restSnap.data().stage === bench;
+    const moveOn = quantity => {
+      const next = nextStage(bench);
+      write.update(jobRef, { ...stamp, stage: next, quantity, doneDay: next === "done" ? date : null });
+    };
+    if (status === "hit" || (status === "short" && units >= expected)) {
+      moveOn(Math.max(1, units || job.quantity));
+      if (restHere) write.delete(restRef);
+    } else if (status === "short" && units > 0) {
+      moveOn(units);
+      const rest = expected - units;
+      if (restHere) {
+        write.update(restRef, { ...stamp, quantity: rest });
+      } else if (!restSnap.exists()) {
+        write.set(restRef, {
+          orderId: job.orderId ?? null,
+          customer: job.customer,
+          unitType: job.unitType,
+          commsType: job.commsType,
+          simType: job.simType,
+          configKey: job.configKey,
+          configText: job.configText ?? "",
+          quantity: rest,
+          stage: bench,
+          day: date,
+          parentId: batch.key,
+          createdAt: serverTimestamp(),
+          createdBy: actor,
+          ...stamp
+        });
+      }
+    } else if (stageIndex(job.stage) > stageIndex(bench)) {
+      write.update(jobRef, { ...stamp, stage: bench, quantity: Math.max(1, expected), doneDay: null });
+      if (restHere) write.delete(restRef);
+    }
+  }
+  return write.commit();
 }
 
 // ---------------------------------------------------------------------
@@ -255,8 +335,7 @@ export function askUnitsDone({ title, expected }) {
   return new Promise(resolve => {
     const backdrop = dialog(`
       <h3></h3>
-      <p>How many units were finished? The next benches will expect this many.</p>
-      <input type="number" inputmode="numeric" min="0" step="1" />
+      <label>Units finished<input type="number" inputmode="numeric" min="0" step="1" /></label>
       <p class="floor-error" role="alert"></p>
       <div class="floor-dialog-actions">
         <button type="button" class="secondary" data-cancel>Cancel</button>

@@ -145,7 +145,7 @@
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
     import {
-      FLOOR_BENCHES, MAGNET_STATIONS, benchLabel, floorBatches, batchTitle, progressOf, expectedUnits,
+      FLOOR_BENCHES, MAGNET_STATIONS, benchLabel, floorBatches, onRoute, batchTitle, progressOf, expectedUnits,
       statusText, statusNoteHtml, pinnedNoteHtml, watchFloor, setBatchStatus, askStatus, askNote,
       addNote, editNote, removeNote, showPhoto, escapeHtml
     } from "./js/floor.js";
@@ -325,7 +325,7 @@
       const plan = state.plan;
       const planned = plan.plannedTarget ?? 0;
       const current = plan.currentTarget ?? planned;
-      const batches = floorBatches(plan);
+      const batches = floorBatches(plan).filter(batch => onRoute(batch, "packing"));
       let packed = 0;
       let packingFinished = 0;
       batches.forEach(batch => {
@@ -396,7 +396,7 @@
               <h2>${escapeHtml(bench.short)}</h2>
               <div class="magnets">${magnets}</div>
             </div>
-            ${batches.map(batch => statusNoteHtml({ bench: bench.key, batch, progress: state.progress, presets: state.presets, clickable: true })).join("")
+            ${batches.filter(batch => onRoute(batch, bench.key)).map(batch => statusNoteHtml({ bench: bench.key, batch, progress: state.progress, presets: state.presets, clickable: true })).join("")
               || '<span class="empty">No batches</span>'}
             ${notes.map(note => pinnedNoteHtml(note, state.role)).join("")}
             <div class="column-foot"><button type="button" class="secondary" data-add-note="${bench.key}">+ Note</button></div>
@@ -414,7 +414,7 @@
       if (!choice) return;
       const date = state.date;
       try {
-        await setBatchStatus(date, bench, batch, choice.status, choice.done, actor());
+        await setBatchStatus(date, bench, batch, choice.status, choice.done, actor(), expectedUnits(state.progress, bench, batch));
         const text = statusText(bench, choice, expectedUnits(state.progress, bench, batch));
         await addDoc(collection(db, "plans", date, "events"), {
           bench: state.role === "management" ? "management" : bench,

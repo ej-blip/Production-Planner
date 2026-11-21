@@ -113,7 +113,7 @@
   <script type="module">
     import { collection, doc, getDoc, getDocs, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, friendlyError } from "./js/session.js";
-    import { floorBatches, batchTitle, progressOf, expectedUnits, escapeHtml } from "./js/floor.js";
+    import { floorBatches, onRoute, batchTitle, progressOf, expectedUnits, escapeHtml } from "./js/floor.js";
     import { requestTitle } from "./js/requests.js";
 
     const $ = id => document.getElementById(id);
@@ -180,7 +180,7 @@
 
     // One day boiled down to the numbers the history needs.
     function summarise(day) {
-      const batches = floorBatches(day.plan);
+      const batches = floorBatches(day.plan).filter(batch => onRoute(batch, "packing"));
       let packed = 0;
       let finished = 0;
       batches.forEach(batch => {

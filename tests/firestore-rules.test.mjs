@@ -725,3 +725,68 @@ describe("Work orders", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------
+describe("Job cards", () => {
+  // What planner-data.js writes at release, and floor.js when a bench finishes.
+  const job = fields => ({
+    orderId: "order-1", customer: "Portland", unitType: "gen4", commsType: "verizon", simType: "verizon",
+    configKey: "blue", configText: "Sensor cable: 9.2 m", quantity: 36, stage: "assembly", day: "2099-01-05",
+    createdBy: "Management", createdAt: serverTimestamp(), updatedBy: "Management", updatedAt: serverTimestamp(),
+    ...fields
+  });
+  const step = fields => ({ updatedAt: serverTimestamp(), updatedBy: "Testing bench", ...fields });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async context => {
+      await setDoc(doc(context.firestore(), "jobs", "job-1"), { ...job(), createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
+    });
+  });
+
+  it("management creates, moves and deletes job cards", async () => {
+    const db = management();
+    await assertSucceeds(setDoc(doc(db, "jobs", "job-2"), job()));
+    await assertSucceeds(updateDoc(doc(db, "jobs", "job-2"), { stage: "hardware", updatedAt: serverTimestamp(), updatedBy: "Management" }));
+    await assertSucceeds(deleteDoc(doc(db, "jobs", "job-2")));
+  });
+
+  it("job cards must be well formed", async () => {
+    const db = management();
+    const ref = doc(db, "jobs", "job-3");
+    await assertFails(setDoc(ref, job({ stage: "shipping" })));
+    await assertFails(setDoc(ref, job({ quantity: 0 })));
+    await assertFails(setDoc(ref, job({ day: "Monday" })));
+    await assertFails(setDoc(ref, job({ colour: "red" })));
+  });
+
+  it("a bench moves a card on, records the count and can move it back", async () => {
+    const ref = doc(bench(), "jobs", "job-1");
+    await assertSucceeds(updateDoc(ref, step({ stage: "testing", quantity: 36 })));
+    await assertSucceeds(updateDoc(ref, step({ stage: "done", quantity: 34, doneDay: "2099-01-06" })));
+    await assertSucceeds(updateDoc(ref, step({ stage: "packing", quantity: 36, doneDay: null })));
+  });
+
+  it("a bench cannot rewrite what a card is", async () => {
+    const ref = doc(bench(), "jobs", "job-1");
+    await assertFails(updateDoc(ref, step({ customer: "Someone else" })));
+    await assertFails(updateDoc(ref, step({ orderId: "order-9" })));
+    await assertFails(updateDoc(ref, step({ stage: "lost" })));
+    await assertFails(setDoc(doc(bench(), "jobs", "job-new"), job()));
+  });
+
+  it("a bench leaves a short remainder as its own card, and can take it back", async () => {
+    const db = bench();
+    const rest = doc(db, "jobs", "job-1-testing");
+    await assertSucceeds(setDoc(rest, job({ quantity: 2, stage: "testing", parentId: "job-1", createdBy: "Testing bench", updatedBy: "Testing bench" })));
+    await assertFails(setDoc(doc(db, "jobs", "job-1-x"), job({ quantity: 2, stage: "done", parentId: "job-1" })));
+    await assertSucceeds(deleteDoc(rest));
+    await assertFails(deleteDoc(doc(db, "jobs", "job-1")));
+  });
+
+  it("screens without a working PIN see nothing", async () => {
+    for (const screen of [stranger, revoked, spoofed, nobody]) {
+      await assertFails(getDocs(collection(screen(), "jobs")));
+      await assertFails(updateDoc(doc(screen(), "jobs", "job-1"), step({ stage: "testing" })));
+    }
+  });
+});

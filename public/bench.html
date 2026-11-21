@@ -387,7 +387,7 @@
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
     import {
-      floorBatches, batchTitle, progressOf, expectedUnits, statusText, statusNoteHtml, pinnedNoteHtml,
+      floorBatches, onRoute, batchTitle, progressOf, expectedUnits, statusText, statusNoteHtml, pinnedNoteHtml,
       watchFloor, setBatchStatus, askUnitsDone, askNote, addNote, editNote, removeNote, showPhoto
     } from "./js/floor.js";
     import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
@@ -1005,7 +1005,7 @@
     // This bench's sticky note for each batch, with big buttons to update it.
     function renderBatchStatuses() {
       const cage = benchKey === "cage";
-      const batches = floorBatches(state.plan);
+      const batches = floorBatches(state.plan).filter(batch => onRoute(batch, benchKey));
       $("batchesTitle").textContent = cage ? "Release status" : "Your batches";
       $("batchStatuses").innerHTML = batches.map(batch => {
         const item = progressOf(state.progress, benchKey, batch);
@@ -1043,7 +1043,7 @@
       }
       state.busy = true;
       try {
-        await setBatchStatus(state.date, benchKey, batch, status, done, ACTOR);
+        await setBatchStatus(state.date, benchKey, batch, status, done, ACTOR, expected);
         const text = statusText(benchKey, { status, done }, expected);
         await logEvent({ kind: "note", message: `${bench.label} · ${batchTitle(batch)}: ${text}.` });
       } catch (error) {
