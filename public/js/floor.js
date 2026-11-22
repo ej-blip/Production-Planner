@@ -75,7 +75,7 @@ export const onRoute = (batch, bench) => !Array.isArray(batch.route) || batch.ro
 // The plan's batches with something to build, with their planned units.
 // A plan with job cards lists those instead.
 export function floorBatches(plan) {
-  if (Array.isArray(plan?.jobs) && plan.jobs.length) {
+  if (Array.isArray(plan?.jobs)) {
     return plan.jobs
       .map((job, index) => ({
         ...job,

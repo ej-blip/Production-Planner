@@ -34,6 +34,27 @@
       padding: 18px 24px 48px;
     }
 
+    /* Trimmed Management screen: these stay in the page because other code
+       reads them, but they are no longer shown. */
+    .flow-status,                        /* step bar repeats the header      */
+    .work-mode-bar,                      /* single/mixed follows the orders  */
+    .header-card,                        /* builds come from work orders     */
+    #workMixSummary,                     /* repeats the orders table         */
+    #mixedWorkCard > div:last-child,     /* "+ Add work batch"               */
+    #attendanceTitle,                    /* repeats the header date          */
+    #output,                             /* capacity cards repeat the target */
+    #plannerToolsCard,                   /* old station adjustments form     */
+    #releaseSummary,                     /* repeats the header and steps     */
+    .release-actions { display: none !important; }
+    .work-mix-table th:nth-child(n+3):nth-child(-n+6),
+    .work-mix-table td:nth-child(n+3):nth-child(-n+6) { display: none; }
+    .mgmt-top .tb-day input[type="date"] {
+      min-height: 0; padding: 2px 6px; margin-left: -7px;
+      font-family: var(--font-label); font-size: 20px; font-weight: 600;
+      background: transparent; border-color: transparent;
+    }
+    .mgmt-top .tb-day input[type="date"]:hover { border-color: rgba(255, 255, 255, 0.38); }
+
     /* Custom jobs on the crew board ------------------------------------ */
     .bench-board .crew-add { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--inset); }
     .bench-board .crew-add label { margin: 0; font-family: var(--font-label); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
@@ -557,7 +578,8 @@
 
     .crew-detail:empty { display: none; }
 
-    .card h2.section-title { font-size: 19px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .card h2.section-title,
+    #workflowSection h2.section-title { font-size: 19px; letter-spacing: 0.06em; text-transform: uppercase; }
 
     .section-title {
       margin-bottom: 10px;
@@ -1478,7 +1500,7 @@
     <div>
       <h1>Production Planner</h1>
     </div>
-    <div class="tb-cell"><span class="tb-label">Day</span><span class="tb-value" id="tbDate">–</span></div>
+    <div class="tb-cell tb-day"><label class="tb-label" for="planDate" id="tbWeekday">Day</label><input id="planDate" type="date" /></div>
     <div class="tb-cell"><span class="tb-label">Plan</span><span class="tb-value" id="tbPlan">–</span></div>
     <div class="tb-cell"><span class="tb-label">Target</span><span class="tb-value" id="tbTarget">–</span></div>
     <div class="tb-cell"><span class="tb-label">Connection</span><span class="live" id="liveBadge">Live</span></div>
@@ -1494,15 +1516,6 @@
   </header>
 
   <div class="container">
-    <nav class="bench-strip" aria-label="Bench screens">
-      <span class="work-mode-label">Bench screens</span>
-      <a class="button secondary" data-bench="assembly" href="bench.html?bench=assembly" target="_blank" rel="noopener">Assembly</a>
-      <a class="button secondary" data-bench="testing" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing</a>
-      <a class="button secondary" data-bench="hardware" href="bench.html?bench=hardware" target="_blank" rel="noopener">Hardware</a>
-      <a class="button secondary" data-bench="packing" href="bench.html?bench=packing" target="_blank" rel="noopener">Packing</a>
-      <a class="button secondary" data-bench="cage" href="bench.html?bench=cage" target="_blank" rel="noopener">Cage</a>
-      <div id="activeUnitBadge" class="active-unit-badge">Active Unit: Gen4</div>
-    </nav>
 
     <div class="alerts-panel" id="alertsPanel" hidden>
       <div class="alerts-head">
@@ -1522,9 +1535,7 @@
     <!-- ==========================================================
          DAY + DAILY FLOW: pick the day, then work through the steps
          ========================================================== -->
-    <div class="day-bar">
-      <label for="planDate" class="work-mode-label">Day</label>
-      <input id="planDate" type="date" />
+    <div class="day-bar hidden">
       <span id="dayBarLabel" class="day-bar-label"></span>
       <select id="daySelect" class="hidden" aria-hidden="true" tabindex="-1">
             <option value="monday">Monday</option>
@@ -1545,7 +1556,7 @@
     <!-- ==========================================================
          DAILY PLAN STATUS: SAVE DRAFT / RELEASE TO THE BENCHES
          ========================================================== -->
-    <div id="planStatusBar" class="plan-status-bar" aria-live="polite">
+    <div id="planStatusBar" class="plan-status-bar" data-step="release" aria-live="polite">
       <span class="work-mode-label">Plan</span>
       <span id="planStatusPill" class="plan-status-pill">Loading…</span>
       <span id="planStatusText" class="plan-status-text"></span>
@@ -2789,8 +2800,13 @@
       return order ? orderLeftBefore(order) : null;
     }
 
+    // A day saved with a hand-made build (before work orders) keeps it; any
+    // other day builds only from orders.
+    let keepManualBuild = false;
+
     function capToOrder(value) {
       if (value === null || value === undefined) return value;
+      if (workDayMode === "single" && !workBatches[0]?.orderId && !keepManualBuild) return 0;
       const left = singleOrderLeft();
       return left === null ? value : Math.min(value, left);
     }
@@ -2821,6 +2837,7 @@
     }
 
     function applyWorkBatchChange() {
+      keepManualBuild = false;
       workDayMode = workBatches.length > 1 ? "mixed" : "single";
       lastStationIssues = [];
       applyPrimaryBatchToSingleControls();
@@ -3080,7 +3097,7 @@
     // The day's build as new cards, with what each will actually build.
     function todaysNewJobs() {
       const prefix = planDateValue().replaceAll("-", "");
-      return workBatches.map((batch, index) => ({
+      return workBatches.map((batch, index) => (batch.orderId || keepManualBuild) && ({
         id: `${prefix}-${batch.id}`,
         isNew: true,
         batchId: batch.id,
@@ -3095,7 +3112,7 @@
           ? (currentPlanTarget() ?? 0)
           : (lastResult?.mixedCapacity?.batches?.find(share => share.originalIndex === index)?.achievable ?? 0),
         route: ["cage", "assembly", "testing"]
-      })).filter(job => job.quantity > 0);
+      })).filter(job => job && job.quantity > 0);
     }
 
     function jobEntryFrom(job) {
@@ -3487,6 +3504,7 @@
     }
 
     function enhanceCollapsibleSections(root = document) {
+      return;   // Steps show only their own cards, so sections no longer collapse.
       root.querySelectorAll(".card, .tool-panel, .workflow-shell").forEach(section => {
         const title = Array.from(section.children).find(child => child.classList?.contains("section-title"));
         if (!title) return;
@@ -3992,7 +4010,7 @@
       const date = planDateValue();
       document.getElementById("dayBarLabel").textContent = date ? longDayLabel(date) : "";
       const titleTarget = attendanceReady() ? currentPlanTarget() : null;
-      document.getElementById("tbDate").textContent = date ? longDayLabel(date) : "–";
+      document.getElementById("tbWeekday").textContent = date ? longDayLabel(date).split(" ")[0] : "Day";
       document.getElementById("tbPlan").textContent = statuses.release.text;
       document.getElementById("tbTarget").textContent = titleTarget === null ? "–" : String(titleTarget);
       const offline = currentPlanState.status === "error" || navigator.onLine === false;
@@ -4126,9 +4144,10 @@
       const bottleneck = workDayMode === "mixed"
         ? lastResult?.mixedCapacity?.bottleneckName
         : lastResult?.workflowCapacity?.bottleneck?.name;
+      if (!workBatches.some(batch => batch.orderId) && !keepManualBuild) return "No build today";
       const orderCap = singleOrderLeft();
       const byOrder = orderCap !== null && target === orderCap && target < (lastResult?.workflowCapacity?.finalOutput ?? Infinity);
-      return `Target: ${target} units${byOrder ? " · rest of the order" : bottleneck ? ` · limited by ${bottleneck}` : ""}`;
+      return byOrder ? "Rest of the order" : bottleneck ? `Limited by ${bottleneck}` : "";
     }
 
     function renderBenchBoard() {
@@ -6685,6 +6704,7 @@
           // not from another day's hand-made bench moves, job cards or notes.
           stationAdjustments = [];
           dayJobs = [];
+          keepManualBuild = false;
           seenPlanJobIds = new Set();
           lastStationIssues = [];
           document.getElementById("notesInstructions").value = "";
@@ -6746,6 +6766,7 @@
     }
 
     function applySavedPlan(plan) {
+      keepManualBuild = Array.isArray(plan.batches) && plan.batches.some(batch => !batch.orderId && Number(batch.quantity) > 0);
       dayJobs = Array.isArray(plan.jobs) ? plan.jobs.filter(job => !job.isNew).map(job => ({ ...job })) : [];
       seenPlanJobIds = new Set(dayJobs.map(job => job.id));
       workDayMode = plan.workMode === "mixed" ? "mixed" : "single";
@@ -7317,8 +7338,7 @@
         <div class="workflow-shell">
           <h2 class="section-title">Workflow Map</h2>
           <div class="workflow-actions">
-            <button onclick="createWorkflowJpeg()">Open JPEG Preview</button>
-            <button onclick="downloadWorkflowJpeg()">Download JPEG</button>
+            <button onclick="downloadWorkflowJpeg()">Download picture</button>
             <span id="workflowExportStatus" class="success-message"></span>
           </div>
 
@@ -7574,7 +7594,7 @@
 
       canvas.toBlob(blob => {
         if (!blob) {
-          showWorkflowStatus("Download failed. Use Open JPEG Preview and right-click save.");
+          showWorkflowStatus("Download failed.");
           return;
         }
 

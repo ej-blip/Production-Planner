@@ -77,6 +77,7 @@
 
     .stats { margin: 6px 0 14px; color: var(--ink-2); }
 
+    .screen-links { display: flex; flex-wrap: wrap; gap: 8px; }
     .pin-row {
       display: flex;
       align-items: center;
@@ -172,6 +173,18 @@
         </form>
 
         <p id="pinsMessage" class="message" role="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>3. Screens</h2>
+        <div class="screen-links">
+          <a class="button secondary" href="bench.html?bench=assembly" target="_blank" rel="noopener">Assembly</a>
+          <a class="button secondary" href="bench.html?bench=testing" target="_blank" rel="noopener">Testing</a>
+          <a class="button secondary" href="bench.html?bench=hardware" target="_blank" rel="noopener">Hardware Check</a>
+          <a class="button secondary" href="bench.html?bench=packing" target="_blank" rel="noopener">Packing</a>
+          <a class="button secondary" href="bench.html?bench=cage" target="_blank" rel="noopener">Production Cage</a>
+          <a class="button secondary" href="board.html" target="_blank" rel="noopener">Floor board</a>
+        </div>
       </section>
     </div>
   </main>
