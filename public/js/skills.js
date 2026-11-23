@@ -14,8 +14,8 @@
   "use strict";
 
   const SKILL_KEYS = ["subAssembly", "assembly", "testing", "hardware", "packing"];
-  const SKILL_LABELS = { subAssembly: "Sub Assembly", assembly: "Assembly", testing: "Testing", hardware: "Hardware", packing: "Packing" };
-  const SKILL_SHORT = { subAssembly: "SA", assembly: "AS", testing: "TE", hardware: "HW", packing: "PK" };
+  const SKILL_LABELS = { subAssembly: "Sub Assembly", assembly: "Assembly", testing: "Testing", hardware: "Hardware", packing: "Packaging build-up" };
+  const SKILL_SHORT = { subAssembly: "SA", assembly: "AS", testing: "TE", hardware: "HW", packing: "PB" };
 
   // Which job each station needs. Final packaging and custom jobs: anyone.
   const STATION_SKILL = {
