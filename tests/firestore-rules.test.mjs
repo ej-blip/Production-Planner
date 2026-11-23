@@ -783,6 +783,8 @@ describe("Lists", () => {
     await assertFails(setDoc(doc(db, "workOrders", "listed-order-3"), { ...fields, status: "open", unitType: "gen5" }));
     await assertSucceeds(setDoc(doc(db, "workOrders", "listed-order-4"), { ...fields, status: "open", connectorKey: "2-pin-plastic" }));
     await assertFails(setDoc(doc(db, "workOrders", "listed-order-5"), { ...fields, status: "open", connectorKey: 2 }));
+    await assertSucceeds(setDoc(doc(db, "jobs", "listed-job-3"), { ...fields, stage: "assembly", day: RELEASED, connectorKey: "2-pin-plastic" }));
+    await assertFails(setDoc(doc(db, "jobs", "listed-job-4"), { ...fields, stage: "assembly", day: RELEASED, connectorKey: ["x"] }));
   });
 });
 
@@ -813,12 +815,16 @@ describe("Extra jobs", () => {
     await assertFails(setDoc(ref, extra({ hours: 2 })));
   });
 
-  it("benches read them but cannot change them", async () => {
+  it("benches read them and can only mark one done", async () => {
     await assertSucceeds(setDoc(doc(management(), "extraJobs", "extra-3"), extra()));
     const db = bench();
     await assertSucceeds(getDocs(collection(db, "extraJobs")));
     await assertFails(setDoc(doc(db, "extraJobs", "extra-4"), extra()));
-    await assertFails(updateDoc(doc(db, "extraJobs", "extra-3"), { status: "done", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, "extraJobs", "extra-3"), { title: "Something else", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, "extraJobs", "extra-3"), { status: "done", title: "Changed", doneDay: RELEASED, updatedBy: "Floor board", updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(doc(db, "extraJobs", "extra-3")));
+    await assertSucceeds(updateDoc(doc(db, "extraJobs", "extra-3"), { status: "done", doneDay: RELEASED, updatedBy: "Floor board", updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, "extraJobs", "extra-3"), { status: "open", doneDay: null, updatedBy: "Floor board", updatedAt: serverTimestamp() }));
   });
 
   it("screens without a working PIN see nothing", async () => {

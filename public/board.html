@@ -45,6 +45,7 @@
     .other-job b { display: block; font-size: 16px; font-weight: 600; margin-bottom: 4px; }
     .other-job div { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
     .other-job span { font-family: var(--font-label); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+    .other-job button { margin-top: 8px; min-height: 36px; padding: 6px 14px; }
 
     .floor {
       display: grid;
@@ -152,7 +153,7 @@
 
   <script type="module">
     import {
-      collection, doc, getDoc, getDocs, onSnapshot, addDoc, serverTimestamp, query, where
+      collection, doc, getDoc, getDocs, onSnapshot, addDoc, updateDoc, serverTimestamp, query, where
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, lockScreen, friendlyError } from "./js/session.js";
     import {
@@ -179,7 +180,8 @@
       notes: [],
       requests: [],
       nextPlan: null,
-      jobs: []            // live job cards not yet done, across all days
+      jobs: [],           // live job cards not yet done, across all days
+      extraJobs: []       // text-only jobs not yet done
     };
     let stops = [];
     let detailStops = [];
@@ -398,18 +400,34 @@
     }
 
     // People on custom jobs (cleaning, stocktake), by job and phase.
+    // One-off jobs on today's plan: who's on them each block, and Done for
+    // the extra jobs (text-only jobs carried over until finished).
     function renderOtherJobs() {
-      const phases = [["start", "Start"], ["second", "Second"], ["finish", "Finish"]];
+      const phases = [["start", "1st block"], ["second", "2nd block"], ["finish", "3rd block"]];
       const custom = state.assignments.filter(item => item.station === "custom");
-      const names = [...new Set(custom.map(item => item.jobLabel || "Custom job"))].sort((a, b) => a.localeCompare(b));
+      const planned = Object.values(state.plan?.blockJobs || {}).flat().map(String);
+      const names = [...new Set([...custom.map(item => item.jobLabel || "Custom job"), ...planned])].sort((a, b) => a.localeCompare(b));
       $("otherJobsSection").classList.toggle("hidden", !names.length);
       $("otherJobs").innerHTML = names.map(name => {
         const lines = phases.map(([phase, label]) => {
           const people = custom.filter(item => (item.jobLabel || "Custom job") === name && item.phase === phase).map(item => staffName(item.staffKey));
-          return people.length ? `<div><span>${label}</span>${escapeHtml(people.sort().join(", "))}</div>` : "";
+          const here = (state.plan?.blockJobs?.[phase] || []).includes(name);
+          return people.length || here ? `<div><span>${label}</span>${escapeHtml(people.sort().join(", ") || "–")}</div>` : "";
         }).join("");
-        return `<div class="other-job"><b>${escapeHtml(name)}</b>${lines}</div>`;
+        const extra = state.extraJobs.find(job => job.title === name);
+        return `<div class="other-job"><b>${escapeHtml(name)}</b>${lines}${extra ? `<button type="button" class="secondary" data-extra-done="${escapeHtml(extra.id)}">Done</button>` : ""}</div>`;
       }).join("");
+    }
+
+    async function finishExtraJob(id, button) {
+      button.disabled = true;
+      try {
+        await updateDoc(doc(db, "extraJobs", id), { status: "done", doneDay: state.date, updatedAt: serverTimestamp(), updatedBy: actor() });
+        toast("Marked done");
+      } catch (error) {
+        button.disabled = false;
+        toast(`That wasn't saved: ${friendlyError(error)}`, true);
+      }
     }
 
     function renderFloor() {
@@ -526,6 +544,8 @@
       $("boardArea").addEventListener("click", event => {
         const photo = event.target.closest("[data-photo]");
         if (photo) return showPhoto(photo.getAttribute("src"));
+        const extraDone = event.target.closest("[data-extra-done]");
+        if (extraDone) return finishExtraJob(extraDone.dataset.extraDone, extraDone);
         const move = event.target.closest("button[data-req-move]");
         if (move) return advanceRequest(move.dataset.reqMove, move.dataset.reqTo);
         const edit = event.target.closest("[data-edit-note]");
@@ -594,6 +614,10 @@
           .map(entry => ({ id: entry.id, ...entry.data() }))
           .sort((a, b) => String(a.day).localeCompare(String(b.day)) || a.id.localeCompare(b.id));
         if (state.plan) renderFloor();
+      }, () => {});
+      onSnapshot(query(collection(db, "extraJobs"), where("status", "==", "open")), snapshot => {
+        state.extraJobs = snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() }));
+        if (state.plan) renderOtherJobs();
       }, () => {});
       const requested = new URLSearchParams(window.location.search).get("date");
       openDate(/^\d{4}-\d{2}-\d{2}$/.test(requested || "") ? requested : toInputDate(new Date()));

@@ -246,6 +246,13 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    // A bench marks an open extra job done, and changes nothing else.
+    function benchExtraJobDone() {
+      return resource.data.status == 'open'
+        && request.resource.data.status == 'done'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'doneDay', 'updatedAt', 'updatedBy']);
+    }
+
     // A saved name for other work people can be put on (cleaning, stocktake).
     function validCustomJob() {
       let d = request.resource.data;
@@ -259,7 +266,8 @@ service cloud.firestore {
     function validJob() {
       let d = request.resource.data;
       return d.keys().hasAll(['customer', 'unitType', 'commsType', 'simType', 'configKey', 'quantity', 'stage', 'day', 'updatedAt'])
-        && d.keys().hasOnly(['orderId', 'customer', 'unitType', 'unitKey', 'commsType', 'commsKey', 'simType', 'configKey', 'configText', 'quantity', 'stage', 'day', 'parentId', 'doneDay', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['orderId', 'customer', 'unitType', 'unitKey', 'commsType', 'commsKey', 'simType', 'connectorKey', 'configKey', 'configText', 'quantity', 'stage', 'day', 'parentId', 'doneDay', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && (d.get('connectorKey', null) == null || (d.connectorKey is string && d.connectorKey.size() <= 40))
         && d.customer is string && d.customer.size() > 0 && d.customer.size() <= 80
         && d.unitType in ['gen4', 'tap']
         && d.commsType in ['verizon', 'global']
@@ -333,7 +341,8 @@ service cloud.firestore {
 
     match /extraJobs/{extraJobId} {
       allow read: if isAppUser();
-      allow create, update: if isManagement() && validExtraJob();
+      allow create: if isManagement() && validExtraJob();
+      allow update: if validExtraJob() && (isManagement() || (isBench() && benchExtraJobDone()));
       allow delete: if isManagement();
     }
 

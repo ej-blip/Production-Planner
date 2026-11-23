@@ -56,6 +56,8 @@ export const STARTING_LISTS = {
 //   hardwareVerizon units Hardware Check does with 1, 2, 3, 4+ people
 //   hardwareGlobal  the same for Global units
 //   packagingBuild  boxes Packaging build-up makes with 1, 2, 3, 4+ people
+//   packing         units Packing packs with 1, 2, 3, 4+ people (blank until
+//                   set: it doesn't limit the day's target)
 // and per day, on each comms type: testingPerDay (half each block with
 // 2+ testers). A unit or comms type without its own figures uses the ones
 // of the type it plans as.
@@ -128,11 +130,18 @@ export function unitRates(unitKey) {
   const own = ownRates(unitKey);
   const table = (value, fallback) => Array.from({ length: RATE_PEOPLE }, (_, index) =>
     wholeNumber(Array.isArray(value) && value[index] !== undefined && value[index] !== null ? value[index] : fallback[index]));
+  const packingSet = Array.isArray(own.packing) && own.packing.some(value => value !== null && value !== undefined && value !== "");
   return {
     assembly: own.assembly !== undefined && own.assembly !== null ? wholeNumber(own.assembly) : base.assembly,
     hardwareVerizon: table(own.hardwareVerizon, base.hardwareVerizon),
     hardwareGlobal: table(own.hardwareGlobal, base.hardwareGlobal),
-    packagingBuild: table(own.packagingBuild, base.packagingBuild)
+    packagingBuild: table(own.packagingBuild, base.packagingBuild),
+    packing: packingSet
+      ? Array.from({ length: RATE_PEOPLE }, (_, index) => {
+          const value = own.packing[index];
+          return value === null || value === undefined || value === "" ? null : wholeNumber(value);
+        })
+      : Array(RATE_PEOPLE).fill(null)
   };
 }
 
@@ -146,6 +155,14 @@ export function hardwareRate(people, unitKey, commsKey) {
 }
 
 export const packagingBuildRate = (people, unitKey) => fromTable(unitRates(unitKey).packagingBuild, people);
+
+// Units Packing can pack, or null while no Packing speed is set.
+export function packingRate(people, unitKey) {
+  const table = unitRates(unitKey).packing;
+  if (people <= 0) return table.some(value => value !== null) ? 0 : null;
+  const value = table[Math.min(people, table.length) - 1];
+  return value === null ? null : value;
+}
 
 // Units Testing can do in a day (never 0, so shares can be worked out).
 export function testingPerDay(commsKey) {

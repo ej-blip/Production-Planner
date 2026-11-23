@@ -128,6 +128,7 @@ async function releasePlan(date, plan, roster, assignments, target) {
       unitKey: job.unitKey || job.unitType,
       commsType: job.commsType,
       commsKey: job.commsKey || job.commsType,
+      ...(job.connectorKey ? { connectorKey: job.connectorKey } : {}),
       simType: job.simType,
       configKey: job.configKey,
       configText: job.configText ?? "",

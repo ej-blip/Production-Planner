@@ -201,7 +201,7 @@
   <script src="js/skills.js"></script>
   <script type="module">
     import {
-      collection, doc, getDocs, onSnapshot, setDoc, deleteDoc, writeBatch, serverTimestamp
+      collection, doc, getDocs, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, friendlyError } from "./js/session.js";
     import * as Lists from "./js/lists.js";
@@ -218,6 +218,7 @@
       { id: "sims", title: "SIM types" },
       { id: "configs", title: "Configurations" },
       { id: "rates", title: "Rates" },
+      { id: "titles", title: "Job titles" },
       { id: "staff", title: "Staff" }
     ];
     const LIST_COLUMNS = { units: ["plan"], customers: [], connectors: [], comms: ["colour", "plan"], sims: ["comms"] };
@@ -237,6 +238,7 @@
     let tab = TABS.some(item => item.id === location.hash.slice(1)) ? location.hash.slice(1) : "units";
     let presets = [];
     let staff = [];
+    let jobTitles = [];     // the Job creator's suggestions (customJobs)
     let pending = 0;
     let failed = false;
     let alertText = "";
@@ -308,6 +310,7 @@
       if (LIST_COLUMNS[tab]) body = listSheet(tab);
       else if (tab === "configs") body = configSheet();
       else if (tab === "rates") body = ratesSheet();
+      else if (tab === "titles") body = titlesSheet();
       else body = staffSheet();
       $("sheet").innerHTML = `<h2>${esc(title)}</h2>${body}`;
       if (focusAdd) {
@@ -646,7 +649,7 @@
         const tableRow = (field, name) => `
           <tr>
             <td class="row-name">${esc(name)}</td>
-            ${rates[field].map((value, index) => `<td class="num">${numberInput(`data-rate="${field}" data-index="${index}"`, value, `${name}, ${PEOPLE_HEADS[index]}`)}</td>`).join("")}
+            ${rates[field].map((value, index) => `<td class="num">${numberInput(`data-rate="${field}" data-index="${index}"`, value ?? "", `${name}, ${PEOPLE_HEADS[index]}`)}</td>`).join("")}
           </tr>`;
         return `
           <section class="rate-group" data-unit="${esc(item.key)}">
@@ -666,6 +669,7 @@
                   ${tableRow("hardwareVerizon", `Hardware Check · ${verizon}`)}
                   ${tableRow("hardwareGlobal", `Hardware Check · ${global}`)}
                   ${tableRow("packagingBuild", "Packaging build-up")}
+                  ${tableRow("packing", "Packing")}
                 </tbody>
               </table>
             </div>
@@ -679,7 +683,9 @@
       const unitEl = field.closest("[data-unit]");
       const commsEl = field.closest("[data-comms]");
       const number = Math.max(0, Math.min(9999, Math.round(Number(value))));
-      if (value === "" || !Number.isFinite(number)) return draw();
+      // Packing may be left blank; every other speed needs a number.
+      const blankPacking = value === "" && field.dataset.rate === "packing";
+      if (!blankPacking && (value === "" || !Number.isFinite(number))) return draw();
       if (commsEl) {
         const items = editable("comms");
         const item = items.find(entry => entry.key === commsEl.dataset.comms);
@@ -694,9 +700,59 @@
       const rates = Lists.unitRates(item.key);
       const name = field.dataset.rate;
       if (name === "assembly") rates.assembly = number;
-      else rates[name][Number(field.dataset.index)] = number;
+      else rates[name][Number(field.dataset.index)] = blankPacking ? null : number;
       item.rates = rates;
       writeList("units", items);
+    }
+
+    // ------------------------------------------------------------------
+    // Job titles: what the Job creator suggests while typing
+    // ------------------------------------------------------------------
+    function titlesSheet() {
+      return `
+        <div class="table-scroll">
+          <table class="list">
+            <thead><tr><th class="wide">Title</th><th></th></tr></thead>
+            <tbody>${jobTitles.length ? jobTitles.map(job => `
+              <tr data-title="${esc(job.id)}">
+                <td><input type="text" data-field="title" value="${esc(job.name)}" maxlength="60" aria-label="Title" /></td>
+                <td class="actions-cell"><button type="button" class="secondary icon" data-act="remove" aria-label="Remove ${esc(job.name)}">${icon("remove")}</button></td>
+              </tr>`).join("") : '<tr><td colspan="2">None</td></tr>'}
+            </tbody>
+            <tfoot>
+              <tr data-add="titles">
+                <td><input type="text" data-new="label" maxlength="60" aria-label="New title" /></td>
+                <td class="actions-cell"><button type="button" data-act="add">Add</button></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>`;
+    }
+
+    function editTitle(id, value) {
+      const name = value.trim().replace(/\s+/g, " ");
+      if (!name) return draw();
+      if (jobTitles.some(job => job.id !== id && sameName(job.name, name))) {
+        warn(`${name} is already on the list.`);
+        return draw();
+      }
+      save(() => updateDoc(doc(db, "customJobs", id), { name, updatedAt: serverTimestamp(), updatedBy: "Management" }));
+    }
+
+    function addTitle(row) {
+      const input = row.querySelector("[data-new='label']");
+      const name = input.value.trim().replace(/\s+/g, " ").slice(0, 60);
+      if (!name) return input.focus();
+      if (jobTitles.some(job => sameName(job.name, name))) {
+        warn(`${name} is already on the list.`);
+        return;
+      }
+      input.value = "";
+      input.blur();
+      focusAdd = true;
+      save(() => addDoc(collection(db, "customJobs"), {
+        name, createdAt: serverTimestamp(), createdBy: "Management", updatedAt: serverTimestamp(), updatedBy: "Management"
+      }));
     }
 
     // ------------------------------------------------------------------
@@ -822,6 +878,8 @@
         const listRow = field.closest("tr[data-key]");
         const presetCard = field.closest("[data-preset]");
         const staffRow = field.closest("tr[data-staff]");
+        const titleRow = field.closest("tr[data-title]");
+        if (titleRow) return editTitle(titleRow.dataset.title, value);
         if (listRow) editListItem(field.closest("table[data-list]").dataset.list, listRow.dataset.key, field.dataset.field, value);
         else if (presetCard) editPreset(presetCard.dataset.preset, field.dataset.field, value);
         else if (staffRow && field.dataset.field === "name") editStaffName(staffRow.dataset.staff, value);
@@ -853,7 +911,18 @@
         if (!button) return;
         const act = button.dataset.act;
         const addRow = button.closest("[data-add]");
-        if (act === "add" && addRow) return addRow.dataset.add === "configs" ? addPreset(addRow) : addRow.dataset.add === "staff" ? addStaff(addRow) : addListItem(addRow.dataset.add, addRow);
+        if (act === "add" && addRow) {
+          if (addRow.dataset.add === "configs") return addPreset(addRow);
+          if (addRow.dataset.add === "staff") return addStaff(addRow);
+          if (addRow.dataset.add === "titles") return addTitle(addRow);
+          return addListItem(addRow.dataset.add, addRow);
+        }
+        const titleRow = button.closest("tr[data-title]");
+        if (titleRow && act === "remove") {
+          const job = jobTitles.find(item => item.id === titleRow.dataset.title);
+          if (job) save(() => deleteDoc(doc(db, "customJobs", job.id)));
+          return;
+        }
         const listRow = button.closest("tr[data-key]");
         const presetEl = button.closest("[data-preset]");
         const staffRow = button.closest("tr[data-staff]");
@@ -898,7 +967,7 @@
       const loadedParts = new Set();
       const show = part => {
         loadedParts.add(part);
-        if (loadedParts.size < 3) return;
+        if (loadedParts.size < 4) return;
         $("notice").classList.add("hidden");
         $("main").classList.remove("hidden");
         render();
@@ -915,6 +984,12 @@
           .map(entry => ({ key: entry.id, ...entry.data() }))
           .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
         show("presets");
+      }, error => warn(friendlyError(error)));
+      onSnapshot(collection(db, "customJobs"), snapshot => {
+        jobTitles = snapshot.docs
+          .map(entry => ({ id: entry.id, name: String(entry.data().name || "") }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        show("titles");
       }, error => warn(friendlyError(error)));
       onSnapshot(collection(db, "staff"), snapshot => {
         staff = snapshot.docs.map(entry => ({ key: entry.id, ...entry.data() })).sort(byRosterRow);

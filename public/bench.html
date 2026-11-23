@@ -421,7 +421,7 @@
         label: "Assembly",
         blurb: "Sub assembly and assembly",
         stations: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap"],
-        columns: ["customer", "unit", "config", "setup", "units"]
+        columns: ["customer", "unit", "connector", "config", "setup", "units"]
       },
       testing: {
         label: "Testing",
@@ -439,13 +439,13 @@
         label: "Packing",
         blurb: "Packing and final packaging",
         stations: ["packing", "finalPackaging"],
-        columns: ["customer", "unit", "config", "setup", "units"]
+        columns: ["customer", "unit", "connector", "config", "setup", "units"]
       },
       cage: {
         label: "Production Cage",
         blurb: "Parts to release for today's builds",
         stations: [],
-        columns: ["customer", "unit", "network", "config", "setup", "units"]
+        columns: ["customer", "unit", "network", "connector", "config", "setup", "units"]
       }
     };
 
@@ -1125,7 +1125,7 @@
       const batches = activeBatches();
       if (!batches.length) return '<p class="empty">No batches in this plan.</p>';
       const headings = {
-        customer: "Customer", unit: "Unit", network: "Network · SIM",
+        customer: "Customer", unit: "Unit", network: "Network · SIM", connector: "Connector",
         config: "Configuration", setup: "Component setup", units: "Units"
       };
       const cell = (column, batch) => {
@@ -1138,6 +1138,7 @@
           return `<td>${swatch}${escapeHtml(preset?.label || batch.configKey || "")}</td>`;
         }
         if (column === "setup") return `<td class="setup-text">${escapeHtml(batch.configText || "")}</td>`;
+        if (column === "connector") return `<td>${escapeHtml(batch.connectorKey ? labelOf("connectors", batch.connectorKey) : "–")}</td>`;
         const units = plannedUnits(batch);
         const requested = Number(batch.quantity) || 0;
         return `<td class="units">${units}${units < requested ? ` <small>of ${requested}</small>` : ""}</td>`;

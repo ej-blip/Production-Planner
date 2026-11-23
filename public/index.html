@@ -82,6 +82,9 @@
     .job-creator form { display: grid; gap: 6px; }
     .job-creator label { margin: 0; font-family: var(--font-label); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
     .job-creator-row { display: flex; gap: 8px; }
+    .job-drag { justify-self: start; margin-top: 4px; padding: 8px 14px; border: 1px dashed var(--accent); border-radius: var(--radius-lg); background: var(--accent-soft); color: var(--ink); font-weight: 600; cursor: grab; user-select: none; -webkit-user-select: none; }
+    .job-drag:active { cursor: grabbing; }
+    .bench-board .crew-stations.job-drop { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius-lg); }
     .job-creator-row input { flex: 1; min-width: 0; padding: 10px 12px; }
     .job-creator-row button { margin: 0; }
     .bench-board .crew-remove { margin-left: auto; color: var(--muted); }
@@ -1733,6 +1736,7 @@
               <button type="submit">Add</button>
             </div>
             <datalist id="jobCreatorNames"></datalist>
+            <div class="job-drag hidden" id="jobCreatorChip" draggable="true"></div>
           </form>
         </section>
       </div>
@@ -2359,7 +2363,8 @@
         configKey,
         configText,
         quantity: Math.max(0, Math.floor(Number(raw.quantity) || 0)),
-        ...(raw.orderId ? { orderId: String(raw.orderId) } : {})
+        ...(raw.orderId ? { orderId: String(raw.orderId) } : {}),
+        ...(raw.connectorKey ? { connectorKey: String(raw.connectorKey) } : {})
       };
     }
 
@@ -2377,6 +2382,7 @@
         unitKey: first.unitKey && first.unitType === unitType ? first.unitKey : unitType,
         commsType,
         commsKey: sameComms ? first.commsKey : commsType,
+        connectorKey: first.connectorKey,
         simType: sameComms ? first.simType : document.getElementById("simPlanType")?.value || "verizon",
         configKey,
         configText: document.getElementById("singleConfigSummary")?.value ?? configurationComponentSummary(configKey),
@@ -2458,6 +2464,7 @@
         unitKey: template.unitKey,
         commsType: template.commsType,
         commsKey: template.commsKey,
+        connectorKey: template.connectorKey,
         simType: template.simType,
         configKey: template.configKey,
         configText: template.configText ?? configurationComponentSummary(template.configKey),
@@ -2760,6 +2767,7 @@
         unitKey: order.unitKey,
         commsType: order.commsType,
         commsKey: order.commsKey,
+        connectorKey: order.connectorKey,
         simType: order.simType,
         configKey: order.configKey,
         configText: order.configText ?? configurationComponentSummary(order.configKey),
@@ -3201,6 +3209,7 @@
         unitKey: batch.unitKey || batch.unitType,
         commsType: batch.commsType,
         commsKey: batch.commsKey || batch.commsType,
+        ...(batch.connectorKey ? { connectorKey: batch.connectorKey } : {}),
         simType: batch.simType,
         configKey: batch.configKey,
         configText: batch.configText ?? "",
@@ -3222,6 +3231,7 @@
         unitKey: job.unitKey || job.unitType,
         commsType: job.commsType,
         commsKey: job.commsKey || job.commsType,
+        ...(job.connectorKey ? { connectorKey: job.connectorKey } : {}),
         simType: job.simType,
         configKey: job.configKey,
         configText: job.configText ?? "",
@@ -3387,10 +3397,47 @@
        ============================================================ */
     let savedCustomJobs = [];     // [{ id, name }]
 
+    // The typed title as a tag that can be dragged onto the stations.
+    function showJobCreatorChip() {
+      const chip = document.getElementById("jobCreatorChip");
+      const title = document.getElementById("jobCreatorTitle").value.trim();
+      chip.textContent = title;
+      chip.classList.toggle("hidden", !title);
+    }
+
+    const BLOCK_JOB_TYPE = "application/x-block-job";
+
     function wireCustomJobs() {
       document.getElementById("jobCreator").addEventListener("submit", event => {
         event.preventDefault();
         addBlockJob();
+      });
+      document.getElementById("jobCreatorTitle").addEventListener("input", showJobCreatorChip);
+      document.getElementById("jobCreatorChip").addEventListener("dragstart", event => {
+        const title = document.getElementById("jobCreatorTitle").value.trim();
+        event.dataTransfer.setData(BLOCK_JOB_TYPE, title);
+        event.dataTransfer.setData("text/plain", title);
+        event.dataTransfer.effectAllowed = "copy";
+      });
+      const board = document.getElementById("benchBoard");
+      const stationsUnder = event => event.target.closest?.(".crew-stations") ? board.querySelector(".crew-stations") : null;
+      board.addEventListener("dragover", event => {
+        if (!event.dataTransfer.types.includes(BLOCK_JOB_TYPE)) return;
+        const stations = stationsUnder(event);
+        board.querySelector(".crew-stations")?.classList.toggle("job-drop", Boolean(stations));
+        if (!stations) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      });
+      board.addEventListener("dragleave", event => {
+        if (!board.contains(event.relatedTarget)) board.querySelector(".crew-stations")?.classList.remove("job-drop");
+      });
+      board.addEventListener("drop", event => {
+        const title = event.dataTransfer.getData(BLOCK_JOB_TYPE);
+        board.querySelector(".crew-stations")?.classList.remove("job-drop");
+        if (!title || !stationsUnder(event)) return;
+        event.preventDefault();
+        addBlockJob(title);
       });
       window.plannerData.customJobs.watch(list => {
         if (!list) return;
@@ -3403,11 +3450,12 @@
 
     // A one-off job for the block on screen. New titles are remembered as
     // suggestions for next time; the job itself belongs to this day only.
-    function addBlockJob() {
+    function addBlockJob(dropped) {
       const input = document.getElementById("jobCreatorTitle");
-      const name = input.value.trim().replace(/\s+/g, " ").slice(0, 60);
+      const name = String(dropped ?? input.value).trim().replace(/\s+/g, " ").slice(0, 60);
       if (!name) return;
       input.value = "";
+      showJobCreatorChip();
       const list = blockJobs[benchBoardPhase] || [];
       if (!list.some(item => item.toLowerCase() === name.toLowerCase())) {
         blockJobs = { ...blockJobs, [benchBoardPhase]: [...list, name] };
@@ -4290,6 +4338,7 @@
       if (zone === "testingVerizon" || zone === "testingGlobal") return count > 0 ? dailyTestingLimit(job.commsKey) / 2 : 0;
       if (zone === "hardware") return hardwareCapacity(count, job.unitKey, job.commsKey);
       if (zone === "packing") return packingCapacity(count, job.unitKey);
+      if (zone === "finalPackaging") return listsApi()?.packingRate(count, rateUnitKey(job.unitKey)) ?? null;
       return null;
     }
 
