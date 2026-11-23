@@ -1378,98 +1378,6 @@
       vector-effect: non-scaling-stroke;
     }
 
-    /* ============================================================
-       05. WORKER ADMIN MODAL
-       ============================================================ */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: var(--inset);
-      z-index: 1000;
-    }
-
-    .modal-backdrop.open {
-      display: flex;
-    }
-
-    .modal {
-      width: min(1400px, 96vw);
-      max-height: 92vh;
-      overflow: hidden;
-      background: var(--sheet);
-      border: 1px solid var(--rule-strong);
-      border-radius: var(--radius);
-      box-shadow: 0 30px 80px rgba(15, 39, 71, 0.25);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .modal-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 20px;
-      padding: 18px 20px 10px;
-      border-bottom: 1px solid var(--rule);
-    }
-
-    .modal-body {
-      padding: 18px 20px;
-      overflow: auto;
-    }
-
-    .modal-footer {
-      padding: 12px 20px 18px;
-      border-top: 1px solid var(--rule);
-    }
-
-    .admin-table {
-      min-width: 760px;
-    }
-
-    .admin-table input,
-    .admin-table select {
-      min-width: 100px;
-      padding: 9px;
-      font-size: 14px;
-    }
-
-    .admin-table .center { text-align: center; }
-    .admin-table tr.off td { opacity: 0.5; }
-    .admin-table .dots { display: inline-flex; gap: 5px; }
-    .admin-table .dot {
-      width: 22px;
-      height: 22px;
-      padding: 0;
-      margin: 0;
-      border-radius: 50%;
-      border: 2px solid var(--rule-strong);
-      background: transparent;
-    }
-    .admin-table .dot.on { background: var(--accent); border-color: var(--accent); }
-    .admin-table .icon-button { padding: 8px 12px; margin: 0; }
-
-    .admin-table .name-input {
-      min-width: 160px;
-    }
-
-    .admin-table input[type="checkbox"] {
-      min-width: 0;
-      width: 20px;
-      height: 20px;
-    }
-
-    .admin-hint {
-      color: var(--ink-2);
-      font-size: 13px;
-      line-height: 1.5;
-      margin-bottom: 12px;
-    }
-
     @media (max-width: 1150px) {
       body {
         padding: 16px;
@@ -1509,7 +1417,7 @@
       <a class="button" data-board-link href="board.html" target="_blank" rel="noopener">Floor board</a>
       <a class="button" href="summary.html" target="_blank" rel="noopener">Day summary</a>
       <a class="button" href="history.html" target="_blank" rel="noopener">History</a>
-      <button type="button" onclick="openWorkerAdmin()">Workers</button>
+      <a class="button" href="lists.html" target="_blank" rel="noopener">Lists</a>
       <a class="button" href="setup.html" target="_blank" rel="noopener">Setup</a>
       <button type="button" onclick="lockPlannerScreen()">Lock</button>
     </nav>
@@ -1578,9 +1486,9 @@
 
       <form id="orderForm" class="order-form hidden" autocomplete="off">
         <div class="order-form-grid">
-          <div><label for="orderCustomer">Customer</label><input id="orderCustomer" type="text" maxlength="80" /></div>
-          <div><label for="orderUnit">Unit type</label><select id="orderUnit"><option value="gen4">Gen4</option><option value="tap">Tap</option></select></div>
-          <div><label for="orderComms">Comms type</label><select id="orderComms"><option value="verizon">Verizon</option><option value="global">Global</option></select></div>
+          <div><label for="orderCustomer">Customer</label><input id="orderCustomer" type="text" maxlength="80" list="orderCustomerList" /><datalist id="orderCustomerList"></datalist></div>
+          <div><label for="orderUnit">Unit type</label><select id="orderUnit"></select></div>
+          <div><label for="orderComms">Comms type</label><select id="orderComms"></select></div>
           <div><label for="orderSim">SIM type</label><select id="orderSim"></select></div>
           <div><label for="orderConfig">Configuration colour</label><select id="orderConfig"></select></div>
           <div><label for="orderQuantity">Quantity</label><input id="orderQuantity" type="number" min="1" step="1" inputmode="numeric" /></div>
@@ -1848,47 +1756,6 @@
     </div>
   </div>
 
-  <!-- ============================================================
-       FEATURE 9D: WORKER ADMIN MODAL
-       ============================================================ -->
-  <div id="workerAdminBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="workerAdminTitle">
-    <div class="modal">
-      <div class="modal-header">
-        <div>
-          <h2 id="workerAdminTitle" style="margin-bottom:6px;">Workers</h2>
-        </div>
-        <button class="secondary" onclick="closeWorkerAdmin()">Close</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="table-scroll">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th class="center">In production</th>
-                <th class="center">Sub Assembly</th>
-                <th class="center">Assembly</th>
-                <th class="center">Testing</th>
-                <th class="center">Hardware</th>
-                <th class="center">Packing</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="workerAdminBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button onclick="addAdminWorker()">Add New Worker</button>
-        <button onclick="saveWorkerAdmin(true)">Save & Close</button>
-        <button class="secondary" onclick="saveWorkerAdmin(false)">Save</button>
-        <button class="danger" onclick="resetWorkerAdminDefaults()">Reset to Defaults</button>
-      </div>
-    </div>
-  </div>
-
   <!-- External dependency: html2canvas for JPEG workflow export. -->
   <!-- Firebase: management PIN, staff, colours, who's in and daily plans. -->
   <script type="module" src="js/planner-data.js"></script>
@@ -2017,6 +1884,10 @@
           const reference = await data.start();
           applyRemoteStaff(reference.staff);
           applyRemotePresets(reference.presets);
+          lastStaffJson = JSON.stringify(reference.staff);
+          lastPresetsJson = JSON.stringify(reference.presets);
+          await Promise.race([data.lists.whenLoaded(), new Promise(resolve => setTimeout(resolve, 8000))]);
+          lastListsJson = listsJson(data.lists);
         } catch (error) {
           currentPlanState = { date: "", status: "error", error: data.friendlyError(error) };
         }
@@ -2031,12 +1902,60 @@
         wireOrders();
         wireJobs();
         wireCustomJobs();
+        watchReferenceData(data);
         window.addEventListener("online", () => renderFlow());
         window.addEventListener("offline", () => renderFlow());
         await loadPlanForSelectedDate();
       } else {
         setAttendanceFor(planDateValue(), null);
         calculateFromRoster();
+      }
+    }
+
+    /* Staff, colours and the lists are edited on the Lists screen and
+       arrive here live. A staff change re-plans the day (as Worker Admin
+       did); colour and list changes only redraw the names. */
+    let lastStaffJson = "";
+    let lastPresetsJson = "";
+    let lastListsJson = "";
+
+    function watchReferenceData(data) {
+      data.watchStaff(staff => {
+        const json = JSON.stringify(staff);
+        if (json === lastStaffJson || !staff.length) return;
+        lastStaffJson = json;
+        applyRemoteStaff(staff);
+        stationAdjustments = stationAdjustments.filter(adjustment => workerMap.some(worker => worker.key === adjustment.workerKey));
+        populateWorkerControls();
+        renderStationOptions();
+        calculateFromRoster();
+      });
+      data.watchPresets(presets => {
+        const json = JSON.stringify(presets);
+        if (json === lastPresetsJson) return;
+        lastPresetsJson = json;
+        applyRemotePresets(presets);
+        refreshNames();
+      });
+      data.lists.watchLists(() => {
+        const json = listsJson(data.lists);
+        if (json === lastListsJson) return;
+        lastListsJson = json;
+        refreshNames();
+      });
+    }
+
+    function listsJson(lists) {
+      return JSON.stringify(lists.LIST_NAMES.map(name => lists.items(name, { withRetired: true })));
+    }
+
+    function refreshNames() {
+      renderOrders();
+      renderJobsBoard();
+      refreshOpenOrderForm();
+      if (lastResult) {
+        renderWorkflowChart(lastResult, document.getElementById("daySelect").value,
+          document.getElementById("commsType").value, document.getElementById("unitType").value);
       }
     }
 
@@ -2121,14 +2040,6 @@
         arrowResizeTimer = setTimeout(drawWorkerArrows, 120);
       });
 
-      document.getElementById("workerAdminBody").addEventListener("click", onSkillDotClick);
-      document.getElementById("workerAdminBackdrop").addEventListener("click", event => {
-        if (event.target.id === "workerAdminBackdrop") closeWorkerAdmin();
-      });
-
-      document.addEventListener("keydown", event => {
-        if (event.key === "Escape") closeWorkerAdmin();
-      });
     }
 
     function makeBlankRoster() {
@@ -2185,19 +2096,6 @@
       return `${base}-${String(index).replace(/\D/g, "").slice(-6) || Date.now()}`;
     }
 
-    /* Worker Admin is saved online (shared by every screen) and cached in
-       this browser so the page can draw straight away next time. */
-    function persistWorkerConfig() {
-      cacheWorkerConfig();
-      if (!window.plannerData) {
-        window.alert("Worker Admin was saved on this computer only: Firebase can't be reached.");
-        return;
-      }
-      window.plannerData.saveStaff(workerMap).catch(error => {
-        window.alert(`Worker Admin couldn't be saved online: ${window.plannerData.friendlyError(error)}`);
-      });
-    }
-
     function cacheWorkerConfig() {
       try {
         localStorage.setItem(WORKER_STORAGE_KEY, JSON.stringify(workerMap));
@@ -2226,21 +2124,25 @@
     }
 
     /* Configuration colours come from Firebase (configPresets). */
+    /* Retired colours stay known (older batches still show them) but are
+       left out of the choices. */
     function applyRemotePresets(presets) {
-      const active = (presets || [])
-        .filter(preset => preset && preset.active !== false)
+      const sorted = (presets || [])
+        .filter(preset => preset && preset.key)
         .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+      const active = sorted.filter(preset => preset.active !== false);
       if (active.length === 0) return;
 
       Object.keys(sensorConfigurations).forEach(key => delete sensorConfigurations[key]);
-      active.forEach(preset => {
+      sorted.forEach(preset => {
         sensorConfigurations[preset.key] = {
           label: preset.label || preset.key,
           connector: preset.connector || "",
           middlePhaseSensor: preset.sensors || "",
           powerCable: preset.powerCable || "",
           coaxCableLength: preset.sensorCable || "",
-          colourHex: preset.colourHex || ""
+          colourHex: preset.colourHex || "",
+          active: preset.active !== false
         };
       });
 
@@ -2252,116 +2154,6 @@
       select.value = sensorConfigurations[previous] ? previous : (sensorConfigurations.blue ? "blue" : active[0].key);
     }
 
-    function openWorkerAdmin() {
-      renderWorkerAdminTable();
-      document.getElementById("workerAdminBackdrop").classList.add("open");
-    }
-
-    function closeWorkerAdmin() {
-      document.getElementById("workerAdminBackdrop").classList.remove("open");
-    }
-
-    function skillDotsHtml(skill, level) {
-      return `<span class="dots" data-skill="${skill}" data-level="${level}" aria-label="${escapeHtml(window.PlannerSkills.SKILL_LABELS[skill])}: ${level} of 3">${[1, 2, 3]
-        .map(n => `<button type="button" class="dot ${level >= n ? "on" : ""}" data-dot="${n}" aria-label="${n}"></button>`).join("")}</span>`;
-    }
-
-    function renderWorkerAdminTable() {
-      const body = document.getElementById("workerAdminBody");
-      if (!body) return;
-
-      body.innerHTML = workerMap.map(worker => `
-        <tr data-worker-key="${safeAttr(worker.key)}" data-roster-index="${worker.rosterIndex === null ? "" : worker.rosterIndex}" class="${worker.inProduction ? "" : "off"}">
-          <td><input class="name-input" data-field="name" type="text" value="${safeAttr(worker.name)}" aria-label="Name" /></td>
-          <td class="center"><input type="checkbox" data-field="inProduction" ${worker.inProduction ? "checked" : ""} aria-label="In production" /></td>
-          ${window.PlannerSkills.SKILL_KEYS.map(skill => `<td class="center">${skillDotsHtml(skill, worker.skills[skill])}</td>`).join("")}
-          <td><button class="danger icon-button" onclick="removeAdminWorker('${safeJs(worker.key)}')" aria-label="Remove ${safeAttr(worker.name)}"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></td>
-        </tr>
-      `).join("");
-    }
-
-    // Tap a dot to set that many; tap the top one again to go down one.
-    function onSkillDotClick(event) {
-      const dot = event.target.closest(".dot[data-dot]");
-      if (!dot) return;
-      const holder = dot.closest(".dots");
-      const n = Number(dot.dataset.dot);
-      const level = Number(holder.dataset.level) === n ? n - 1 : n;
-      holder.dataset.level = String(level);
-      holder.querySelectorAll(".dot").forEach(item => item.classList.toggle("on", Number(item.dataset.dot) <= level));
-    }
-
-    function addAdminWorker() {
-      const newWorker = {
-        key: makeWorkerKey("new-worker"),
-        name: "New Worker",
-        first: "New",
-        inProduction: true,
-        skills: { subAssembly: 0, assembly: 0, testing: 0, hardware: 0, packing: 0 },
-        priorityRank: 50,
-        rosterIndex: null
-      };
-
-      workerMap.push(newWorker);
-      renderWorkerAdminTable();
-    }
-
-    function removeAdminWorker(workerKey) {
-      workerMap = workerMap.filter(worker => worker.key !== workerKey);
-      stationAdjustments = stationAdjustments.filter(adjustment => adjustment.workerKey !== workerKey);
-      renderWorkerAdminTable();
-    }
-
-    function saveWorkerAdmin(closeAfterSave) {
-      const rows = [...document.querySelectorAll("#workerAdminBody tr[data-worker-key]")];
-      const updated = [];
-
-      rows.forEach((row, index) => {
-        const key = row.dataset.workerKey;
-        const old = workerMap.find(worker => worker.key === key) || {};
-        const name = row.querySelector('[data-field="name"]').value.trim() || `Worker ${index + 1}`;
-        const rosterIndexText = row.dataset.rosterIndex;
-
-        const skills = {};
-        row.querySelectorAll(".dots[data-skill]").forEach(holder => {
-          skills[holder.dataset.skill] = Number(holder.dataset.level) || 0;
-        });
-
-        updated.push(normalizeWorkerConfig({
-          key,
-          name,
-          first: name.split(/\s+/)[0],
-          inProduction: row.querySelector('[data-field="inProduction"]').checked,
-          skills,
-          priorityRank: old.priorityRank,
-          rosterIndex: rosterIndexText === "" ? old.rosterIndex ?? null : Number(rosterIndexText)
-        }, index));
-      });
-
-      workerMap = updated;
-      persistWorkerConfig();
-      populateWorkerControls();
-      renderStationOptions();
-
-      stationAdjustments = stationAdjustments.filter(adjustment => workerMap.some(worker => worker.key === adjustment.workerKey));
-
-      calculateFromRoster();
-      renderWorkerAdminTable();
-
-      if (closeAfterSave) closeWorkerAdmin();
-    }
-
-    function resetWorkerAdminDefaults() {
-      if (!window.confirm("Reset all worker admin settings to the original defaults?")) return;
-      workerMap = cloneDefaultWorkers();
-      persistWorkerConfig();
-      stationAdjustments = [];
-      lastStationIssues = [];
-      populateWorkerControls();
-      renderStationOptions();
-      renderWorkerAdminTable();
-      calculateFromRoster();
-    }
 
     /* ============================================================
        09. HEADER BEHAVIOR / SIM LOCK / EDITABLE AUTO-FILL
@@ -2443,13 +2235,24 @@
       return `batch-${Date.now().toString(36)}-${randomPart}`;
     }
 
+    /* unitType / commsType are what the planner reads (gen4 or tap,
+       verizon or global); unitKey / commsKey name the item from the lists,
+       which plans as one of those. */
     function normalizeWorkBatch(batch, index = 0) {
       const raw = batch || {};
-      const commsType = raw.commsType === "global" ? "global" : "verizon";
+      const lists = listsApi();
+      const unitKey = String(raw.unitKey || raw.unitType || "gen4");
+      const commsKey = String(raw.commsKey || raw.commsType || "verizon");
+      const unitType = lists?.find("units", unitKey)
+        ? lists.unitPlanAs(unitKey)
+        : raw.unitType === "tap" || unitKey === "tap" ? "tap" : "gen4";
+      const commsType = lists?.find("comms", commsKey)
+        ? lists.commsPlanAs(commsKey)
+        : raw.commsType === "global" || commsKey === "global" ? "global" : "verizon";
       const validGlobalSims = ["att", "fusion-na", "telstra"];
-      const simType = commsType === "verizon"
-        ? "verizon"
-        : validGlobalSims.includes(raw.simType) ? raw.simType : "att";
+      const simType = lists
+        ? lists.simFor(commsKey, raw.simType)
+        : commsType === "verizon" ? "verizon" : validGlobalSims.includes(raw.simType) ? raw.simType : "att";
 
       const configKey = sensorConfigurations[raw.configKey] ? raw.configKey : "blue";
       const hasConfigText = Object.prototype.hasOwnProperty.call(raw, "configText");
@@ -2460,8 +2263,10 @@
       return {
         id: String(raw.id || makeWorkBatchId()),
         customer: String(raw.customer || `Customer ${index + 1}`).trim() || `Customer ${index + 1}`,
-        unitType: raw.unitType === "tap" ? "tap" : "gen4",
+        unitType,
+        unitKey,
         commsType,
+        commsKey,
         simType,
         configKey,
         configText,
@@ -2472,13 +2277,19 @@
 
     function batchFromSingleControls() {
       const configKey = document.getElementById("sensorConfig")?.value || "blue";
+      const first = workBatches[0] || {};
+      const unitType = document.getElementById("unitType")?.value || "gen4";
+      const commsType = document.getElementById("commsType")?.value || "verizon";
+      const sameComms = Boolean(first.commsKey) && first.commsType === commsType;
       return normalizeWorkBatch({
-        id: workBatches[0]?.id || makeWorkBatchId(),
-        orderId: workBatches[0]?.orderId,
+        id: first.id || makeWorkBatchId(),
+        orderId: first.orderId,
         customer: safeValue("customer", "Customer"),
-        unitType: document.getElementById("unitType")?.value || "gen4",
-        commsType: document.getElementById("commsType")?.value || "verizon",
-        simType: document.getElementById("simPlanType")?.value || "verizon",
+        unitType,
+        unitKey: first.unitKey && first.unitType === unitType ? first.unitKey : unitType,
+        commsType,
+        commsKey: sameComms ? first.commsKey : commsType,
+        simType: sameComms ? first.simType : document.getElementById("simPlanType")?.value || "verizon",
         configKey,
         configText: document.getElementById("singleConfigSummary")?.value ?? configurationComponentSummary(configKey),
         quantity: workBatches[0]?.quantity || 0
@@ -2556,7 +2367,9 @@
       workBatches.push(normalizeWorkBatch({
         customer: template.customer,
         unitType: template.unitType,
+        unitKey: template.unitKey,
         commsType: template.commsType,
+        commsKey: template.commsKey,
         simType: template.simType,
         configKey: template.configKey,
         configText: template.configText ?? configurationComponentSummary(template.configKey),
@@ -2597,15 +2410,12 @@
         updated.quantity = Math.max(0, Math.floor(Number(value) || 0));
       } else if (field === "unitType") {
         updated.unitType = value === "tap" ? "tap" : "gen4";
+        updated.unitKey = updated.unitType;
       } else if (field === "commsType") {
         updated.commsType = value === "global" ? "global" : "verizon";
-        updated.simType = updated.commsType === "verizon"
-          ? "verizon"
-          : ["att", "fusion-na", "telstra"].includes(updated.simType) ? updated.simType : "att";
+        updated.commsKey = updated.commsType;
       } else if (field === "simType") {
-        updated.simType = updated.commsType === "verizon"
-          ? "verizon"
-          : ["att", "fusion-na", "telstra"].includes(value) ? value : "att";
+        updated.simType = String(value || "");
       } else if (field === "configKey") {
         updated.configKey = sensorConfigurations[value] ? value : "blue";
         updated.configText = configurationComponentSummary(updated.configKey);
@@ -2650,6 +2460,7 @@
             `;
 
         const configOptions = Object.entries(sensorConfigurations)
+          .filter(([key, config]) => config.active !== false || key === batch.configKey)
           .map(([key, config]) => `<option value="${safeAttr(key)}" ${batch.configKey === key ? "selected" : ""}>${escapeHtml(config.label)}</option>`)
           .join("");
 
@@ -2828,7 +2639,9 @@
         orderId: order.id,
         customer: order.customer,
         unitType: order.unitType,
+        unitKey: order.unitKey,
         commsType: order.commsType,
+        commsKey: order.commsKey,
         simType: order.simType,
         configKey: order.configKey,
         configText: order.configText ?? configurationComponentSummary(order.configKey),
@@ -2893,8 +2706,7 @@
     }
 
     function orderBuildText(order) {
-      const parts = [unitTypeLabel(order.unitType), getCommsLabel(order.commsType)];
-      if (order.commsType === "global") parts.push(getSimPlanLabel(order.simType));
+      const parts = [unitTypeLabel(order), commsAndSim(order)];
       parts.push(configurationLabel(order.configKey));
       return parts.join(" · ");
     }
@@ -2951,40 +2763,87 @@
         </tr>`).join("");
     }
 
-    function fillOrderConfigOptions() {
+    function fillOrderConfigOptions(keepKey) {
       document.getElementById("orderConfig").innerHTML = Object.entries(sensorConfigurations)
+        .filter(([key, config]) => config.active !== false || key === keepKey)
         .map(([key, config]) => `<option value="${safeAttr(key)}">${escapeHtml(config.label)}</option>`)
         .join("");
     }
 
-    function fillOrderSimOptions(value) {
-      const comms = document.getElementById("orderComms").value;
-      const sim = document.getElementById("orderSim");
-      if (comms === "verizon") {
-        sim.innerHTML = '<option value="verizon">Verizon</option>';
-        sim.value = "verizon";
-        sim.disabled = true;
-        return;
+    // Active items of a list, plus keepKey if it has since been retired.
+    function listChoices(name, keepKey) {
+      const lists = listsApi();
+      if (!lists) return [];
+      const shown = lists.items(name).slice();
+      if (keepKey && !shown.some(item => item.key === keepKey)) {
+        const kept = lists.find(name, keepKey);
+        if (kept) shown.push(kept);
       }
+      return shown;
+    }
+
+    const optionsHtml = items => items
+      .map(item => `<option value="${safeAttr(item.key)}">${escapeHtml(item.label)}</option>`)
+      .join("");
+
+    function fillOrderListOptions(unitKey, commsKey) {
+      document.getElementById("orderUnit").innerHTML = optionsHtml(listChoices("units", unitKey));
+      document.getElementById("orderComms").innerHTML = optionsHtml(listChoices("comms", commsKey));
+      document.getElementById("orderCustomerList").innerHTML = listChoices("customers")
+        .map(customer => `<option value="${safeAttr(customer.label)}"></option>`)
+        .join("");
+      if (unitKey) document.getElementById("orderUnit").value = unitKey;
+      if (commsKey) document.getElementById("orderComms").value = commsKey;
+    }
+
+    function fillOrderSimOptions(value) {
+      const lists = listsApi();
+      const commsKey = document.getElementById("orderComms").value;
+      const sim = document.getElementById("orderSim");
       const previous = value ?? sim.value;
-      sim.disabled = false;
-      sim.innerHTML = '<option value="att">AT&amp;T</option><option value="fusion-na">Fusion NA</option><option value="telstra">Telstra</option>';
-      sim.value = ["att", "fusion-na", "telstra"].includes(previous) ? previous : "att";
+      const sims = lists ? lists.simsFor(commsKey) : [];
+      const kept = lists?.simsFor(commsKey, { withRetired: true }).find(item => item.key === previous);
+      if (kept && !sims.includes(kept)) sims.push(kept);
+      sim.innerHTML = optionsHtml(sims);
+      sim.value = sims.some(item => item.key === previous) ? previous : sims[0]?.key || "";
+      sim.disabled = sims.length < 2;
+    }
+
+    // Live list changes while the form is open keep what was picked.
+    function refreshOpenOrderForm() {
+      if (document.getElementById("orderForm").classList.contains("hidden")) return;
+      const unitKey = document.getElementById("orderUnit").value;
+      const commsKey = document.getElementById("orderComms").value;
+      const simKey = document.getElementById("orderSim").value;
+      const configKey = document.getElementById("orderConfig").value;
+      fillOrderListOptions(unitKey, commsKey);
+      fillOrderSimOptions(simKey);
+      fillOrderConfigOptions(configKey);
+      document.getElementById("orderConfig").value = configKey;
+    }
+
+    function defaultConfigKey() {
+      if (sensorConfigurations.blue && sensorConfigurations.blue.active !== false) return "blue";
+      return Object.keys(sensorConfigurations).find(key => sensorConfigurations[key].active !== false) || "blue";
     }
 
     function openOrderForm(orderId) {
       const order = orderId ? workOrders.find(item => item.id === orderId) : null;
       editingOrderId = order ? order.id : null;
+      const lists = listsApi();
+      const firstConfig = defaultConfigKey();
       const source = order || {
-        customer: "", unitType: "gen4", commsType: "verizon", simType: "verizon",
-        configKey: "blue", configText: configurationComponentSummary("blue"), quantity: ""
+        customer: "",
+        unitKey: lists?.items("units")[0]?.key || "gen4",
+        commsKey: lists?.items("comms")[0]?.key || "verizon",
+        simType: "",
+        configKey: firstConfig, configText: configurationComponentSummary(firstConfig), quantity: ""
       };
-      fillOrderConfigOptions();
+      fillOrderListOptions(source.unitKey || source.unitType, source.commsKey || source.commsType);
+      fillOrderConfigOptions(source.configKey);
       document.getElementById("orderCustomer").value = source.customer;
-      document.getElementById("orderUnit").value = source.unitType;
-      document.getElementById("orderComms").value = source.commsType;
       fillOrderSimOptions(source.simType);
-      document.getElementById("orderConfig").value = sensorConfigurations[source.configKey] ? source.configKey : "blue";
+      document.getElementById("orderConfig").value = sensorConfigurations[source.configKey] ? source.configKey : firstConfig;
       document.getElementById("orderConfigText").value = source.configText ?? configurationComponentSummary(source.configKey);
       document.getElementById("orderQuantity").value = source.quantity;
       document.getElementById("orderDelete").classList.toggle("hidden", !order);
@@ -3011,20 +2870,30 @@
         error.textContent = "Enter the quantity as a whole number.";
         return;
       }
+      const lists = listsApi();
+      const unitKey = document.getElementById("orderUnit").value;
+      const commsKey = document.getElementById("orderComms").value;
+      if (!unitKey || !commsKey) {
+        error.textContent = "Pick the unit and comms type.";
+        return;
+      }
       const save = document.getElementById("orderSave");
       save.disabled = true;
       try {
         await window.plannerData.orders.save({
           id: editingOrderId,
           customer,
-          unitType: document.getElementById("orderUnit").value,
-          commsType: document.getElementById("orderComms").value,
+          unitType: lists.unitPlanAs(unitKey),
+          unitKey,
+          commsType: lists.commsPlanAs(commsKey),
+          commsKey,
           simType: document.getElementById("orderSim").value,
           configKey: document.getElementById("orderConfig").value,
           configText: document.getElementById("orderConfigText").value,
           quantity
         });
         closeOrderForm();
+        lists.addName("customers", customer).catch(() => {});
       } catch (problem) {
         error.textContent = `That wasn't saved: ${window.plannerData.friendlyError(problem)}`;
       } finally {
@@ -3035,7 +2904,7 @@
     async function deleteEditingOrder() {
       const order = workOrders.find(item => item.id === editingOrderId);
       if (!order) return;
-      if (!window.confirm(`Delete the ${order.customer} order for ${order.quantity} ${unitTypeLabel(order.unitType)}?`)) return;
+      if (!window.confirm(`Delete the ${order.customer} order for ${order.quantity} ${unitTypeLabel(order)}?`)) return;
       if (workBatches.some(batch => batch.orderId === order.id)) toggleOrderToday(order.id);
       try {
         await window.plannerData.orders.remove(order.id);
@@ -3104,7 +2973,9 @@
         orderId: batch.orderId || null,
         customer: batch.customer,
         unitType: batch.unitType,
+        unitKey: batch.unitKey || batch.unitType,
         commsType: batch.commsType,
+        commsKey: batch.commsKey || batch.commsType,
         simType: batch.simType,
         configKey: batch.configKey,
         configText: batch.configText ?? "",
@@ -3123,7 +2994,9 @@
         orderId: job.orderId || null,
         customer: job.customer,
         unitType: job.unitType,
+        unitKey: job.unitKey || job.unitType,
         commsType: job.commsType,
+        commsKey: job.commsKey || job.commsType,
         simType: job.simType,
         configKey: job.configKey,
         configText: job.configText ?? "",
@@ -3182,7 +3055,7 @@
     async function deleteWaitingJob(jobId) {
       const job = activeJobs.find(item => item.id === jobId);
       if (!job) return;
-      if (!window.confirm(`Delete the card for ${job.quantity} ${job.customer} ${unitTypeLabel(job.unitType)}, waiting for ${STAGE_NAMES[job.stage] || job.stage}?`)) return;
+      if (!window.confirm(`Delete the card for ${job.quantity} ${job.customer} ${unitTypeLabel(job)}, waiting for ${STAGE_NAMES[job.stage] || job.stage}?`)) return;
       try {
         await window.plannerData.jobs.remove(jobId);
         jobsBoard?.clearSelection();
@@ -3192,10 +3065,10 @@
     }
 
     function jobCardHtml(job, { key, zone, note, fresh = false, order = false, selected = false }) {
-      const comms = job.commsType === "global" ? `Global ${getSimPlanLabel(job.simType)}` : getCommsLabel(job.commsType);
+      const comms = commsAndSim(job);
       return `
         <div class="chip job-card ${fresh ? "fresh" : ""} ${order ? "order-chip" : ""} ${selected ? "selected" : ""}" data-staff="${safeAttr(key)}" data-zone="${safeAttr(zone)}">
-          <b>${escapeHtml(job.customer)} · ${escapeHtml(unitTypeLabel(job.unitType))}</b>
+          <b>${escapeHtml(job.customer)} · ${escapeHtml(unitTypeLabel(job))}</b>
           <span class="job-qty">${escapeHtml(job.quantity)}</span>
           <span class="job-meta">${escapeHtml(comms)} · ${escapeHtml(configurationLabel(job.configKey))}</span>
           <span class="job-route">${escapeHtml(note)}</span>
@@ -3273,7 +3146,7 @@
         </div>
         ${selectedWaiting ? `
           <div class="job-actions">
-            <span>${escapeHtml(selectedWaiting.quantity)} ${escapeHtml(selectedWaiting.customer)} ${escapeHtml(unitTypeLabel(selectedWaiting.unitType))}</span>
+            <span>${escapeHtml(selectedWaiting.quantity)} ${escapeHtml(selectedWaiting.customer)} ${escapeHtml(unitTypeLabel(selectedWaiting))}</span>
             <button type="button" class="danger" data-delete-job="${safeAttr(selectedWaiting.id)}">Delete card</button>
           </div>` : ""}`;
     }
@@ -3345,8 +3218,8 @@
     function renderWorkMixSummary() {
       const holder = document.getElementById("workMixSummary");
       const total = getWorkMixTotalQuantity();
-      const unitLabels = uniqueLabels(workBatches.map(batch => unitTypeLabel(batch.unitType)));
-      const commsLabels = uniqueLabels(workBatches.map(batch => getCommsLabel(batch.commsType)));
+      const unitLabels = uniqueLabels(workBatches.map(batch => unitTypeLabel(batch)));
+      const commsLabels = uniqueLabels(workBatches.map(batch => getCommsLabel(batch)));
       const simLabels = uniqueLabels(workBatches.map(batch => getSimPlanLabel(batch.simType)));
       const configLabels = uniqueLabels(workBatches.map(batch => configurationLabel(batch.configKey)));
 
@@ -3956,7 +3829,7 @@
 
     function workMixSummaryText() {
       const linked = workBatches.filter(batch => batch.orderId);
-      if (linked.length === 1 && workDayMode === "single") return `${linked[0].customer} · ${unitTypeLabel(linked[0].unitType)}`;
+      if (linked.length === 1 && workDayMode === "single") return `${linked[0].customer} · ${unitTypeLabel(linked[0])}`;
       if (linked.length > 1) return `${linked.length} orders · ${getWorkMixTotalQuantity()} units`;
       if (workDayMode === "mixed") {
         const active = workBatches.filter(batch => Number(batch.quantity) > 0);
@@ -4475,7 +4348,7 @@
     const MIXED_CAPACITY_STAGES = ["assembly", "testing", "hardware", "packing"];
 
     function mixedBatchSignature(batch) {
-      return unitTypeLabel(batch.unitType);
+      return unitTypeLabel(batch);
     }
 
     function mixedTestingCapacityForBatch(batch) {
@@ -5543,8 +5416,8 @@
                   <tr>
                     <td>${index + 1}</td>
                     <td>${escapeHtml(batch.customer)}</td>
-                    <td>${unitTypeLabel(batch.unitType)}</td>
-                    <td>${getCommsLabel(batch.commsType)} · ${getSimPlanLabel(batch.simType)}</td>
+                    <td>${escapeHtml(unitTypeLabel(batch))}</td>
+                    <td>${escapeHtml(getCommsLabel(batch))} · ${escapeHtml(getSimPlanLabel(batch.simType))}</td>
                     <td>${configurationLabel(batch.configKey)}</td>
                     <td>${batch.quantity}</td>
                     <td class="${batch.achievable >= batch.quantity ? "achievable-good" : "achievable-short"}">${batch.achievable}</td>
@@ -7198,14 +7071,14 @@
 
     function workflowBatchDescriptor(batch, stage) {
       if (stage === "testing") {
-        const network = batch.commsType === "verizon" ? "Verizon" : getSimPlanLabel(batch.simType);
-        return `${unitTypeLabel(batch.unitType)} ${network}`;
+        const network = batch.commsType === "verizon" ? getCommsLabel(batch) : getSimPlanLabel(batch.simType);
+        return `${unitTypeLabel(batch)} ${network}`;
       }
       if (stage === "assembly") {
-        return `${unitTypeLabel(batch.unitType)} ${configurationLabel(batch.configKey)}`;
+        return `${unitTypeLabel(batch)} ${configurationLabel(batch.configKey)}`;
       }
       const sim = batch.commsType === "verizon" ? "VZ" : getSimPlanLabel(batch.simType);
-      return `${unitTypeLabel(batch.unitType)} ${sim}`;
+      return `${unitTypeLabel(batch)} ${sim}`;
     }
 
     function workflowTaskBatchDetail(model, mixed, phase, station) {
@@ -7678,9 +7551,9 @@
           date: formatDateForHeader(document.getElementById("planDate").value, day),
           isBatchHeader: true,
           customer: planBatchLines(batches, batch => escapeHtml(batch.customer)),
-          unitType: planBatchLines(batches, batch => escapeHtml(unitTypeLabel(batch.unitType))),
+          unitType: planBatchLines(batches, batch => escapeHtml(unitTypeLabel(batch))),
           targetUnits: planBatchLines(batches, batch => escapeHtml(String(batch.quantity))),
-          commsType: planBatchLines(batches, batch => escapeHtml(getCommsLabel(batch.commsType))),
+          commsType: planBatchLines(batches, batch => escapeHtml(getCommsLabel(batch))),
           simType: planBatchLines(batches, batch => escapeHtml(getSimPlanLabel(batch.simType))),
           configuration: planBatchLines(batches, batch => {
             const detail = compactPlanConfiguration(batch);
@@ -7689,20 +7562,30 @@
         };
       }
 
+      const singleBatch = batchFromSingleControls();
       return {
         date: formatDateForHeader(document.getElementById("planDate").value, day),
         isBatchHeader: false,
         customer: safeValue("customer", "Customer"),
-        unitType: unitTypeLabel(unitType),
-        commsType: getCommsLabel(commsType),
-        simType: getSimPlanLabel(document.getElementById("simPlanType").value),
+        unitType: unitTypeLabel(singleBatch),
+        commsType: getCommsLabel(singleBatch),
+        simType: getSimPlanLabel(singleBatch.simType),
         targetUnits: result.workflowCapacity?.finalOutput ?? result.finalOutput,
         configuration: configurationLabel(document.getElementById("sensorConfig")?.value || "blue")
       };
     }
 
-    function unitTypeLabel(unitType) {
-      return unitType === "tap" ? "Tap" : "Gen4";
+    /* Names come from the Lists screen. Each takes a key, or an order,
+       batch or job card (which may name a list item: unitKey / commsKey). */
+    function listsApi() {
+      return window.plannerData?.lists || null;
+    }
+
+    function unitTypeLabel(value) {
+      const lists = listsApi();
+      if (value && typeof value === "object") return lists ? lists.unitLabel(value) : unitTypeLabel(value.unitType);
+      if (lists) return lists.labelOf("units", value || "gen4");
+      return value === "tap" ? "Tap" : "Gen4";
     }
 
     function stationLabel(station) {
@@ -7723,11 +7606,23 @@
       return labels[station] || station;
     }
 
-    function getCommsLabel(commsType) {
-      return commsType === "verizon" ? "Verizon" : "Global";
+    function getCommsLabel(value) {
+      const lists = listsApi();
+      if (value && typeof value === "object") return lists ? lists.commsLabel(value) : getCommsLabel(value.commsType);
+      if (lists) return lists.labelOf("comms", value || "verizon");
+      return value === "verizon" ? "Verizon" : "Global";
+    }
+
+    // Comms, then the SIM when it says something more (Global AT&T).
+    function commsAndSim(thing) {
+      const comms = getCommsLabel(thing);
+      const sim = thing?.simType ? getSimPlanLabel(thing.simType) : "";
+      return sim && sim !== comms ? `${comms} ${sim}` : comms;
     }
 
     function getSimPlanLabel(simType) {
+      const lists = listsApi();
+      if (lists) return lists.simLabel(simType);
       const labels = {
         verizon: "Verizon",
         att: "AT&T",

@@ -114,6 +114,7 @@
     import { collection, doc, getDoc, getDocs, query, where, documentId } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, friendlyError } from "./js/session.js";
     import { floorBatches, onRoute, batchTitle, progressOf, expectedUnits, escapeHtml } from "./js/floor.js";
+    import { whenLoaded } from "./js/lists.js";
     import { requestTitle } from "./js/requests.js";
 
     const $ = id => document.getElementById(id);
@@ -389,6 +390,7 @@
     // ------------------------------------------------------------------
     async function start() {
       await ensureAccess({ title: "History", pinLabel: "Management PIN", allowed: ["management"], wrongRoleMessage: "This page needs the management PIN." });
+      await whenLoaded();
       try {
         const staff = await getDocs(collection(db, "staff"));
         state.staff = new Map(staff.docs.map(entry => [entry.id, entry.data()]));

@@ -3,7 +3,10 @@
 // Exposes window.plannerData for the calculator (a classic script):
 //   start()                      → unlocks with the management PIN, then
 //                                  returns { staff, presets }
-//   saveStaff(workers)           → replaces the staff list
+//   watchStaff(callback)         → live staff list (edited on the Lists screen)
+//   watchPresets(callback)       → live configuration colours (Lists screen)
+//   lists                        → the lists module (js/lists.js): unit types,
+//                                  customers, connectors, comms, SIM types
 //   loadDay(date)                → { plan, roster } for "YYYY-MM-DD" (either may be null)
 //   saveDraft(date, plan, roster)
 //   releasePlan(date, plan, roster, assignments, target)
@@ -34,6 +37,7 @@ import {
 import { db, ensureAccess, lockScreen, friendlyError } from "./session.js";
 import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./requests.js";
 import { showPhoto, floorBatches, progressOf, expectedUnits, JOB_STAGES } from "./floor.js";
+import * as lists from "./lists.js";
 
 const ACTOR = "Management";
 
@@ -56,28 +60,17 @@ async function loadReferenceData() {
   };
 }
 
-async function saveStaff(workers) {
-  const existing = await getDocs(collection(db, "staff"));
-  const keep = new Set(workers.map(worker => worker.key));
-  const batch = writeBatch(db);
-  workers.forEach(worker => {
-    // Replaces the whole record, so older fields (team letters, preferred /
-    // restricted benches) are dropped once the dots are saved.
-    batch.set(doc(db, "staff", worker.key), {
-      name: worker.name,
-      firstName: worker.first,
-      inProduction: worker.inProduction !== false,
-      skills: { ...worker.skills },
-      priorityRank: Number(worker.priorityRank) || 50,
-      rosterRow: Number.isInteger(worker.rosterIndex) ? worker.rosterIndex : null,
-      active: true,
-      updatedAt: serverTimestamp()
-    });
-  });
-  existing.docs.forEach(entry => {
-    if (!keep.has(entry.id)) batch.delete(entry.ref);
-  });
-  await batch.commit();
+// Live copies, so edits made on the Lists screen show here straight away.
+function watchStaff(onChange) {
+  return onSnapshot(collection(db, "staff"), snapshot => {
+    onChange(snapshot.docs.map(entry => ({ key: entry.id, ...withoutTimestamps(entry.data()) })));
+  }, () => {});
+}
+
+function watchPresets(onChange) {
+  return onSnapshot(collection(db, "configPresets"), snapshot => {
+    onChange(snapshot.docs.map(entry => ({ key: entry.id, ...withoutTimestamps(entry.data()) })));
+  }, () => {});
 }
 
 // ---------------------------------------------------------------------
@@ -129,7 +122,9 @@ async function releasePlan(date, plan, roster, assignments, target) {
       orderId: job.orderId || null,
       customer: job.customer,
       unitType: job.unitType,
+      unitKey: job.unitKey || job.unitType,
       commsType: job.commsType,
+      commsKey: job.commsKey || job.commsType,
       simType: job.simType,
       configKey: job.configKey,
       configText: job.configText ?? "",
@@ -230,7 +225,7 @@ function watchRosters(dates, callback) {
 // ---------------------------------------------------------------------
 // Work orders: a customer order built over several days
 // ---------------------------------------------------------------------
-const ORDER_FIELDS = ["customer", "unitType", "commsType", "simType", "configKey", "configText", "quantity"];
+const ORDER_FIELDS = ["customer", "unitType", "unitKey", "commsType", "commsKey", "simType", "configKey", "configText", "quantity"];
 
 function watchOrders(onChange) {
   return onSnapshot(collection(db, "workOrders"), snapshot => {
@@ -390,7 +385,9 @@ window.plannerData = {
     });
     return loadReferenceData();
   },
-  saveStaff,
+  watchStaff,
+  watchPresets,
+  lists,
   loadDay,
   saveDraft,
   releasePlan,

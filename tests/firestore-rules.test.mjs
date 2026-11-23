@@ -727,6 +727,63 @@ describe("Work orders", () => {
 });
 
 // ---------------------------------------------------------------------
+describe("Lists", () => {
+  // What lists.js writes when a list is edited on the Lists screen.
+  const list = fields => ({
+    items: [
+      { key: "gen4", label: "Gen4", planAs: "gen4", active: true },
+      { key: "gen5", label: "Gen5", planAs: "gen4", active: true }
+    ],
+    updatedBy: "Management",
+    updatedAt: serverTimestamp(),
+    ...fields
+  });
+
+  it("management saves each list", async () => {
+    const db = management();
+    for (const name of ["units", "customers", "connectors", "comms", "sims"]) {
+      await assertSucceeds(setDoc(doc(db, "lists", name), list()));
+    }
+    await assertSucceeds(getDocs(collection(db, "lists")));
+  });
+
+  it("only the known lists, well formed, and never deleted", async () => {
+    const db = management();
+    await assertFails(setDoc(doc(db, "lists", "colours"), list()));
+    await assertFails(setDoc(doc(db, "lists", "units"), list({ items: "Gen4" })));
+    await assertFails(setDoc(doc(db, "lists", "units"), list({ note: "extra" })));
+    await assertFails(setDoc(doc(db, "lists", "units"), list({ updatedAt: Timestamp.fromDate(new Date(2020, 0, 1)) })));
+    await assertSucceeds(setDoc(doc(db, "lists", "units"), list()));
+    await assertFails(deleteDoc(doc(db, "lists", "units")));
+  });
+
+  it("benches read the lists but cannot change them", async () => {
+    await assertSucceeds(setDoc(doc(management(), "lists", "sims"), list()));
+    const db = bench();
+    await assertSucceeds(getDocs(collection(db, "lists")));
+    await assertFails(setDoc(doc(db, "lists", "sims"), list()));
+  });
+
+  it("screens without a working PIN see nothing", async () => {
+    for (const screen of [stranger, revoked, spoofed, nobody]) {
+      await assertFails(getDocs(collection(screen(), "lists")));
+    }
+  });
+
+  it("orders and job cards can name a unit and comms from the lists", async () => {
+    const db = management();
+    const fields = {
+      customer: "Portland", unitType: "gen4", unitKey: "gen5", commsType: "global", commsKey: "lora",
+      simType: "", configKey: "blue", quantity: 36, updatedBy: "Management", updatedAt: serverTimestamp()
+    };
+    await assertSucceeds(setDoc(doc(db, "workOrders", "listed-order"), { ...fields, status: "open" }));
+    await assertSucceeds(setDoc(doc(db, "jobs", "listed-job"), { ...fields, stage: "assembly", day: RELEASED }));
+    await assertFails(setDoc(doc(db, "workOrders", "listed-order-2"), { ...fields, status: "open", unitKey: "" }));
+    await assertFails(setDoc(doc(db, "jobs", "listed-job-2"), { ...fields, stage: "assembly", day: RELEASED, commsKey: 7 }));
+    await assertFails(setDoc(doc(db, "workOrders", "listed-order-3"), { ...fields, status: "open", unitType: "gen5" }));
+  });
+});
+
 describe("Job cards", () => {
   // What planner-data.js writes at release, and floor.js when a bench finishes.
   const job = fields => ({

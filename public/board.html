@@ -161,6 +161,7 @@
       addNote, editNote, removeNote, showPhoto, escapeHtml,
       JOB_STAGES, waitingJobsAt, waitingJobHtml, askPlaceJob, placeJobOnPlan
     } from "./js/floor.js";
+    import { watchLists } from "./js/lists.js";
     import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./js/requests.js";
 
     const $ = id => document.getElementById(id);
@@ -576,6 +577,7 @@
         wrongRoleMessage: "That PIN isn't right."
       });
       $("planningLink").classList.toggle("hidden", state.role !== "management");
+      watchLists(() => render());
       try {
         const [staff, presets] = await Promise.all([
           getDocs(collection(db, "staff")),

@@ -395,6 +395,7 @@
       JOB_STAGES, waitingJobsAt, waitingJobHtml
     } from "./js/floor.js";
     import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
+    import { watchLists, unitLabel, simLabel, labelOf } from "./js/lists.js";
 
     // Jobs on the bench screens. Who can do each one comes from their
     // skill dots in Worker Admin (js/skills.js).
@@ -459,8 +460,6 @@
       verizon: { label: "Verizon", station: "testingVerizon", cls: "verizon" },
       global: { label: "Global", station: "testingGlobal", cls: "global" }
     };
-    const SIM_LABELS = { verizon: "Verizon", att: "AT&T", "fusion-na": "Fusion NA", telstra: "Telstra" };
-    const UNIT_LABELS = { gen4: "Gen4", tap: "Tap" };
     const SICK_REASON = "Sick / gone home";
 
     const $ = id => document.getElementById(id);
@@ -896,7 +895,7 @@
       const byUnit = ["gen4", "tap"]
         .map(unit => [unit, batches.filter(batch => (batch.unitType === "tap" ? "tap" : "gen4") === unit).reduce((sum, batch) => sum + plannedUnits(batch), 0)])
         .filter(([, units]) => units > 0)
-        .map(([unit, units]) => `${UNIT_LABELS[unit]} ${units}`);
+        .map(([unit, units]) => `${labelOf("units", unit)} ${units}`);
 
       $("tbTarget").innerHTML = current < planned ? `${current} <small>of ${planned}</small>` : String(current);
       $("tbTarget").classList.toggle("down", current < planned);
@@ -1137,8 +1136,8 @@
       };
       const cell = (column, batch) => {
         if (column === "customer") return `<td>${escapeHtml(batch.customer)}</td>`;
-        if (column === "unit") return `<td><strong>${escapeHtml(UNIT_LABELS[batch.unitType] || batch.unitType)}</strong></td>`;
-        if (column === "network") return `<td>${escapeHtml(NETWORKS[networkOf(batch)].label)} · ${escapeHtml(SIM_LABELS[batch.simType] || batch.simType || "")}</td>`;
+        if (column === "unit") return `<td><strong>${escapeHtml(unitLabel(batch))}</strong></td>`;
+        if (column === "network") return `<td>${escapeHtml(NETWORKS[networkOf(batch)].label)} · ${escapeHtml(simLabel(batch.simType))}</td>`;
         if (column === "config") {
           const preset = presetFor(batch);
           const swatch = preset?.colourHex ? `<span class="swatch" style="background:${escapeHtml(preset.colourHex)}"></span>` : "";
@@ -1165,7 +1164,7 @@
 
       return networks.map(network => {
         const rows = batches.filter(batch => networkOf(batch) === network);
-        const sims = [...new Set(rows.map(batch => SIM_LABELS[batch.simType] || batch.simType))];
+        const sims = [...new Set(rows.map(batch => simLabel(batch.simType)))];
         const job = benchJobs().find(item => item.network === network) || { station: NETWORKS[network].station };
         const phaseLines = PHASES.map(([phase, label]) => {
           const people = benchPeople(phase).filter(item => item.station === job.station).map(item => staffName(item.staffKey));
@@ -1184,9 +1183,9 @@
                 ${rows.map(batch => `
                   <tr>
                     <td>${escapeHtml(batch.customer)}</td>
-                    <td>${escapeHtml(UNIT_LABELS[batch.unitType] || batch.unitType)}</td>
+                    <td>${escapeHtml(unitLabel(batch))}</td>
                     <td>${escapeHtml(presetFor(batch)?.label || batch.configKey || "")}</td>
-                    <td>${escapeHtml(SIM_LABELS[batch.simType] || batch.simType)}</td>
+                    <td>${escapeHtml(simLabel(batch.simType))}</td>
                     <td><strong>${plannedUnits(batch)}</strong>${plannedUnits(batch) < Number(batch.quantity) ? ` of ${Number(batch.quantity)}` : ""}</td>
                   </tr>`).join("")}
               </tbody>
@@ -1582,6 +1581,7 @@
         allowed: ["bench", "management"],
         wrongRoleMessage: "That PIN isn't right."
       });
+      watchLists(() => render());
 
       try {
         await loadReference();

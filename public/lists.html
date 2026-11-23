@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lists · Production Planner</title>
+  <link rel="icon" type="image/png" href="icons/planner.png" />
+  <link rel="stylesheet" href="css/blueprint.css" />
+  <style>
+    main { max-width: 1120px; margin: 0 auto; padding: 18px 20px 48px; }
+    .notice { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 18px; font-weight: 600; }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      margin: 0 0 16px;
+      border: 1px solid var(--rule-strong);
+      border-radius: var(--radius);
+      background: var(--sheet);
+      overflow: hidden;
+    }
+    .tabs button {
+      flex: 1 1 auto;
+      min-height: 44px;
+      padding: 10px 16px;
+      border: 0;
+      border-right: 1px solid var(--rule);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink-2);
+      font-family: var(--font-label);
+      font-size: 16px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .tabs button:last-child { border-right: 0; }
+    .tabs button:hover { background: var(--inset); }
+    .tabs button[aria-selected="true"] { background: var(--print); color: var(--print-ink); }
+
+    section.card { padding: 16px 18px 18px; }
+    section.card > h2 { margin: 0 0 4px; }
+
+    .alert {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--red);
+      border-radius: var(--radius);
+      background: var(--red-soft);
+      color: var(--red);
+      font-weight: 600;
+    }
+
+    .table-scroll { overflow-x: auto; }
+    table.list { width: 100%; }
+    table.list th,
+    table.list td { padding: 8px 10px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: middle; }
+    table.list th { font-size: 14px; }
+    table.list th.wide { width: 100%; }
+    table.list input[type="text"],
+    table.list select { width: 100%; min-height: 40px; padding: 8px 10px; }
+    table.list input[type="text"] { min-width: 200px; }
+    table.list select { min-width: 140px; }
+    table.list tr.retired td { background: var(--inset); color: var(--muted); }
+    table.list tr.retired input[type="text"] { background: transparent; color: var(--muted); }
+    table.list tr.group td {
+      padding-top: 18px;
+      border-bottom: 1px solid var(--rule-strong);
+      font-family: var(--font-label);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    table.list tfoot td { border-bottom: 0; padding-top: 14px; }
+    table.list tr.off td:not(.actions-cell) { opacity: 0.55; }
+    td.center, th.center { text-align: center; }
+
+    .actions-cell { white-space: nowrap; text-align: right; }
+    .actions-cell button + button { margin-left: 4px; }
+    button.icon { width: 40px; padding: 0; display: inline-grid; place-items: center; vertical-align: middle; }
+    .colour { display: inline-flex; align-items: center; gap: 8px; }
+    input[type="color"] { width: 52px; height: 40px; padding: 3px; cursor: pointer; }
+    input[type="checkbox"] { width: 22px; height: 22px; }
+    .plan-fixed { display: inline-block; padding: 0 10px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+
+    /* Configurations: a disc in the configuration's colour with its setup */
+    .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-top: 12px; }
+    .config {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      padding: 14px;
+      border: 1px solid var(--rule-strong);
+      border-radius: var(--radius);
+      background: var(--raised);
+    }
+    .config.add { border-style: dashed; background: var(--sheet); }
+    .disc {
+      justify-self: center;
+      width: 136px;
+      height: 136px;
+      margin-bottom: 4px;
+      padding: 14px;
+      border-radius: 50%;
+      display: grid;
+      place-content: center;
+      gap: 1px;
+      text-align: center;
+      font-family: var(--font-label);
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.1;
+      box-shadow: inset 0 0 0 1px rgba(15, 39, 71, 0.25);
+    }
+    .disc span { display: block; max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .config label {
+      display: grid;
+      gap: 3px;
+      font-family: var(--font-label);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .config input[type="text"] { width: 100%; min-height: 38px; padding: 7px 9px; font-size: 15px; }
+    .config .pair { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+    .config .actions-cell { display: flex; justify-content: flex-end; gap: 4px; margin-top: 4px; }
+    .config .actions-cell button + button { margin-left: 0; }
+
+    .retired-head {
+      margin: 20px 0 8px;
+      font-family: var(--font-label);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .retired-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .retired-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 4px 4px 10px;
+      border: 1px solid var(--rule-strong);
+      border-radius: var(--radius);
+      background: var(--inset);
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .swatch { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(15, 39, 71, 0.3); }
+
+    /* Staff: 0–3 dots per job */
+    .dots { display: inline-flex; gap: 5px; }
+    .dot {
+      width: 24px;
+      height: 24px;
+      min-height: 0;
+      padding: 0;
+      border-radius: 50%;
+      border: 2px solid var(--rule-strong);
+      background: transparent;
+    }
+    .dot:hover { border-color: var(--accent); }
+    .dot.on { background: var(--accent); border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Lists</h1>
+    </div>
+    <div class="tb-cell"><span class="tb-label">Changes</span><span class="tb-value" id="saveState">Saved</span></div>
+    <div class="tb-cell"><span class="tb-label">Connection</span><span class="live" id="liveBadge">Live</span></div>
+  </header>
+
+  <div class="notice" id="notice">Loading…</div>
+  <main id="main" class="hidden">
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Lists"></nav>
+    <div class="alert hidden" id="alert" role="alert"></div>
+    <section class="card" id="sheet" role="tabpanel"></section>
+  </main>
+
+  <script src="js/skills.js"></script>
+  <script type="module">
+    import {
+      collection, doc, getDocs, onSnapshot, setDoc, deleteDoc, writeBatch, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { db, ensureAccess, friendlyError } from "./js/session.js";
+    import * as Lists from "./js/lists.js";
+
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    const Skills = window.PlannerSkills;
+
+    const TABS = [
+      { id: "units", title: "Unit types" },
+      { id: "customers", title: "Customers" },
+      { id: "connectors", title: "Connectors" },
+      { id: "comms", title: "Comms" },
+      { id: "sims", title: "SIM types" },
+      { id: "configs", title: "Configurations" },
+      { id: "staff", title: "Staff" }
+    ];
+    const LIST_COLUMNS = { units: ["plan"], customers: [], connectors: [], comms: ["colour", "plan"], sims: ["comms"] };
+    const COLUMN_TITLES = { colour: "Colour", plan: "Planned as", comms: "Comms" };
+    const PLAN_KEYS = { units: Lists.UNIT_PLANS, comms: Lists.COMMS_PLANS };
+    const NEW_COLOUR = "#64748b";
+
+    const ICONS = {
+      up: '<path d="m18 15-6-6-6 6"/>',
+      down: '<path d="m6 9 6 6 6-6"/>',
+      left: '<path d="m15 18-6-6 6-6"/>',
+      right: '<path d="m9 18 6-6-6-6"/>',
+      remove: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
+    };
+    const icon = name => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+
+    let tab = TABS.some(item => item.id === location.hash.slice(1)) ? location.hash.slice(1) : "units";
+    let presets = [];
+    let staff = [];
+    let pending = 0;
+    let failed = false;
+    let alertText = "";
+    let pendingDraw = false;
+    let pointerDown = false;
+    let focusAdd = false;
+
+    // ------------------------------------------------------------------
+    // Saving state, shown in the title block
+    // ------------------------------------------------------------------
+    function showState() {
+      $("saveState").textContent = pending ? "Saving…" : failed ? "Not saved" : "Saved";
+      $("saveState").classList.toggle("down", failed && !pending);
+      $("alert").textContent = alertText;
+      $("alert").classList.toggle("hidden", !alertText);
+    }
+
+    async function save(work) {
+      pending += 1;
+      showState();
+      try {
+        await work();
+        failed = false;
+        alertText = "";
+      } catch (error) {
+        failed = true;
+        alertText = `Not saved: ${friendlyError(error)}`;
+        draw();
+      } finally {
+        pending -= 1;
+        showState();
+      }
+    }
+
+    function warn(text) {
+      alertText = text;
+      showState();
+    }
+
+    // ------------------------------------------------------------------
+    // Drawing. A redraw waits while someone is typing in a field or
+    // pressing a button, so live updates never steal the cursor or a click.
+    // ------------------------------------------------------------------
+    function busy() {
+      const active = document.activeElement;
+      return pointerDown || Boolean(active && $("sheet").contains(active)
+        && active.matches("input, select, textarea") && active.type !== "checkbox");
+    }
+
+    function render() {
+      if (busy()) {
+        pendingDraw = true;
+        return;
+      }
+      draw();
+    }
+
+    function flush() {
+      if (pendingDraw && !busy()) draw();
+    }
+
+    function draw() {
+      pendingDraw = false;
+      $("tabs").innerHTML = TABS.map(item => `
+        <button type="button" role="tab" data-tab="${item.id}" aria-selected="${item.id === tab}">${esc(item.title)}</button>
+      `).join("");
+      const title = TABS.find(item => item.id === tab).title;
+      let body = "";
+      if (LIST_COLUMNS[tab]) body = listSheet(tab);
+      else if (tab === "configs") body = configSheet();
+      else body = staffSheet();
+      $("sheet").innerHTML = `<h2>${esc(title)}</h2>${body}`;
+      if (focusAdd) {
+        focusAdd = false;
+        $("sheet").querySelector("[data-new='label']")?.focus();
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // Simple lists: unit types, customers, connectors, comms, SIM types
+    // ------------------------------------------------------------------
+    function planCell(name, item, isNew) {
+      const plans = PLAN_KEYS[name];
+      if (!isNew && plans.includes(item.key)) {
+        return `<span class="plan-fixed">${esc(Lists.labelOf(name, item.key))}</span>`;
+      }
+      const value = item?.planAs || plans[0];
+      const attr = isNew ? 'data-new="planAs"' : 'data-field="planAs"';
+      return `<select ${attr} aria-label="Planned as">${plans.map(plan => `
+        <option value="${plan}" ${plan === value ? "selected" : ""}>${esc(Lists.labelOf(name, plan))}</option>`).join("")}
+      </select>`;
+    }
+
+    function commsCell(item, isNew) {
+      const options = Lists.items("comms").slice();
+      const current = item?.comms;
+      if (current && !options.some(comms => comms.key === current)) {
+        const retired = Lists.find("comms", current);
+        if (retired) options.push(retired);
+      }
+      const value = current || options[0]?.key || "";
+      const attr = isNew ? 'data-new="comms"' : 'data-field="comms"';
+      return `<select ${attr} aria-label="Comms">${options.map(comms => `
+        <option value="${esc(comms.key)}" ${comms.key === value ? "selected" : ""}>${esc(comms.label)}</option>`).join("")}
+      </select>`;
+    }
+
+    function colourCell(item, isNew) {
+      const attr = isNew ? 'data-new="colourHex"' : 'data-field="colourHex"';
+      return `<input type="color" ${attr} value="${esc(item?.colourHex || NEW_COLOUR)}" aria-label="Colour" />`;
+    }
+
+    function extraCells(name, item, isNew) {
+      return LIST_COLUMNS[name].map(column => {
+        if (column === "plan") return `<td>${planCell(name, item, isNew)}</td>`;
+        if (column === "comms") return `<td>${commsCell(item, isNew)}</td>`;
+        return `<td>${colourCell(item, isNew)}</td>`;
+      }).join("");
+    }
+
+    function listSheet(name) {
+      const all = Lists.items(name, { withRetired: true });
+      const active = all.filter(item => item.active !== false);
+      const retired = all.filter(item => item.active === false);
+      const keepOne = name === "units" || name === "comms";
+      const columns = LIST_COLUMNS[name];
+
+      const row = (item, index) => `
+        <tr data-key="${esc(item.key)}">
+          <td><input type="text" data-field="label" value="${esc(item.label)}" maxlength="80" aria-label="Name" /></td>
+          ${extraCells(name, item, false)}
+          <td class="actions-cell">
+            <button type="button" class="secondary icon" data-act="up" aria-label="Move up" ${index === 0 ? "disabled" : ""}>${icon("up")}</button>
+            <button type="button" class="secondary icon" data-act="down" aria-label="Move down" ${index === active.length - 1 ? "disabled" : ""}>${icon("down")}</button>
+            <button type="button" class="secondary" data-act="retire" ${keepOne && active.length < 2 ? "disabled" : ""}>Retire</button>
+          </td>
+        </tr>`;
+
+      const retiredRow = item => `
+        <tr class="retired" data-key="${esc(item.key)}">
+          <td><input type="text" data-field="label" value="${esc(item.label)}" maxlength="80" aria-label="Name" /></td>
+          ${extraCells(name, item, false)}
+          <td class="actions-cell"><button type="button" class="secondary" data-act="restore">Restore</button></td>
+        </tr>`;
+
+      return `
+        <div class="table-scroll">
+          <table class="list" data-list="${name}">
+            <thead><tr>
+              <th class="wide">Name</th>
+              ${columns.map(column => `<th>${COLUMN_TITLES[column]}</th>`).join("")}
+              <th></th>
+            </tr></thead>
+            <tbody>
+              ${active.length ? active.map(row).join("") : `<tr><td colspan="${columns.length + 2}">None</td></tr>`}
+              ${retired.length ? `<tr class="group"><td colspan="${columns.length + 2}">Retired</td></tr>${retired.map(retiredRow).join("")}` : ""}
+            </tbody>
+            <tfoot>
+              <tr data-add="${name}">
+                <td><input type="text" data-new="label" maxlength="80" aria-label="New name" /></td>
+                ${extraCells(name, null, true)}
+                <td class="actions-cell"><button type="button" data-act="add">Add</button></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>`;
+    }
+
+    const editable = name => Lists.items(name, { withRetired: true }).map(item => ({ ...item }));
+    const sameName = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+
+    function writeList(name, items) {
+      return save(() => Lists.saveList(name, items));
+    }
+
+    function editListItem(name, key, field, value) {
+      const items = editable(name);
+      const item = items.find(entry => entry.key === key);
+      if (!item) return;
+      if (field === "label") {
+        const label = value.trim();
+        if (!label) return draw();
+        const clash = items.find(entry => entry.key !== key && sameName(entry.label, label));
+        if (clash) {
+          warn(`${label} is already on the list.`);
+          return draw();
+        }
+        item.label = label;
+      } else {
+        item[field] = value;
+      }
+      writeList(name, items);
+    }
+
+    function moveListItem(name, key, step) {
+      const items = editable(name);
+      const active = items.filter(item => item.active !== false);
+      const retired = items.filter(item => item.active === false);
+      const from = active.findIndex(item => item.key === key);
+      const to = from + step;
+      if (from < 0 || to < 0 || to >= active.length) return;
+      [active[from], active[to]] = [active[to], active[from]];
+      writeList(name, [...active, ...retired]);
+    }
+
+    function setListItemActive(name, key, on) {
+      const items = editable(name);
+      const item = items.find(entry => entry.key === key);
+      if (!item) return;
+      item.active = on;
+      const active = items.filter(entry => entry.active !== false && entry !== item);
+      const retired = items.filter(entry => entry.active === false && entry !== item);
+      writeList(name, [...active, item, ...retired]);
+    }
+
+    function addListItem(name, row) {
+      const input = row.querySelector("[data-new='label']");
+      const label = input.value.trim();
+      if (!label) return input.focus();
+      const items = editable(name);
+      const match = items.find(item => sameName(item.label, label));
+      if (match && match.active !== false) {
+        warn(`${label} is already on the list.`);
+        return;
+      }
+      if (match) {
+        input.value = "";
+        return setListItemActive(name, match.key, true);
+      }
+      const item = { key: Lists.makeKey(label, items.map(entry => entry.key)), label, active: true };
+      row.querySelectorAll("[data-new]").forEach(field => {
+        if (field.dataset.new !== "label") item[field.dataset.new] = field.value;
+      });
+      const active = items.filter(entry => entry.active !== false);
+      const retired = items.filter(entry => entry.active === false);
+      input.value = "";
+      input.blur();
+      focusAdd = true;
+      writeList(name, [...active, item, ...retired]);
+    }
+
+    // Lists not saved yet start from what the app used before; customers
+    // also take every name already on a work order.
+    async function seedMissingLists() {
+      const missing = Lists.LIST_NAMES.filter(name => !Lists.isSaved(name));
+      if (!missing.length) return;
+      let orderCustomers = [];
+      if (missing.includes("customers")) {
+        const orders = await getDocs(collection(db, "workOrders"));
+        orderCustomers = orders.docs.map(entry => String(entry.data().customer || "").trim()).filter(Boolean);
+      }
+      await save(async () => {
+        for (const name of missing) {
+          const items = Lists.STARTING_LISTS[name].map(item => ({ ...item }));
+          if (name === "customers") {
+            orderCustomers.forEach(label => {
+              if (!items.some(item => sameName(item.label, label))) {
+                items.push({ key: Lists.makeKey(label, items.map(item => item.key)), label, active: true });
+              }
+            });
+          }
+          await Lists.saveList(name, items);
+        }
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // Configurations (configPresets)
+    // ------------------------------------------------------------------
+    const activePresets = () => presets.filter(preset => preset.active !== false);
+
+    function disc(preset) {
+      const lines = [preset.sensorCable, preset.sensors, preset.powerCable].map(line => String(line || "").trim() || "–");
+      const fill = preset.colourHex || NEW_COLOUR;
+      return `<div class="disc" style="background:${esc(fill)};color:${Lists.textOn(fill)}">${lines.map(line => `<span>${esc(line)}</span>`).join("")}</div>`;
+    }
+
+    function configSheet() {
+      const active = activePresets();
+      const retired = presets.filter(preset => preset.active === false);
+      const card = (preset, index) => `
+        <article class="config" data-preset="${esc(preset.key)}">
+          ${disc(preset)}
+          <div class="pair">
+            <label>Name<input type="text" data-field="label" value="${esc(preset.label || preset.key)}" maxlength="40" /></label>
+            <label>Colour<input type="color" data-field="colourHex" value="${esc(preset.colourHex || NEW_COLOUR)}" /></label>
+          </div>
+          <label>Sensor cable<input type="text" data-field="sensorCable" value="${esc(preset.sensorCable || "")}" maxlength="40" /></label>
+          <label>Sensors<input type="text" data-field="sensors" value="${esc(preset.sensors || "")}" maxlength="40" /></label>
+          <label>Power cable<input type="text" data-field="powerCable" value="${esc(preset.powerCable || "")}" maxlength="40" /></label>
+          <div class="actions-cell">
+            <button type="button" class="secondary icon" data-act="up" aria-label="Move earlier" ${index === 0 ? "disabled" : ""}>${icon("left")}</button>
+            <button type="button" class="secondary icon" data-act="down" aria-label="Move later" ${index === active.length - 1 ? "disabled" : ""}>${icon("right")}</button>
+            <button type="button" class="secondary" data-act="retire" ${active.length < 2 ? "disabled" : ""}>Retire</button>
+          </div>
+        </article>`;
+      return `
+        <div class="config-grid">
+          ${active.map(card).join("")}
+          <article class="config add" data-add="configs">
+            <label>Name<input type="text" data-new="label" maxlength="40" /></label>
+            <div class="actions-cell"><button type="button" data-act="add">Add</button></div>
+          </article>
+        </div>
+        ${retired.length ? `
+          <div class="retired-head">Retired</div>
+          <div class="retired-list">${retired.map(preset => `
+            <span class="retired-chip" data-preset="${esc(preset.key)}">
+              <span class="swatch" style="background:${esc(preset.colourHex || NEW_COLOUR)}"></span>${esc(preset.label || preset.key)}
+              <button type="button" class="secondary" data-act="restore">Restore</button>
+            </span>`).join("")}
+          </div>` : ""}`;
+    }
+
+    function editPreset(key, field, value) {
+      const preset = presets.find(item => item.key === key);
+      if (!preset) return;
+      let next = String(value || "").trim();
+      if (field === "colourHex") next = next.toLowerCase();
+      if (field === "label") {
+        if (!next) return draw();
+        if (presets.some(item => item.key !== key && sameName(item.label || item.key, next))) {
+          warn(`${next} is already a configuration.`);
+          return draw();
+        }
+      }
+      save(() => setDoc(doc(db, "configPresets", key), { [field]: next, updatedAt: serverTimestamp() }, { merge: true }));
+    }
+
+    function renumberPresets(order) {
+      return save(async () => {
+        const batch = writeBatch(db);
+        order.forEach((preset, index) => {
+          if (Number(preset.sortOrder) !== index + 1) {
+            batch.set(doc(db, "configPresets", preset.key), { sortOrder: index + 1, updatedAt: serverTimestamp() }, { merge: true });
+          }
+        });
+        await batch.commit();
+      });
+    }
+
+    function movePreset(key, step) {
+      const order = activePresets();
+      const from = order.findIndex(preset => preset.key === key);
+      const to = from + step;
+      if (from < 0 || to < 0 || to >= order.length) return;
+      [order[from], order[to]] = [order[to], order[from]];
+      renumberPresets(order);
+    }
+
+    function setPresetActive(key, on) {
+      const lastSort = Math.max(0, ...presets.map(preset => Number(preset.sortOrder) || 0));
+      const fields = on ? { active: true, sortOrder: lastSort + 1 } : { active: false };
+      save(() => setDoc(doc(db, "configPresets", key), { ...fields, updatedAt: serverTimestamp() }, { merge: true }));
+    }
+
+    function addPreset(row) {
+      const input = row.querySelector("[data-new='label']");
+      const label = input.value.trim();
+      if (!label) return input.focus();
+      const match = presets.find(preset => sameName(preset.label || preset.key, label));
+      if (match && match.active !== false) {
+        warn(`${label} is already a configuration.`);
+        return;
+      }
+      input.value = "";
+      if (match) return setPresetActive(match.key, true);
+      const key = Lists.makeKey(label, presets.map(preset => preset.key));
+      const lastSort = Math.max(0, ...presets.map(preset => Number(preset.sortOrder) || 0));
+      input.blur();
+      focusAdd = true;
+      save(() => setDoc(doc(db, "configPresets", key), {
+        label, colourHex: NEW_COLOUR, sensorCable: "", sensors: "", powerCable: "", connector: "", notes: "",
+        sortOrder: lastSort + 1, active: true, updatedAt: serverTimestamp()
+      }));
+    }
+
+    // ------------------------------------------------------------------
+    // Staff: who can do which job, 0–3 dots each
+    // ------------------------------------------------------------------
+    function staffSheet() {
+      const dots = (person, skill) => {
+        const level = Skills.skillsOf(person, person.key)[skill];
+        return `<span class="dots" data-skill="${skill}" data-level="${level}">${[1, 2, 3].map(n => `
+          <button type="button" class="dot ${level >= n ? "on" : ""}" data-dot="${n}" aria-label="${esc(Skills.SKILL_LABELS[skill])} ${n}"></button>`).join("")}
+        </span>`;
+      };
+      const row = person => `
+        <tr data-staff="${esc(person.key)}" class="${Skills.inProduction(person) ? "" : "off"}">
+          <td><input type="text" data-field="name" value="${esc(person.name || person.key)}" maxlength="80" aria-label="Name" /></td>
+          <td class="center"><input type="checkbox" data-field="inProduction" ${Skills.inProduction(person) ? "checked" : ""} aria-label="In production" /></td>
+          ${Skills.SKILL_KEYS.map(skill => `<td class="center">${dots(person, skill)}</td>`).join("")}
+          <td class="actions-cell"><button type="button" class="secondary icon" data-act="remove" aria-label="Remove ${esc(person.name || person.key)}">${icon("remove")}</button></td>
+        </tr>`;
+      return `
+        <div class="table-scroll">
+          <table class="list">
+            <thead><tr>
+              <th class="wide">Name</th>
+              <th class="center">In production</th>
+              ${Skills.SKILL_KEYS.map(skill => `<th class="center">${esc(Skills.SKILL_LABELS[skill])}</th>`).join("")}
+              <th></th>
+            </tr></thead>
+            <tbody>${staff.length ? staff.map(row).join("") : `<tr><td colspan="${Skills.SKILL_KEYS.length + 3}">None</td></tr>`}</tbody>
+            <tfoot>
+              <tr data-add="staff">
+                <td><input type="text" data-new="label" maxlength="80" aria-label="New name" /></td>
+                <td colspan="${Skills.SKILL_KEYS.length + 1}"></td>
+                <td class="actions-cell"><button type="button" data-act="add">Add</button></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>`;
+    }
+
+    const saveStaffFields = (key, fields) =>
+      save(() => setDoc(doc(db, "staff", key), { ...fields, updatedAt: serverTimestamp() }, { merge: true }));
+
+    function editStaffName(key, value) {
+      const name = value.trim();
+      if (!name) return draw();
+      saveStaffFields(key, { name, firstName: name.split(/\s+/)[0] });
+    }
+
+    function setSkill(key, skill, dotButton) {
+      const person = staff.find(item => item.key === key);
+      if (!person) return;
+      const holder = dotButton.closest(".dots");
+      const n = Number(dotButton.dataset.dot);
+      const level = Number(holder.dataset.level) === n ? n - 1 : n;
+      holder.dataset.level = String(level);
+      holder.querySelectorAll(".dot").forEach(item => item.classList.toggle("on", Number(item.dataset.dot) <= level));
+      saveStaffFields(key, { skills: { ...Skills.skillsOf(person, key), [skill]: level } });
+    }
+
+    function removeStaff(key) {
+      const person = staff.find(item => item.key === key);
+      if (!person || !window.confirm(`Remove ${person.name || key}?`)) return;
+      save(() => deleteDoc(doc(db, "staff", key)));
+    }
+
+    function addStaff(row) {
+      const input = row.querySelector("[data-new='label']");
+      const name = input.value.trim();
+      if (!name) return input.focus();
+      if (staff.some(person => sameName(person.name, name))) {
+        warn(`${name} is already on the list.`);
+        return;
+      }
+      const key = Lists.makeKey(name, staff.map(person => person.key));
+      input.value = "";
+      input.blur();
+      focusAdd = true;
+      save(() => setDoc(doc(db, "staff", key), {
+        name,
+        firstName: name.split(/\s+/)[0],
+        inProduction: true,
+        skills: Object.fromEntries(Skills.SKILL_KEYS.map(skill => [skill, 0])),
+        priorityRank: 50,
+        rosterRow: null,
+        active: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }));
+    }
+
+    function byRosterRow(a, b) {
+      const rowA = Number.isInteger(a.rosterRow) ? a.rosterRow : 9999;
+      const rowB = Number.isInteger(b.rosterRow) ? b.rosterRow : 9999;
+      return rowA - rowB || String(a.name || "").localeCompare(String(b.name || ""));
+    }
+
+    // ------------------------------------------------------------------
+    // Events
+    // ------------------------------------------------------------------
+    function wire() {
+      document.addEventListener("pointerdown", () => { pointerDown = true; }, true);
+      document.addEventListener("pointerup", () => { pointerDown = false; setTimeout(flush, 0); }, true);
+      document.addEventListener("pointercancel", () => { pointerDown = false; setTimeout(flush, 0); }, true);
+      $("sheet").addEventListener("focusout", () => setTimeout(flush, 0));
+
+      $("tabs").addEventListener("click", event => {
+        const button = event.target.closest("[data-tab]");
+        if (!button) return;
+        tab = button.dataset.tab;
+        history.replaceState(null, "", `#${tab}`);
+        alertText = "";
+        showState();
+        draw();
+      });
+
+      $("sheet").addEventListener("change", event => {
+        const field = event.target.closest("[data-field]");
+        if (!field) return;
+        const value = field.type === "checkbox" ? field.checked : field.value;
+        const listRow = field.closest("tr[data-key]");
+        const presetCard = field.closest("[data-preset]");
+        const staffRow = field.closest("tr[data-staff]");
+        if (listRow) editListItem(field.closest("table[data-list]").dataset.list, listRow.dataset.key, field.dataset.field, value);
+        else if (presetCard) editPreset(presetCard.dataset.preset, field.dataset.field, value);
+        else if (staffRow && field.dataset.field === "name") editStaffName(staffRow.dataset.staff, value);
+        else if (staffRow) {
+          staffRow.classList.toggle("off", !value);
+          saveStaffFields(staffRow.dataset.staff, { inProduction: value });
+        }
+      });
+
+      // The colour disc follows the colour picker as it moves.
+      $("sheet").addEventListener("input", event => {
+        const field = event.target;
+        if (field.dataset.field !== "colourHex") return;
+        const card = field.closest("[data-preset]");
+        const discEl = card?.querySelector(".disc");
+        if (discEl) {
+          discEl.style.background = field.value;
+          discEl.style.color = Lists.textOn(field.value);
+        }
+      });
+
+      $("sheet").addEventListener("click", event => {
+        const dotButton = event.target.closest(".dot[data-dot]");
+        if (dotButton) {
+          setSkill(dotButton.closest("tr[data-staff]").dataset.staff, dotButton.closest(".dots").dataset.skill, dotButton);
+          return;
+        }
+        const button = event.target.closest("[data-act]");
+        if (!button) return;
+        const act = button.dataset.act;
+        const addRow = button.closest("[data-add]");
+        if (act === "add" && addRow) return addRow.dataset.add === "configs" ? addPreset(addRow) : addRow.dataset.add === "staff" ? addStaff(addRow) : addListItem(addRow.dataset.add, addRow);
+        const listRow = button.closest("tr[data-key]");
+        const presetEl = button.closest("[data-preset]");
+        const staffRow = button.closest("tr[data-staff]");
+        if (listRow) {
+          const name = button.closest("table[data-list]").dataset.list;
+          const key = listRow.dataset.key;
+          if (act === "up") moveListItem(name, key, -1);
+          if (act === "down") moveListItem(name, key, 1);
+          if (act === "retire") setListItemActive(name, key, false);
+          if (act === "restore") setListItemActive(name, key, true);
+        } else if (presetEl) {
+          const key = presetEl.dataset.preset;
+          if (act === "up") movePreset(key, -1);
+          if (act === "down") movePreset(key, 1);
+          if (act === "retire") setPresetActive(key, false);
+          if (act === "restore") setPresetActive(key, true);
+        } else if (staffRow && act === "remove") {
+          removeStaff(staffRow.dataset.staff);
+        }
+      });
+
+      $("sheet").addEventListener("keydown", event => {
+        if (event.key !== "Enter") return;
+        const addRow = event.target.closest("[data-add]");
+        if (!addRow || !event.target.matches("input[type='text']")) return;
+        event.preventDefault();
+        addRow.querySelector("[data-act='add']").click();
+      });
+
+      const online = () => $("liveBadge").classList.toggle("offline", !navigator.onLine);
+      window.addEventListener("online", () => { online(); $("liveBadge").textContent = "Live"; });
+      window.addEventListener("offline", () => { online(); $("liveBadge").textContent = "Offline"; });
+    }
+
+    // ------------------------------------------------------------------
+    // Start
+    // ------------------------------------------------------------------
+    async function start() {
+      await ensureAccess({ title: "Lists", pinLabel: "Management PIN", allowed: ["management"], wrongRoleMessage: "This page needs the management PIN." });
+      wire();
+      let seeded = false;
+      const loadedParts = new Set();
+      const show = part => {
+        loadedParts.add(part);
+        if (loadedParts.size < 3) return;
+        $("notice").classList.add("hidden");
+        $("main").classList.remove("hidden");
+        render();
+      };
+      Lists.watchLists(() => {
+        show("lists");
+        if (!seeded) {
+          seeded = true;
+          seedMissingLists().catch(error => warn(`Not saved: ${friendlyError(error)}`));
+        }
+      });
+      onSnapshot(collection(db, "configPresets"), snapshot => {
+        presets = snapshot.docs
+          .map(entry => ({ key: entry.id, ...entry.data() }))
+          .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+        show("presets");
+      }, error => warn(friendlyError(error)));
+      onSnapshot(collection(db, "staff"), snapshot => {
+        staff = snapshot.docs.map(entry => ({ key: entry.id, ...entry.data() })).sort(byRosterRow);
+        show("staff");
+      }, error => warn(friendlyError(error)));
+    }
+
+    start().catch(error => {
+      $("notice").textContent = friendlyError(error);
+    });
+  </script>
+</body>
+</html>

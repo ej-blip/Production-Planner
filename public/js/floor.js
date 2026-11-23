@@ -19,6 +19,7 @@ import {
   collection, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from "./session.js";
+import { unitLabel } from "./lists.js";
 
 export const FLOOR_BENCHES = [
   { key: "cage", label: "Production Cage", short: "Cage" },
@@ -39,7 +40,6 @@ export const MAGNET_STATIONS = {
   packing: ["packing"]
 };
 
-const UNIT_LABELS = { gen4: "Gen4", tap: "Tap" };
 
 export function escapeHtml(value) {
   return String(value ?? "")
@@ -103,7 +103,7 @@ export function floorBatches(plan) {
 }
 
 export function batchTitle(batch) {
-  return `${batch.customer || "Batch"} · ${UNIT_LABELS[batch.unitType] || batch.unitType || ""}`;
+  return `${batch.customer || "Batch"} · ${unitLabel(batch)}`;
 }
 
 export function progressOf(progress, bench, batch) {
@@ -177,7 +177,9 @@ export async function setBatchStatus(date, bench, batch, status, done, actor, ex
           orderId: job.orderId ?? null,
           customer: job.customer,
           unitType: job.unitType,
+          unitKey: job.unitKey || job.unitType,
           commsType: job.commsType,
+          commsKey: job.commsKey || job.commsType,
           simType: job.simType,
           configKey: job.configKey,
           configText: job.configText ?? "",
@@ -330,7 +332,9 @@ export async function placeJobOnPlan(date, job, lane, actor) {
     orderId: job.orderId ?? null,
     customer: job.customer,
     unitType: job.unitType,
+    unitKey: job.unitKey || job.unitType,
     commsType: job.commsType,
+    commsKey: job.commsKey || job.commsType,
     simType: job.simType,
     configKey: job.configKey,
     configText: job.configText ?? "",
