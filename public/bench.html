@@ -395,7 +395,10 @@
       JOB_STAGES, waitingJobsAt, waitingJobHtml
     } from "./js/floor.js";
     import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
-    import { watchLists, unitLabel, simLabel, labelOf } from "./js/lists.js";
+    import {
+      watchLists, unitLabel, simLabel, labelOf, unitKeyOf, commsKeyOf,
+      testingPerDay, assemblyRate, hardwareRate, packagingBuildRate
+    } from "./js/lists.js";
 
     // Jobs on the bench screens. Who can do each one comes from their
     // skill dots in Worker Admin (js/skills.js).
@@ -408,8 +411,8 @@
       testingVerizon: { label: "Verizon Testing", network: "verizon" },
       testingGlobal:  { label: "Global Testing", network: "global" },
       hardware:       { label: "Hardware Check" },
-      packing:        { label: "Packing" },
-      finalPackaging: { label: "Final Packaging" }
+      packing:        { label: "Packaging build-up" },
+      finalPackaging: { label: "Packing" }
     };
 
     // Each bench screen: its jobs, and which batch details it shows.
@@ -615,26 +618,16 @@
     }
 
     // ------------------------------------------------------------------
-    // Capacity: the same agreed rules as the Management screen.
-    // Each bench works out its own limit from who is on its jobs now; the
-    // day target is the lowest of the planned target and every bench's limit.
+    // Capacity: the build speeds from the Rates tab (js/lists.js), the
+    // same numbers the Management screen plans with. Each takes a batch's
+    // unit / comms list key. Each bench works out its own limit from who is
+    // on its jobs now; the day target is the lowest of the planned target
+    // and every bench's limit.
     // ------------------------------------------------------------------
-    const isTap = unitType => unitType === "tap";
-    const dailyLimit = comms => (comms === "verizon" ? 36 : 30);
-    const assemblyPerBench = unitType => (isTap(unitType) ? 8 : 6);
-
-    function hardwareCapacity(benches, unitType, commsType) {
-      if (isTap(unitType)) {
-        if (commsType !== "verizon") return benches >= 4 ? 42 : benches === 3 ? 36 : benches === 2 ? 30 : 0;
-        return benches >= 4 ? 50 : benches === 3 ? 42 : benches === 2 ? 36 : 0;
-      }
-      return benches >= 4 ? 36 : benches === 3 ? 30 : benches === 2 ? 24 : 0;
-    }
-
-    function packingCapacity(benches, unitType) {
-      if (isTap(unitType)) return benches >= 2 ? 50 : 0;
-      return benches >= 3 ? 36 : benches === 2 ? 30 : 0;
-    }
+    const dailyLimit = commsKey => testingPerDay(commsKey);
+    const assemblyPerBench = unitKey => assemblyRate(unitKey);
+    const hardwareCapacity = (benches, unitKey, commsKey) => hardwareRate(benches, unitKey, commsKey);
+    const packingCapacity = (benches, unitKey) => packagingBuildRate(benches, unitKey);
 
     function capacityInteger(value) {
       const safe = Math.max(0, Number(value) || 0);
@@ -652,7 +645,7 @@
       const onStation = (phase, station) => assignments.filter(item => item.phase === phase && item.station === station).length;
 
       if (plan.workMode !== "mixed") {
-        const max = dailyLimit(batches[0].commsType);
+        const max = dailyLimit(commsKeyOf(batches[0]));
         const total = PHASE_KEYS.reduce((sum, phase) => sum + (onStation(phase, "testing") >= 2 ? max / 2 : 0), 0);
         return Math.min(max, total);
       }
@@ -663,7 +656,7 @@
         .map(network => {
           const demand = batches
             .filter(batch => networkOf(batch) === network)
-            .reduce((sum, batch) => sum + (Number(batch.quantity) / dailyLimit(batch.commsType)) * 2, 0);
+            .reduce((sum, batch) => sum + (Number(batch.quantity) / dailyLimit(commsKeyOf(batch))) * 2, 0);
           const activePhases = PHASE_KEYS.filter(phase => onStation(phase, NETWORKS[network].station) > 0).length;
           return demand <= 0 ? 1 : Math.max(0, Math.min(1, Math.min(2, activePhases) / demand));
         });
@@ -686,12 +679,13 @@
       const count = (phase, list) => assignments.filter(item => item.phase === phase && list.includes(item.station)).length;
 
       if (plan.workMode !== "mixed") {
-        const { unitType, commsType } = batches[0];
+        const unitKey = unitKeyOf(batches[0]);
+        const commsKey = commsKeyOf(batches[0]);
         return PHASE_KEYS.reduce((sum, phase) => {
           const benches = count(phase, stations);
-          if (key === "assembly") return sum + (count(phase, ["subAssembly"]) > 0 ? benches * assemblyPerBench(unitType) : 0);
-          if (key === "hardware") return sum + hardwareCapacity(benches, unitType, commsType);
-          return sum + packingCapacity(benches, unitType);
+          if (key === "assembly") return sum + (count(phase, ["subAssembly"]) > 0 ? benches * assemblyPerBench(unitKey) : 0);
+          if (key === "hardware") return sum + hardwareCapacity(benches, unitKey, commsKey);
+          return sum + packingCapacity(benches, unitKey);
         }, 0);
       }
 
@@ -892,8 +886,8 @@
       const batches = activeBatches();
       const people = [...new Set(state.assignments.filter(item => isBenchStation(item.station)).map(item => item.staffKey))];
       const totalUnits = batches.reduce((sum, batch) => sum + plannedUnits(batch), 0);
-      const byUnit = ["gen4", "tap"]
-        .map(unit => [unit, batches.filter(batch => (batch.unitType === "tap" ? "tap" : "gen4") === unit).reduce((sum, batch) => sum + plannedUnits(batch), 0)])
+      const byUnit = [...new Set(batches.map(unitKeyOf))]
+        .map(unit => [unit, batches.filter(batch => unitKeyOf(batch) === unit).reduce((sum, batch) => sum + plannedUnits(batch), 0)])
         .filter(([, units]) => units > 0)
         .map(([unit, units]) => `${labelOf("units", unit)} ${units}`);
 
@@ -1207,7 +1201,7 @@
     };
     const STATION_ICON = {
       subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE",
-      testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PK", finalPackaging: "FP"
+      testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PB", finalPackaging: "PK"
     };
     const STATION_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 2, testingVerizon: 1, testingGlobal: 1, hardware: 2, packing: 2 };
     const KIND_COLOUR = { assembly: "var(--k-assembly)", testing: "var(--k-testing)", hardware: "var(--k-hardware)", packing: "var(--k-packing)", final: "var(--k-cage)" };
@@ -1259,10 +1253,10 @@
       const batch = activeBatches()[0];
       if (!batch) return null;
       const inPhase = list => state.assignments.filter(item => item.phase === state.phase && list.includes(item.station)).length;
-      if (station === "assembly") return inPhase(["subAssembly"]) > 0 ? count * assemblyPerBench(batch.unitType) : 0;
-      if (station === "testing") return count >= 2 ? dailyLimit(batch.commsType) / 2 : 0;
-      if (station === "hardware") return hardwareCapacity(count, batch.unitType, batch.commsType);
-      if (station === "packing") return packingCapacity(count, batch.unitType);
+      if (station === "assembly") return inPhase(["subAssembly"]) > 0 ? count * assemblyPerBench(unitKeyOf(batch)) : 0;
+      if (station === "testing") return count >= 2 ? dailyLimit(commsKeyOf(batch)) / 2 : 0;
+      if (station === "hardware") return hardwareCapacity(count, unitKeyOf(batch), commsKeyOf(batch));
+      if (station === "packing") return packingCapacity(count, unitKeyOf(batch));
       return null;
     }
 

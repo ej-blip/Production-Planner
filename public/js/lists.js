@@ -1,10 +1,11 @@
 // Production Planner — the lists every choice in the app comes from.
 //
 //   lists/{name} = { items: [{ key, label, active, … }] }
-//     units       unit types       + planAs "gen4" | "tap"
+//     units       unit types       + planAs "gen4" | "tap", rates (build speeds)
 //     customers   customers
 //     connectors  connectors
-//     comms       comms types      + colourHex, planAs "verizon" | "global"
+//     comms       comms types      + colourHex, planAs "verizon" | "global",
+//                                    testingPerDay
 //     sims        SIM types        + comms (the comms key it belongs to)
 //   configPresets/{key}            configuration colours (label, colourHex,
 //                                  sensorCable, sensors, powerCable,
@@ -50,6 +51,21 @@ export const STARTING_LISTS = {
   ]
 };
 
+// Build speeds, edited on the Rates tab. Per 2-hour block:
+//   assembly        units one person assembles (only with Sub Assembly on)
+//   hardwareVerizon units Hardware Check does with 1, 2, 3, 4+ people
+//   hardwareGlobal  the same for Global units
+//   packagingBuild  boxes Packaging build-up makes with 1, 2, 3, 4+ people
+// and per day, on each comms type: testingPerDay (half each block with
+// 2+ testers). A unit or comms type without its own figures uses the ones
+// of the type it plans as.
+export const RATE_PEOPLE = 4;
+export const STARTING_UNIT_RATES = {
+  gen4: { assembly: 6, hardwareVerizon: [0, 24, 30, 36], hardwareGlobal: [0, 24, 30, 36], packagingBuild: [0, 30, 36, 36] },
+  tap: { assembly: 8, hardwareVerizon: [0, 36, 42, 50], hardwareGlobal: [0, 30, 36, 42], packagingBuild: [0, 50, 50, 50] }
+};
+export const STARTING_TESTING_PER_DAY = { verizon: 36, global: 30 };
+
 const copy = value => JSON.parse(JSON.stringify(value));
 
 let current = copy(STARTING_LISTS);
@@ -93,6 +109,55 @@ export function commsPlanAs(key) {
   const plan = find("comms", key)?.planAs;
   if (COMMS_PLANS.includes(plan)) return plan;
   return key === "global" ? "global" : "verizon";
+}
+
+// ---------------------------------------------------------------------
+// Build speeds
+// ---------------------------------------------------------------------
+const wholeNumber = value => Math.max(0, Math.min(9999, Math.round(Number(value) || 0)));
+
+function ownRates(unitKey) {
+  const item = find("units", unitKey);
+  if (item?.rates) return item.rates;
+  return find("units", unitPlanAs(unitKey))?.rates || {};
+}
+
+// The speeds a unit type plans with (its own, or its plan-as type's).
+export function unitRates(unitKey) {
+  const base = STARTING_UNIT_RATES[unitPlanAs(unitKey)];
+  const own = ownRates(unitKey);
+  const table = (value, fallback) => Array.from({ length: RATE_PEOPLE }, (_, index) =>
+    wholeNumber(Array.isArray(value) && value[index] !== undefined && value[index] !== null ? value[index] : fallback[index]));
+  return {
+    assembly: own.assembly !== undefined && own.assembly !== null ? wholeNumber(own.assembly) : base.assembly,
+    hardwareVerizon: table(own.hardwareVerizon, base.hardwareVerizon),
+    hardwareGlobal: table(own.hardwareGlobal, base.hardwareGlobal),
+    packagingBuild: table(own.packagingBuild, base.packagingBuild)
+  };
+}
+
+const fromTable = (table, people) => (people <= 0 ? 0 : table[Math.min(people, table.length) - 1]);
+
+export const assemblyRate = unitKey => unitRates(unitKey).assembly;
+
+export function hardwareRate(people, unitKey, commsKey) {
+  const rates = unitRates(unitKey);
+  return fromTable(commsPlanAs(commsKey) === "global" ? rates.hardwareGlobal : rates.hardwareVerizon, people);
+}
+
+export const packagingBuildRate = (people, unitKey) => fromTable(unitRates(unitKey).packagingBuild, people);
+
+// Units Testing can do in a day (never 0, so shares can be worked out).
+export function testingPerDay(commsKey) {
+  const own = find("comms", commsKey)?.testingPerDay ?? find("comms", commsPlanAs(commsKey))?.testingPerDay;
+  const value = own !== undefined && own !== null ? wholeNumber(own) : STARTING_TESTING_PER_DAY[commsPlanAs(commsKey)];
+  return Math.max(1, value);
+}
+
+// The fewest people that reach a table's best figure; more add nothing.
+export function usefulPeople(table) {
+  const best = Math.max(...table);
+  return best <= 0 ? 0 : table.findIndex(value => value >= best) + 1;
 }
 
 // SIM types for a comms type. A SIM key still on the list (even retired)
@@ -184,6 +249,8 @@ const clean = item => {
   if (item.planAs) out.planAs = item.planAs;
   if (item.colourHex) out.colourHex = item.colourHex;
   if (item.comms) out.comms = item.comms;
+  if (item.rates) out.rates = item.rates;
+  if (item.testingPerDay !== undefined && item.testingPerDay !== null) out.testingPerDay = wholeNumber(item.testingPerDay);
   return out;
 };
 

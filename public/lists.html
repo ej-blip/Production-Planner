@@ -152,6 +152,21 @@
     }
     .swatch { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(15, 39, 71, 0.3); }
 
+    /* Rates: build speeds per block */
+    .rate-group { margin-top: 18px; }
+    .rate-group h3 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .rate-group h3 small { margin-left: 8px; font-family: var(--font); font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
+    table.list.rates th.num,
+    table.list.rates td.num { text-align: center; white-space: nowrap; }
+    table.list.rates td.row-name { white-space: nowrap; font-weight: 600; }
+    table.list.rates input[type="number"] { width: 84px; min-height: 40px; padding: 8px; text-align: center; }
+    table.list.rates .derived { display: inline-block; width: 84px; color: var(--muted); font-weight: 600; }
+
     /* Staff: 0–3 dots per job */
     .dots { display: inline-flex; gap: 5px; }
     .dot {
@@ -202,6 +217,7 @@
       { id: "comms", title: "Comms" },
       { id: "sims", title: "SIM types" },
       { id: "configs", title: "Configurations" },
+      { id: "rates", title: "Rates" },
       { id: "staff", title: "Staff" }
     ];
     const LIST_COLUMNS = { units: ["plan"], customers: [], connectors: [], comms: ["colour", "plan"], sims: ["comms"] };
@@ -291,6 +307,7 @@
       let body = "";
       if (LIST_COLUMNS[tab]) body = listSheet(tab);
       else if (tab === "configs") body = configSheet();
+      else if (tab === "rates") body = ratesSheet();
       else body = staffSheet();
       $("sheet").innerHTML = `<h2>${esc(title)}</h2>${body}`;
       if (focusAdd) {
@@ -599,6 +616,90 @@
     }
 
     // ------------------------------------------------------------------
+    // Rates: build speeds per 2-hour block, testing per day
+    // ------------------------------------------------------------------
+    const PEOPLE_HEADS = ["1 person", "2 people", "3 people", "4+ people"];
+    const numberInput = (attrs, value, label) =>
+      `<input type="number" min="0" max="9999" step="1" inputmode="numeric" ${attrs} value="${esc(value)}" aria-label="${esc(label)}" />`;
+
+    function ratesSheet() {
+      const verizon = Lists.labelOf("comms", "verizon");
+      const global = Lists.labelOf("comms", "global");
+      const testing = `
+        <section class="rate-group">
+          <h3>Testing</h3>
+          <div class="table-scroll">
+            <table class="list rates">
+              <thead><tr><th class="wide">Comms</th><th class="num">Units per day</th></tr></thead>
+              <tbody>${Lists.items("comms").map(comms => `
+                <tr data-comms="${esc(comms.key)}">
+                  <td class="row-name">${esc(comms.label)}</td>
+                  <td class="num">${numberInput('data-rate="testingPerDay"', Lists.testingPerDay(comms.key), `${comms.label} units per day`)}</td>
+                </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
+        </section>`;
+
+      const unit = item => {
+        const rates = Lists.unitRates(item.key);
+        const tableRow = (field, name) => `
+          <tr>
+            <td class="row-name">${esc(name)}</td>
+            ${rates[field].map((value, index) => `<td class="num">${numberInput(`data-rate="${field}" data-index="${index}"`, value, `${name}, ${PEOPLE_HEADS[index]}`)}</td>`).join("")}
+          </tr>`;
+        return `
+          <section class="rate-group" data-unit="${esc(item.key)}">
+            <h3>${esc(item.label)}${item.rates || Lists.UNIT_PLANS.includes(item.key) ? "" : `<small>${esc(Lists.labelOf("units", Lists.unitPlanAs(item.key)))}</small>`}</h3>
+            <div class="table-scroll">
+              <table class="list rates">
+                <thead><tr>
+                  <th class="wide">Per 2-hour block</th>
+                  ${PEOPLE_HEADS.map(head => `<th class="num">${head}</th>`).join("")}
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="row-name">Assembly</td>
+                    <td class="num">${numberInput('data-rate="assembly"', rates.assembly, "Assembly, 1 person")}</td>
+                    ${[2, 3, 4].map(n => `<td class="num"><span class="derived">${rates.assembly * n}</span></td>`).join("")}
+                  </tr>
+                  ${tableRow("hardwareVerizon", `Hardware Check · ${verizon}`)}
+                  ${tableRow("hardwareGlobal", `Hardware Check · ${global}`)}
+                  ${tableRow("packagingBuild", "Packaging build-up")}
+                </tbody>
+              </table>
+            </div>
+          </section>`;
+      };
+
+      return testing + Lists.items("units").map(unit).join("");
+    }
+
+    function editRate(field, value) {
+      const unitEl = field.closest("[data-unit]");
+      const commsEl = field.closest("[data-comms]");
+      const number = Math.max(0, Math.min(9999, Math.round(Number(value))));
+      if (value === "" || !Number.isFinite(number)) return draw();
+      if (commsEl) {
+        const items = editable("comms");
+        const item = items.find(entry => entry.key === commsEl.dataset.comms);
+        if (!item) return;
+        item.testingPerDay = number;
+        return writeList("comms", items);
+      }
+      if (!unitEl) return;
+      const items = editable("units");
+      const item = items.find(entry => entry.key === unitEl.dataset.unit);
+      if (!item) return;
+      const rates = Lists.unitRates(item.key);
+      const name = field.dataset.rate;
+      if (name === "assembly") rates.assembly = number;
+      else rates[name][Number(field.dataset.index)] = number;
+      item.rates = rates;
+      writeList("units", items);
+    }
+
+    // ------------------------------------------------------------------
     // Staff: who can do which job, 0–3 dots each
     // ------------------------------------------------------------------
     function staffSheet() {
@@ -713,6 +814,8 @@
       });
 
       $("sheet").addEventListener("change", event => {
+        const rateField = event.target.closest("[data-rate]");
+        if (rateField) return editRate(rateField, rateField.value);
         const field = event.target.closest("[data-field]");
         if (!field) return;
         const value = field.type === "checkbox" ? field.checked : field.value;

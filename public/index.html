@@ -1888,6 +1888,7 @@
           lastPresetsJson = JSON.stringify(reference.presets);
           await Promise.race([data.lists.whenLoaded(), new Promise(resolve => setTimeout(resolve, 8000))]);
           lastListsJson = listsJson(data.lists);
+          lastPlanningJson = planningJson(data.lists);
         } catch (error) {
           currentPlanState = { date: "", status: "error", error: data.friendlyError(error) };
         }
@@ -1918,6 +1919,7 @@
     let lastStaffJson = "";
     let lastPresetsJson = "";
     let lastListsJson = "";
+    let lastPlanningJson = "";
 
     function watchReferenceData(data) {
       data.watchStaff(staff => {
@@ -1941,12 +1943,24 @@
         const json = listsJson(data.lists);
         if (json === lastListsJson) return;
         lastListsJson = json;
-        refreshNames();
+        const planning = planningJson(data.lists);
+        if (planning === lastPlanningJson) return refreshNames();
+        // A build speed or plan-as type changed: plan the day again.
+        lastPlanningJson = planning;
+        workBatches = workBatches.map((batch, index) => normalizeWorkBatch(batch, index));
+        calculateFromRoster();
       });
     }
 
     function listsJson(lists) {
       return JSON.stringify(lists.LIST_NAMES.map(name => lists.items(name, { withRetired: true })));
+    }
+
+    // What the planner uses from the lists: build speeds and plan-as types.
+    function planningJson(lists) {
+      const pick = (name, fields) => lists.items(name, { withRetired: true })
+        .map(item => [item.key, ...fields.map(field => item[field] ?? null)]);
+      return JSON.stringify([pick("units", ["planAs", "rates"]), pick("comms", ["planAs", "testingPerDay"])]);
     }
 
     function refreshNames() {
@@ -3322,8 +3336,8 @@
       }
 
       stations.push(["hardware", "Hardware Check"]);
-      stations.push(["packing", "Packing"]);
-      stations.push(["finalPackaging", "Final Packaging"]);
+      stations.push(["packing", "Packaging build-up"]);
+      stations.push(["finalPackaging", "Packing"]);
       stations.push(["custom", "Custom / Other Job"]);
       return stations;
     }
@@ -4089,7 +4103,7 @@
     }
 
     const CREW_SKILL_KIND = { subAssembly: "assembly", assembly: "assembly", testing: "testing", hardware: "hardware", packing: "packing" };
-    const CREW_ICONS = { subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE", testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PK", finalPackaging: "FP" };
+    const CREW_ICONS = { subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE", testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PB", finalPackaging: "PK" };
     const CREW_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 2, testingVerizon: 1, testingGlobal: 1, hardware: 2, packing: 2 };
 
     function crewInitials(name) {
@@ -4281,11 +4295,46 @@
       return commsType === "verizon";
     }
 
+    /* Build speeds come from the Rates tab on the Lists screen. Each takes
+       the built-in type (gen4 / tap, verizon / global) or a list key
+       (unitKey / commsKey); on a single build the day's batch says which
+       list item the built-in type stands for. The numbers below are the
+       starting speeds, used only if the lists can't be read. */
+    function rateUnitKey(unitType) {
+      const first = workBatches[0];
+      if (workDayMode !== "mixed" && first?.unitKey && first.unitType === unitType) return first.unitKey;
+      return unitType;
+    }
+
+    function rateCommsKey(commsType) {
+      const first = workBatches[0];
+      if (workDayMode !== "mixed" && first?.commsKey && first.commsType === commsType) return first.commsKey;
+      return commsType;
+    }
+
     function assemblyPerBench(unitType) {
+      const lists = listsApi();
+      if (lists) return lists.assemblyRate(rateUnitKey(unitType));
       return isTapUnit(unitType) ? 8 : 6;
     }
 
+    // People beyond these add nothing at Hardware Check / Packaging build-up.
+    function usefulHardwareBenches(unitType, commsType) {
+      const lists = listsApi();
+      if (!lists) return 4;
+      const rates = lists.unitRates(rateUnitKey(unitType));
+      return lists.usefulPeople(lists.commsPlanAs(rateCommsKey(commsType)) === "global" ? rates.hardwareGlobal : rates.hardwareVerizon);
+    }
+
+    function usefulPackingBenches(unitType) {
+      const lists = listsApi();
+      if (!lists) return isTapUnit(unitType) ? 2 : 3;
+      return lists.usefulPeople(lists.unitRates(rateUnitKey(unitType)).packagingBuild);
+    }
+
     function hardwareCapacity(benches, unitType, commsType = "verizon") {
+      const lists = listsApi();
+      if (lists) return lists.hardwareRate(benches, rateUnitKey(unitType), rateCommsKey(commsType));
       if (isTapUnit(unitType)) {
         if (!isVerizonComms(commsType)) {
           if (benches >= 4) return 42;
@@ -4307,6 +4356,8 @@
     }
 
     function packingCapacity(benches, unitType) {
+      const lists = listsApi();
+      if (lists) return lists.packagingBuildRate(benches, rateUnitKey(unitType));
       if (isTapUnit(unitType)) {
         return benches >= 2 ? 50 : 0;
       }
@@ -4316,8 +4367,10 @@
       return 0;
     }
 
-    /* Agreed daily Testing / output limit: Verizon 36, Global 30. */
+    /* Daily Testing / output limit (starting figures: Verizon 36, Global 30). */
     function dailyTestingLimit(commsType) {
+      const lists = listsApi();
+      if (lists) return lists.testingPerDay(rateCommsKey(commsType));
       return isVerizonComms(commsType) ? 36 : 30;
     }
 
@@ -4328,7 +4381,7 @@
         { name: "Assembly", capacity: result.assembledUnits },
         { name: "Testing", capacity: Number(result.testingCapacity) || 0 },
         { name: "Hardware Check", capacity: result.checkedUnits },
-        { name: "Packing", capacity: result.packedUnits }
+        { name: "Packaging build-up", capacity: result.packedUnits }
       ];
 
       return processSteps.reduce((lowest, step) => {
@@ -4352,19 +4405,19 @@
     }
 
     function mixedTestingCapacityForBatch(batch) {
-      return dailyTestingLimit(batch.commsType);
+      return dailyTestingLimit(batch.commsKey || batch.commsType);
     }
 
     function mixedHardwareCapacityForBatch(benches, batch) {
-      return hardwareCapacity(benches, batch.unitType, batch.commsType);
+      return hardwareCapacity(benches, batch.unitKey || batch.unitType, batch.commsKey || batch.commsType);
     }
 
     function mixedPackingCapacityForBatch(benches, batch) {
-      return packingCapacity(benches, batch.unitType);
+      return packingCapacity(benches, batch.unitKey || batch.unitType);
     }
 
     function mixedAssemblyCapacityForBatch(benches, batch) {
-      return Math.max(0, benches) * assemblyPerBench(batch.unitType);
+      return Math.max(0, benches) * assemblyPerBench(batch.unitKey || batch.unitType);
     }
 
     function mixedWorkerEligible(worker, station) {
@@ -4556,7 +4609,7 @@
     function mixedAssemblyDemandPhaseTime(batches, unitType) {
       return batches
         .filter(batch => batch.unitType === unitType && batch.quantity > 0)
-        .reduce((sum, batch) => sum + (batch.quantity / Math.max(1, assemblyPerBench(batch.unitType))), 0);
+        .reduce((sum, batch) => sum + (batch.quantity / Math.max(1, assemblyPerBench(batch.unitKey || batch.unitType))), 0);
     }
 
     function mixedAssemblyBenchCount(config, unitType) {
@@ -5234,7 +5287,7 @@
         assembly: "Assembly",
         testing: "Testing",
         hardware: "Hardware Check",
-        packing: "Packing"
+        packing: "Packaging build-up"
       };
       return labels[stage] || stage;
     }
@@ -5438,7 +5491,7 @@
                   <th>Assembly</th>
                   <th>Testing Network Setup</th>
                   <th>Hardware Check</th>
-                  <th>Packing</th>
+                  <th>Packaging build-up</th>
                   <th>Sub Assembly</th>
                 </tr>
               </thead>
@@ -5499,7 +5552,8 @@
        ============================================================ */
     function findBestAllocation(usableWorkers, commsType, unitType) {
       const workers = usableWorkers.filter(worker => window.PlannerSkills.inProduction(worker));
-      const maxPackingBenches = isTapUnit(unitType) ? 2 : 3;
+      const maxPackingBenches = usefulPackingBenches(unitType);
+      const maxHardwareBenches = usefulHardwareBenches(unitType, commsType);
 
       if (!workers.some(worker => canWorkerDoStation(worker, "subAssembly"))) {
         return { possible: false, reason: "Nobody who can do Sub Assembly is in." };
@@ -5523,7 +5577,7 @@
         }
         if (!early) return;
 
-        for (let hardware = 0; hardware <= 4; hardware++) {
+        for (let hardware = 0; hardware <= maxHardwareBenches; hardware++) {
           for (let packing = 0; packing <= maxPackingBenches; packing++) {
             const late = hardware + packing === 0
               ? { hardware: [], packing: [] }
@@ -5620,8 +5674,8 @@
         testingVerizon: "Verizon Testing",
         testingGlobal: "Global Testing",
         hardware: "Hardware Check",
-        packing: "Packing",
-        finalPackaging: "Final Packaging",
+        packing: "Packaging build-up",
+        finalPackaging: "Packing",
         custom: "Custom Job"
       };
       return labels[normalized] || stationLabel(normalized);
@@ -5910,13 +5964,14 @@
           const score = mixedStationCandidateScore(a, "hardware") - mixedStationCandidateScore(b, "hardware");
           return score || compareByRosterThenPriority(a, b);
         })
-        .slice(0, 4);
+        .slice(0, Math.max(0, ...workBatches.filter(batch => Number(batch.quantity) > 0)
+          .map(batch => usefulHardwareBenches(batch.unitKey || batch.unitType, batch.commsKey || batch.commsType))));
       candidates.forEach(worker => setWorkflowAssignment(model, "second", worker, "hardware"));
     }
 
     function preferredMixedPackingAssignments(model, usableWorkers, batches) {
       const activeBatches = batches.filter(batch => Number(batch.quantity) > 0);
-      const maxPackingBenches = activeBatches.some(batch => batch.unitType === "gen4") ? 3 : 2;
+      const maxPackingBenches = Math.max(0, ...activeBatches.map(batch => usefulPackingBenches(batch.unitKey || batch.unitType)));
       const hasTap = activeBatches.some(batch => batch.unitType === "tap");
       const testingKeys = new Set();
       if (hasTap) {
@@ -6311,7 +6366,7 @@
         Assembly: stageCapacityUnits.assembly,
         Testing: stageCapacityUnits.testing,
         "Hardware Check": stageCapacityUnits.hardware,
-        Packing: stageCapacityUnits.packing
+        "Packaging build-up": stageCapacityUnits.packing
       };
       const bottleneckEntry = Object.entries(comparable).reduce((lowest, current) => current[1] < lowest[1] ? current : lowest);
       const finalOutput = Math.max(0, Math.min(...Object.values(comparable)));
@@ -6938,7 +6993,7 @@
               <div class="mini">Assembly Capacity<strong>${stage.assembly}</strong></div>
               <div class="mini">Testing Capacity<strong>${escapeHtml(String(testingDisplay))}</strong></div>
               <div class="mini">Hardware Capacity<strong>${stage.hardware}</strong></div>
-              <div class="mini">Packing Capacity<strong>${stage.packing}</strong></div>
+              <div class="mini">Packaging build-up<strong>${stage.packing}</strong></div>
               <div class="mini">Unit Type<strong>${unitTypeLabel(unitType)}</strong></div>
               <div class="mini">Potential WIP<strong>${wip}</strong></div>
             </div>
@@ -7007,13 +7062,13 @@
         </tr>
         <tr>
           <td>Hardware Check</td>
-          <td>${result.hardwareBenches} / 4</td>
+          <td>${result.hardwareBenches} / ${usefulHardwareBenches(unitType, commsType)}</td>
           <td>${workerPills(result.names.hardware)}</td>
           <td>${result.checkedUnits} units checked</td>
         </tr>
         <tr>
-          <td>Packing</td>
-          <td>${result.packingBenches} / ${isTapUnit(unitType) ? 2 : 3}</td>
+          <td>Packaging build-up</td>
+          <td>${result.packingBenches} / ${usefulPackingBenches(unitType)}</td>
           <td>${workerPills(result.names.packing)}</td>
           <td>${result.packedUnits} units packing capacity</td>
         </tr>
@@ -7599,8 +7654,8 @@
         testingVerizon: "Verizon Testing",
         testingGlobal: "Global Testing",
         hardware: "Hardware Check",
-        packing: "Packing",
-        finalPackaging: "Final Packaging",
+        packing: "Packaging build-up",
+        finalPackaging: "Packing",
         finishCustom: "Finish Role"
       };
       return labels[station] || station;
