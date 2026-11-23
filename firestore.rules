@@ -33,6 +33,8 @@ rules_version = '2';
 //                                    comms, sims ({ items: [...] })
 //   workOrders/{id}                  customer orders built over several days
 //   customJobs/{id}                  saved names for other work (cleaning, stocktake)
+//   extraJobs/{id}                   jobs that are just text, carried day to day
+//                                    until marked done
 //   jobs/{id}                        job cards: units of an order moving bench to
 //                                    bench (assembly → testing → hardware →
 //                                    packing → done), across days
@@ -218,7 +220,8 @@ service cloud.firestore {
     function validWorkOrder() {
       let d = request.resource.data;
       return d.keys().hasAll(['customer', 'unitType', 'commsType', 'simType', 'configKey', 'quantity', 'status', 'updatedAt'])
-        && d.keys().hasOnly(['customer', 'unitType', 'unitKey', 'commsType', 'commsKey', 'simType', 'configKey', 'configText', 'quantity', 'status', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['customer', 'unitType', 'unitKey', 'commsType', 'commsKey', 'simType', 'connectorKey', 'configKey', 'configText', 'quantity', 'status', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && (d.get('connectorKey', null) == null || (d.connectorKey is string && d.connectorKey.size() <= 40))
         && d.customer is string && d.customer.size() > 0 && d.customer.size() <= 80
         && d.unitType in ['gen4', 'tap']
         && d.commsType in ['verizon', 'global']
@@ -228,6 +231,18 @@ service cloud.firestore {
         && (d.get('configText', null) == null || (d.configText is string && d.configText.size() <= 2000))
         && d.quantity is int && d.quantity > 0 && d.quantity <= 100000
         && d.status in ['open', 'closed']
+        && d.updatedAt == request.time;
+    }
+
+    // A job that is just text ("Test one Solar PCB and send to Western
+    // Power"), carried from day to day until it is marked done.
+    function validExtraJob() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['title', 'status', 'updatedAt'])
+        && d.keys().hasOnly(['title', 'status', 'doneDay', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 200
+        && d.status in ['open', 'done']
+        && (d.get('doneDay', null) == null || (d.doneDay is string && d.doneDay.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
         && d.updatedAt == request.time;
     }
 
@@ -313,6 +328,12 @@ service cloud.firestore {
     match /workOrders/{orderId} {
       allow read: if isAppUser();
       allow create, update: if isManagement() && validWorkOrder();
+      allow delete: if isManagement();
+    }
+
+    match /extraJobs/{extraJobId} {
+      allow read: if isAppUser();
+      allow create, update: if isManagement() && validExtraJob();
       allow delete: if isManagement();
     }
 

@@ -75,6 +75,8 @@
     .job-pick .job-pick-qty small { margin-left: 4px; font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--muted); }
     .job-pick.on { border-color: var(--comms); background: color-mix(in srgb, var(--comms) 10%, var(--raised)); box-shadow: inset 6px 0 0 var(--comms), 0 0 0 1px var(--comms); }
     .job-pick.on::after { content: "✓"; position: absolute; top: 10px; right: 12px; font-size: 18px; font-weight: 700; color: var(--comms); }
+    .job-pick.extra { border-style: dashed; }
+    .job-pick.extra b { white-space: normal; }
     .job-pick-delete { position: absolute; top: 6px; right: 6px; width: 28px; min-height: 28px; padding: 0; margin: 0; border-radius: 50%; display: grid; place-items: center; }
     .job-pick-delete .ico { width: 14px; height: 14px; }
     .job-creator form { display: grid; gap: 6px; }
@@ -127,29 +129,62 @@
     .orders-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .orders-head .section-title { margin: 0; }
     .orders-head button { margin: 0; }
-    .order-form { margin-bottom: 16px; padding: 14px; background: var(--inset); border: 1px solid var(--rule); border-radius: var(--radius); }
-    .order-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
-    .order-form-wide { grid-column: 1 / -1; }
-    .order-form textarea { min-height: 0; }
+    /* Existing orders: one card per order, in its comms colour */
+    .order-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .order-cards > .empty { color: var(--muted); font-size: 16px; font-weight: 600; }
+    .order-card {
+      --comms: var(--rule-strong);
+      position: relative; display: grid; gap: 3px; align-content: start; width: 100%; min-height: 0; margin: 0;
+      padding: 14px 16px; text-align: left; font-weight: 500; color: var(--ink);
+      border: 2px solid var(--comms); border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--comms) 8%, var(--raised));
+    }
+    .order-card:hover { background: color-mix(in srgb, var(--comms) 14%, var(--raised)); }
+    .order-card > b { font-family: var(--font-label); font-size: 24px; font-weight: 600; letter-spacing: 0.03em; }
+    .order-card-who { font-size: 16px; font-weight: 600; color: var(--ink-2); }
+    .order-card-swatch { position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(15, 39, 71, 0.3); }
+    .order-todo-head { margin-top: 8px; font-family: var(--font-label); font-size: 14px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+    .order-todo { display: flex; justify-content: space-between; gap: 10px; font-size: 16px; }
+    .order-todo b { font-family: var(--font-label); font-size: 20px; font-weight: 600; }
+    .order-card.closed { --comms: var(--rule-strong); opacity: 0.8; }
+    .extra-card { position: relative; display: grid; gap: 8px; align-content: space-between; padding: 14px 16px; border: 2px dashed var(--rule-strong); border-radius: var(--radius-lg); background: var(--raised); }
+    .extra-card p { margin: 0; padding-right: 26px; font-size: 16px; font-weight: 600; line-height: 1.35; }
+    .extra-card .extra-actions { display: flex; justify-content: flex-end; }
+    .extra-card .extra-actions button { margin: 0; min-height: 34px; padding: 5px 14px; }
+    .extra-card .job-pick-delete { top: 8px; right: 8px; }
+
+    /* New order: the sketch's row of pickers, colour circles, quantity */
+    .order-pickers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px 16px; }
+    .order-pickers label, .order-label, .order-side label { display: block; margin: 0 0 6px; font-family: var(--font-label); font-size: 15px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+    .order-pickers select, .order-pickers input, .order-side input { width: 100%; }
+    .order-lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: 20px 28px; margin-top: 18px; align-items: start; }
+    .order-side { display: grid; gap: 16px; }
+    .config-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 14px 10px; }
+    .config-pick { display: grid; justify-items: center; gap: 6px; min-height: 0; margin: 0; padding: 4px; border: 0; background: none; color: var(--ink-2); font-weight: 600; font-size: 14px; }
+    .config-pick:hover { background: none; }
+    .config-disc {
+      width: 104px; height: 104px; border-radius: 50%; display: grid; place-content: center; gap: 1px; padding: 10px;
+      background: var(--fill); color: var(--on-fill); text-align: center;
+      font-family: var(--font-label); font-size: 16px; font-weight: 600; line-height: 1.1;
+      box-shadow: inset 0 0 0 1px rgba(15, 39, 71, 0.25); transition: box-shadow 0.12s, transform 0.12s;
+    }
+    .config-disc span { display: block; max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .config-pick:hover .config-disc { transform: scale(1.04); }
+    .config-pick[aria-checked="true"] .config-disc { box-shadow: 0 0 0 3px var(--sheet), 0 0 0 6px var(--fill); }
+    .config-pick[aria-checked="true"] small { color: var(--ink); }
+    .config-pick small { font-size: 14px; }
+    @media (max-width: 900px) {
+      .order-pickers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .order-lower { grid-template-columns: 1fr; }
+    }
     .order-form-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
     .order-form-actions button { margin: 0; }
     .order-form-spacer { flex: 1; }
     .order-error { margin: 8px 0 0; min-height: 1px; color: var(--red); font-weight: 600; }
     .order-error:empty { display: none; }
-    .orders-table { width: 100%; border-collapse: collapse; }
-    .orders-table th, .orders-table td { padding: 9px 10px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: middle; font-size: 15px; }
-    .orders-table th { font-size: 13px; }
-    .orders-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .orders-table td.num b { font-family: var(--font-label); font-size: 19px; font-weight: 600; }
-    .orders-table .order-build { color: var(--ink-2); }
-    .orders-table .empty { color: var(--muted); }
-    .orders-table tr.on-today td { background: var(--accent-soft); }
-    .orders-table .row-actions { display: flex; justify-content: flex-end; gap: 6px; white-space: nowrap; }
-    .orders-table .row-actions button { margin: 0; min-height: 36px; padding: 6px 12px; font-size: 14px; }
-    .orders-table .done-tag { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
     .orders-closed { margin-top: 14px; }
     .orders-closed summary { cursor: pointer; font-family: var(--font-label); font-weight: 600; font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
-    .orders-closed .orders-table td { color: var(--ink-2); }
+    .orders-closed .order-cards { margin-top: 12px; }
     body.orders-linked .work-mode-bar,
     body.orders-linked .header-card { display: none !important; }
 
@@ -1511,53 +1546,52 @@
          ========================================================== -->
     <div class="card orders-card" data-step="mix">
       <div class="orders-head">
-        <h2 class="section-title">Work orders</h2>
+        <h2 class="section-title">Existing orders</h2>
         <button type="button" id="newOrderButton">New order</button>
       </div>
+      <div class="order-cards" id="ordersBody"><span class="empty">Loading…</span></div>
+      <details class="orders-closed hidden" id="ordersClosed">
+        <summary id="ordersClosedSummary">Closed</summary>
+        <div class="order-cards" id="ordersClosedBody"></div>
+      </details>
+    </div>
 
-      <form id="orderForm" class="order-form hidden" autocomplete="off">
-        <div class="order-form-grid">
+    <div class="card order-panel hidden" id="orderPanel" data-step="mix">
+      <h2 class="section-title" id="orderPanelTitle">New order</h2>
+      <form id="orderForm" autocomplete="off">
+        <div class="order-pickers">
+          <div><label for="orderUnit">Unit</label><select id="orderUnit"></select></div>
           <div><label for="orderCustomer">Customer</label><input id="orderCustomer" type="text" maxlength="80" list="orderCustomerList" /><datalist id="orderCustomerList"></datalist></div>
-          <div><label for="orderUnit">Unit type</label><select id="orderUnit"></select></div>
-          <div><label for="orderComms">Comms type</label><select id="orderComms"></select></div>
-          <div><label for="orderSim">SIM type</label><select id="orderSim"></select></div>
-          <div><label for="orderConfig">Configuration colour</label><select id="orderConfig"></select></div>
-          <div><label for="orderQuantity">Quantity</label><input id="orderQuantity" type="number" min="1" step="1" inputmode="numeric" /></div>
-          <div class="order-form-wide"><label for="orderConfigText">Component setup</label><textarea id="orderConfigText" rows="2" maxlength="2000"></textarea></div>
+          <div><label for="orderConnector">Connector</label><select id="orderConnector"></select></div>
+          <div><label for="orderComms">Comms</label><select id="orderComms"></select></div>
+          <div><label for="orderSim">SIM</label><select id="orderSim"></select></div>
+        </div>
+        <div class="order-lower">
+          <div class="order-configs">
+            <span class="order-label" id="orderConfigLabel">Configuration</span>
+            <div class="config-picks" id="orderConfigPicks" role="radiogroup" aria-labelledby="orderConfigLabel"></div>
+            <input type="hidden" id="orderConfig" />
+          </div>
+          <div class="order-side">
+            <div><label for="orderQuantity">Quantity</label><input id="orderQuantity" type="number" min="1" step="1" inputmode="numeric" /></div>
+            <div class="order-additional" id="orderAdditional">
+              <label for="extraJobTitle">Additional</label>
+              <div class="job-creator-row">
+                <input id="extraJobTitle" type="text" maxlength="200" />
+                <button type="button" class="secondary" id="extraJobAdd">Add</button>
+              </div>
+            </div>
+          </div>
         </div>
         <p class="order-error" id="orderError" role="alert"></p>
         <div class="order-form-actions">
           <button type="button" class="danger hidden" id="orderDelete">Delete</button>
+          <button type="button" class="secondary hidden" id="orderStatusButton">Close order</button>
           <span class="order-form-spacer"></span>
           <button type="button" class="secondary" id="orderCancel">Cancel</button>
           <button type="submit" id="orderSave">Save order</button>
         </div>
       </form>
-
-      <div class="table-scroll">
-        <table class="orders-table">
-          <thead>
-            <tr>
-              <th>Customer</th>
-              <th>Build</th>
-              <th class="num">Ordered</th>
-              <th class="num">Packed</th>
-              <th class="num">In progress</th>
-              <th class="num">Today</th>
-              <th class="num">Left</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="ordersBody"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
-        </table>
-      </div>
-
-      <details class="orders-closed hidden" id="ordersClosed">
-        <summary id="ordersClosedSummary">Closed</summary>
-        <div class="table-scroll">
-          <table class="orders-table"><tbody id="ordersClosedBody"></tbody></table>
-        </div>
-      </details>
     </div>
 
     <!-- ==========================================================
@@ -2583,36 +2617,59 @@
     let orderUsageTicket = 0;
 
     function wireOrders() {
-      fillOrderConfigOptions();
       document.getElementById("newOrderButton").addEventListener("click", () => openOrderForm(null));
       document.getElementById("orderCancel").addEventListener("click", closeOrderForm);
-      document.getElementById("orderComms").addEventListener("change", () => fillOrderSimOptions());
-      document.getElementById("orderConfig").addEventListener("change", event => {
-        document.getElementById("orderConfigText").value = configurationComponentSummary(event.target.value);
-      });
       document.getElementById("orderForm").addEventListener("submit", event => {
         event.preventDefault();
         saveOrderForm();
       });
       document.getElementById("orderDelete").addEventListener("click", deleteEditingOrder);
+      document.getElementById("orderStatusButton").addEventListener("click", event => {
+        const order = workOrders.find(item => item.id === editingOrderId);
+        if (!order) return;
+        setOrderStatusFromTable(order.id, order.status === "closed" ? "open" : "closed", event.currentTarget)
+          .then(() => closeOrderForm());
+      });
 
-      const onTableClick = event => {
-        const today = event.target.closest("[data-order-today]");
-        if (today) return toggleOrderToday(today.dataset.orderToday);
+      // Auto-fill follows the unit and customer; fields picked by hand stay.
+      document.getElementById("orderUnit").addEventListener("change", autoFillOrder);
+      document.getElementById("orderCustomer").addEventListener("change", autoFillOrder);
+      document.getElementById("orderConnector").addEventListener("change", () => orderTouched.add("connector"));
+      document.getElementById("orderComms").addEventListener("change", () => {
+        orderTouched.add("comms");
+        fillOrderSimOptions();
+        autoFillOrder();
+      });
+      document.getElementById("orderSim").addEventListener("change", () => orderTouched.add("sim"));
+      document.getElementById("orderConfigPicks").addEventListener("click", event => {
+        const pick = event.target.closest("[data-config]");
+        if (!pick) return;
+        orderTouched.add("config");
+        renderConfigPicks(pick.dataset.config);
+      });
+
+      document.getElementById("extraJobAdd").addEventListener("click", addExtraJob);
+      document.getElementById("extraJobTitle").addEventListener("keydown", event => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        addExtraJob();
+      });
+
+      const onCardsClick = event => {
+        const done = event.target.closest("[data-extra-done]");
+        if (done) return finishExtraJob(done.dataset.extraDone, done);
+        const remove = event.target.closest("[data-extra-delete]");
+        if (remove) return deleteExtraJob(remove.dataset.extraDelete);
         const edit = event.target.closest("[data-order-edit]");
         if (edit) return openOrderForm(edit.dataset.orderEdit);
-        const close = event.target.closest("[data-order-close]");
-        if (close) return setOrderStatusFromTable(close.dataset.orderClose, "closed", close);
-        const reopen = event.target.closest("[data-order-reopen]");
-        if (reopen) return setOrderStatusFromTable(reopen.dataset.orderReopen, "open", reopen);
       };
-      document.getElementById("ordersBody").addEventListener("click", onTableClick);
-      document.getElementById("ordersClosedBody").addEventListener("click", onTableClick);
+      document.getElementById("ordersBody").addEventListener("click", onCardsClick);
+      document.getElementById("ordersClosedBody").addEventListener("click", onCardsClick);
 
       window.plannerData.orders.watch(list => {
         if (!list) {
           if (!workOrdersLoaded) {
-            document.getElementById("ordersBody").innerHTML = '<tr><td colspan="8" class="empty">Orders can\'t be loaded right now.</td></tr>';
+            document.getElementById("ordersBody").innerHTML = '<span class="empty">Orders can\'t be loaded right now.</span>';
           }
           return;
         }
@@ -2621,6 +2678,12 @@
         syncLinkedBatches();
         renderOrders();
         refreshOrderUsage();
+      });
+      window.plannerData.extraJobs.watch(list => {
+        if (!list) return;
+        openExtraJobs = list;
+        renderOrders();
+        renderJobsBoard();
       });
     }
 
@@ -2760,10 +2823,55 @@
       else applyWorkDayModeUi();
     }
 
-    function orderBuildText(order) {
-      const parts = [unitTypeLabel(order), commsAndSim(order)];
-      parts.push(configurationLabel(order.configKey));
-      return parts.join(" · ");
+    // "SCE – Verizon", or the SIM when it says more ("PG&E – Fusion NA").
+    function orderWho(order) {
+      const comms = getCommsLabel(order);
+      const sim = order.simType ? getSimPlanLabel(order.simType) : "";
+      return `${order.customer} – ${sim && sim !== comms ? sim : comms}`;
+    }
+
+    /* What an order still has to do at each bench: units not yet past a
+       bench, out of the units that have reached it. Job cards still on
+       their way say where units are; finished counts every packed unit. */
+    function orderToDo(order) {
+      const at = { assembly: 0, testing: 0, hardware: 0, packing: 0 };
+      activeJobs.filter(job => job.orderId === order.id).forEach(job => {
+        if (job.stage in at) at[job.stage] += Number(job.quantity) || 0;
+      });
+      const finished = workOrderUsage.get(order.id)?.finished || 0;
+      const checked = finished + at.packing;
+      const tested = checked + at.hardware;
+      const assembled = tested + at.testing;
+      return [
+        ["Assemble", Math.max(0, order.quantity - assembled), order.quantity],
+        ["Test", at.testing, assembled],
+        ["Hardware check", at.hardware, tested],
+        ["Pack", at.packing, checked]
+      ].filter(([, left]) => left > 0);
+    }
+
+    function orderCardHtml(order) {
+      const colour = listsApi()?.commsColour(order) || "var(--rule-strong)";
+      const config = sensorConfigurations[order.configKey];
+      const closed = order.status === "closed";
+      const lines = closed ? [] : orderToDo(order);
+      return `
+        <button type="button" class="order-card ${closed ? "closed" : ""}" data-order-edit="${safeAttr(order.id)}" style="--comms:${safeAttr(colour)}">
+          ${config?.colourHex ? `<span class="order-card-swatch" style="background:${safeAttr(config.colourHex)}" title="${safeAttr(config.label)}"></span>` : ""}
+          <b>${escapeHtml(unitTypeLabel(order))}</b>
+          <span class="order-card-who">${escapeHtml(orderWho(order))}</span>
+          ${lines.length ? `<span class="order-todo-head">To do</span>${lines.map(([name, left, of]) => `
+            <span class="order-todo"><span>${escapeHtml(name)}</span><b>${left}/${of}</b></span>`).join("")}` : ""}
+        </button>`;
+    }
+
+    function extraCardHtml(job) {
+      return `
+        <div class="extra-card">
+          <p>${escapeHtml(job.title)}</p>
+          <div class="extra-actions"><button type="button" class="secondary" data-extra-done="${safeAttr(job.id)}">Done</button></div>
+          <button type="button" class="secondary job-pick-delete" data-extra-delete="${safeAttr(job.id)}" aria-label="Delete"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>`;
     }
 
     function renderOrders() {
@@ -2771,56 +2879,16 @@
       if (!body || !workOrdersLoaded) return;
       const open = workOrders.filter(order => order.status !== "closed");
       const closed = workOrders.filter(order => order.status === "closed");
-      const count = value => (value === null || value === undefined ? "…" : String(value));
-
-      body.innerHTML = open.length
-        ? open.map(order => {
-            const usage = workOrderUsage.get(order.id);
-            const onToday = workBatches.some(batch => batch.orderId === order.id);
-            const today = onToday ? todayQuantityFor(order.id) : 0;
-            const before = orderLeftBefore(order);
-            const left = before === null ? null : Math.max(0, before - today);
-            return `
-              <tr class="${onToday ? "on-today" : ""}">
-                <td><b>${escapeHtml(order.customer)}</b></td>
-                <td class="order-build">${escapeHtml(orderBuildText(order))}</td>
-                <td class="num">${order.quantity}</td>
-                <td class="num">${count(usage?.packed)}</td>
-                <td class="num">${count(usage?.released)}</td>
-                <td class="num">${onToday ? today : "–"}</td>
-                <td class="num"><b>${count(left)}</b></td>
-                <td>
-                  <div class="row-actions">
-                    <button type="button" class="secondary" data-order-edit="${safeAttr(order.id)}">Edit</button>
-                    <button type="button" class="secondary" data-order-close="${safeAttr(order.id)}">Close</button>
-                  </div>
-                </td>
-              </tr>`;
-          }).join("")
-        : '<tr><td colspan="8" class="empty">No open orders</td></tr>';
+      const cards = [...open.map(orderCardHtml), ...openExtraJobs.map(extraCardHtml)];
+      body.innerHTML = cards.length ? cards.join("") : '<span class="empty">No existing orders</span>';
 
       const closedBox = document.getElementById("ordersClosed");
       closedBox.classList.toggle("hidden", !closed.length);
       document.getElementById("ordersClosedSummary").textContent = `Closed (${closed.length})`;
-      document.getElementById("ordersClosedBody").innerHTML = closed.map(order => `
-        <tr>
-          <td><b>${escapeHtml(order.customer)}</b></td>
-          <td class="order-build">${escapeHtml(orderBuildText(order))}</td>
-          <td class="num">${order.quantity}</td>
-          <td>
-            <div class="row-actions">
-              <button type="button" class="secondary" data-order-reopen="${safeAttr(order.id)}">Reopen</button>
-              <button type="button" class="secondary" data-order-edit="${safeAttr(order.id)}">Edit</button>
-            </div>
-          </td>
-        </tr>`).join("");
-    }
+      document.getElementById("ordersClosedBody").innerHTML = closed.map(orderCardHtml).join("");
 
-    function fillOrderConfigOptions(keepKey) {
-      document.getElementById("orderConfig").innerHTML = Object.entries(sensorConfigurations)
-        .filter(([key, config]) => config.active !== false || key === keepKey)
-        .map(([key, config]) => `<option value="${safeAttr(key)}">${escapeHtml(config.label)}</option>`)
-        .join("");
+      // With nothing open, the new-order form is open below.
+      if (!cards.length && document.getElementById("orderPanel").classList.contains("hidden")) openOrderForm(null);
     }
 
     // Active items of a list, plus keepKey if it has since been retired.
@@ -2839,14 +2907,16 @@
       .map(item => `<option value="${safeAttr(item.key)}">${escapeHtml(item.label)}</option>`)
       .join("");
 
-    function fillOrderListOptions(unitKey, commsKey) {
+    function fillOrderListOptions(unitKey, commsKey, connectorKey) {
       document.getElementById("orderUnit").innerHTML = optionsHtml(listChoices("units", unitKey));
       document.getElementById("orderComms").innerHTML = optionsHtml(listChoices("comms", commsKey));
+      document.getElementById("orderConnector").innerHTML = optionsHtml(listChoices("connectors", connectorKey));
       document.getElementById("orderCustomerList").innerHTML = listChoices("customers")
         .map(customer => `<option value="${safeAttr(customer.label)}"></option>`)
         .join("");
       if (unitKey) document.getElementById("orderUnit").value = unitKey;
       if (commsKey) document.getElementById("orderComms").value = commsKey;
+      if (connectorKey) document.getElementById("orderConnector").value = connectorKey;
     }
 
     function fillOrderSimOptions(value) {
@@ -2862,17 +2932,35 @@
       sim.disabled = sims.length < 2;
     }
 
+    // The configuration colours as circles with their setup inside.
+    function renderConfigPicks(selectedKey) {
+      const lists = listsApi();
+      const keys = Object.keys(sensorConfigurations)
+        .filter(key => sensorConfigurations[key].active !== false || key === selectedKey);
+      document.getElementById("orderConfig").value = selectedKey || "";
+      document.getElementById("orderConfigPicks").innerHTML = keys.map(key => {
+        const config = sensorConfigurations[key];
+        const fill = config.colourHex || "#64748b";
+        const lines = [config.coaxCableLength, config.middlePhaseSensor, config.powerCable].map(line => String(line || "").trim() || "–");
+        return `
+          <button type="button" class="config-pick" role="radio" aria-checked="${key === selectedKey}" data-config="${safeAttr(key)}"
+            style="--fill:${safeAttr(fill)};--on-fill:${safeAttr(lists ? lists.textOn(fill) : "#ffffff")}">
+            <span class="config-disc">${lines.map(line => `<span>${escapeHtml(line)}</span>`).join("")}</span>
+            <small>${escapeHtml(config.label)}</small>
+          </button>`;
+      }).join("");
+    }
+
     // Live list changes while the form is open keep what was picked.
     function refreshOpenOrderForm() {
-      if (document.getElementById("orderForm").classList.contains("hidden")) return;
-      const unitKey = document.getElementById("orderUnit").value;
-      const commsKey = document.getElementById("orderComms").value;
-      const simKey = document.getElementById("orderSim").value;
-      const configKey = document.getElementById("orderConfig").value;
-      fillOrderListOptions(unitKey, commsKey);
-      fillOrderSimOptions(simKey);
-      fillOrderConfigOptions(configKey);
-      document.getElementById("orderConfig").value = configKey;
+      if (document.getElementById("orderPanel").classList.contains("hidden")) return;
+      fillOrderListOptions(
+        document.getElementById("orderUnit").value,
+        document.getElementById("orderComms").value,
+        document.getElementById("orderConnector").value
+      );
+      fillOrderSimOptions(document.getElementById("orderSim").value);
+      renderConfigPicks(document.getElementById("orderConfig").value);
     }
 
     function defaultConfigKey() {
@@ -2880,43 +2968,97 @@
       return Object.keys(sensorConfigurations).find(key => sensorConfigurations[key].active !== false) || "blue";
     }
 
+    /* Auto-fill: a new order takes the most common build of earlier orders
+       for the same unit type (the same customer's first, if they have any).
+       Anything picked by hand in this form is left alone. */
+    let orderTouched = new Set();
+
+    function mostCommon(values) {
+      const counts = new Map();
+      values.filter(Boolean).forEach((value, index) => {
+        const entry = counts.get(value) || { count: 0, last: 0 };
+        counts.set(value, { count: entry.count + 1, last: index });
+      });
+      return [...counts.entries()].sort((a, b) => b[1].count - a[1].count || b[1].last - a[1].last)[0]?.[0] || null;
+    }
+
+    function autoFillOrder() {
+      if (editingOrderId) return;
+      const unitKey = document.getElementById("orderUnit").value;
+      const customer = document.getElementById("orderCustomer").value.trim().toLowerCase();
+      const sameUnit = workOrders.filter(order => (order.unitKey || order.unitType) === unitKey);
+      const sameCustomer = customer ? sameUnit.filter(order => String(order.customer).trim().toLowerCase() === customer) : [];
+      const history = sameCustomer.length ? sameCustomer : sameUnit;
+      if (!history.length) return;
+      const set = (id, value) => {
+        const field = document.getElementById(id);
+        if (value && [...field.options].some(option => option.value === value)) field.value = value;
+      };
+      if (!orderTouched.has("connector")) set("orderConnector", mostCommon(history.map(order => order.connectorKey)));
+      if (!orderTouched.has("comms")) {
+        set("orderComms", mostCommon(history.map(order => order.commsKey || order.commsType)));
+        fillOrderSimOptions();
+      }
+      if (!orderTouched.has("sim")) {
+        const commsKey = document.getElementById("orderComms").value;
+        set("orderSim", mostCommon(history.filter(order => (order.commsKey || order.commsType) === commsKey).map(order => order.simType)));
+      }
+      if (!orderTouched.has("config")) {
+        const configKey = mostCommon(history.map(order => order.configKey));
+        if (configKey && sensorConfigurations[configKey] && sensorConfigurations[configKey].active !== false) renderConfigPicks(configKey);
+      }
+    }
+
     function openOrderForm(orderId) {
       const order = orderId ? workOrders.find(item => item.id === orderId) : null;
       editingOrderId = order ? order.id : null;
+      orderTouched = new Set();
       const lists = listsApi();
       const firstConfig = defaultConfigKey();
       const source = order || {
         customer: "",
         unitKey: lists?.items("units")[0]?.key || "gen4",
         commsKey: lists?.items("comms")[0]?.key || "verizon",
+        connectorKey: lists?.items("connectors")[0]?.key || "",
         simType: "",
-        configKey: firstConfig, configText: configurationComponentSummary(firstConfig), quantity: ""
+        configKey: firstConfig,
+        quantity: ""
       };
-      fillOrderListOptions(source.unitKey || source.unitType, source.commsKey || source.commsType);
-      fillOrderConfigOptions(source.configKey);
+      fillOrderListOptions(source.unitKey || source.unitType, source.commsKey || source.commsType, source.connectorKey);
       document.getElementById("orderCustomer").value = source.customer;
       fillOrderSimOptions(source.simType);
-      document.getElementById("orderConfig").value = sensorConfigurations[source.configKey] ? source.configKey : firstConfig;
-      document.getElementById("orderConfigText").value = source.configText ?? configurationComponentSummary(source.configKey);
+      renderConfigPicks(sensorConfigurations[source.configKey] ? source.configKey : firstConfig);
       document.getElementById("orderQuantity").value = source.quantity;
+      document.getElementById("orderPanelTitle").textContent = order ? `${unitTypeLabel(order)} · ${order.customer}` : "New order";
       document.getElementById("orderDelete").classList.toggle("hidden", !order);
+      const status = document.getElementById("orderStatusButton");
+      status.classList.toggle("hidden", !order);
+      status.textContent = order?.status === "closed" ? "Reopen" : "Close order";
+      document.getElementById("orderAdditional").classList.toggle("hidden", Boolean(order));
       document.getElementById("orderSave").textContent = order ? "Save changes" : "Save order";
       document.getElementById("orderError").textContent = "";
-      document.getElementById("orderForm").classList.remove("hidden");
-      document.getElementById("orderCustomer").focus();
+      document.getElementById("orderPanel").classList.remove("hidden");
+      if (!order) autoFillOrder();
+      if (orderId) document.getElementById("orderPanel").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function closeOrderForm() {
       editingOrderId = null;
-      document.getElementById("orderForm").classList.add("hidden");
+      document.getElementById("orderPanel").classList.add("hidden");
+      renderOrders();
     }
 
     async function saveOrderForm() {
       const error = document.getElementById("orderError");
       const customer = document.getElementById("orderCustomer").value.trim();
       const quantity = Number(document.getElementById("orderQuantity").value);
+      const configKey = document.getElementById("orderConfig").value;
       if (!customer) {
         error.textContent = "Enter the customer.";
+        return;
+      }
+      if (!configKey) {
+        error.textContent = "Pick a configuration.";
         return;
       }
       if (!Number.isInteger(quantity) || quantity < 1) {
@@ -2941,8 +3083,9 @@
           commsType: lists.commsPlanAs(commsKey),
           commsKey,
           simType: document.getElementById("orderSim").value,
-          configKey: document.getElementById("orderConfig").value,
-          configText: document.getElementById("orderConfigText").value,
+          connectorKey: document.getElementById("orderConnector").value || null,
+          configKey,
+          configText: configurationComponentSummary(configKey),
           quantity
         });
         closeOrderForm();
@@ -2951,6 +3094,43 @@
         error.textContent = `That wasn't saved: ${window.plannerData.friendlyError(problem)}`;
       } finally {
         save.disabled = false;
+      }
+    }
+
+    /* Additional jobs: just text, carried day to day until marked done.
+       On the Benches page each one goes into a block (2 hours). */
+    let openExtraJobs = [];
+
+    async function addExtraJob() {
+      const input = document.getElementById("extraJobTitle");
+      const title = input.value.trim().replace(/\s+/g, " ").slice(0, 200);
+      if (!title) return input.focus();
+      input.value = "";
+      try {
+        await window.plannerData.extraJobs.add(title);
+      } catch (problem) {
+        if (!input.value) input.value = title;
+        document.getElementById("orderError").textContent = `That wasn't saved: ${window.plannerData.friendlyError(problem)}`;
+      }
+    }
+
+    async function finishExtraJob(id, button) {
+      button.disabled = true;
+      try {
+        await window.plannerData.extraJobs.finish(id, planDateValue());
+      } catch (problem) {
+        button.disabled = false;
+        window.alert(`That wasn't saved: ${window.plannerData.friendlyError(problem)}`);
+      }
+    }
+
+    async function deleteExtraJob(id) {
+      const job = openExtraJobs.find(item => item.id === id);
+      if (!job || !window.confirm(`Delete "${job.title}"?`)) return;
+      try {
+        await window.plannerData.extraJobs.remove(id);
+      } catch (problem) {
+        window.alert(`That wasn't deleted: ${window.plannerData.friendlyError(problem)}`);
       }
     }
 
@@ -3004,6 +3184,7 @@
         if (!list) return;
         activeJobs = list;
         renderJobsBoard();
+        renderOrders();
       });
     }
 
@@ -3105,6 +3286,7 @@
       const kind = key.slice(0, split);
       const id = key.slice(split + 1);
       if (kind === "order") return toggleOrderToday(id);
+      if (kind === "extra") return toggleExtraJob(id);
       if (kind !== "job") return;
       if (dayJobs.some(job => job.id === id)) return onJobMove(key, "lane", "waiting");
       const job = activeJobs.find(item => item.id === id);
@@ -3181,7 +3363,18 @@
           deletable: !on
         });
       });
-      const cards = [...orderCards, ...waitingCards];
+      const extraCards = openExtraJobs.map(job => {
+        const blocks = WORKFLOW_PHASES.filter(phase => (blockJobs[phase] || []).includes(job.title));
+        const hours = blocks.length * 2;
+        return `
+          <div class="job-pick-wrap">
+            <button type="button" class="job-pick extra ${blocks.includes(benchBoardPhase) ? "on" : ""}" data-pick="extra:${safeAttr(job.id)}" aria-pressed="${blocks.includes(benchBoardPhase)}">
+              <b>${escapeHtml(job.title)}</b>
+              ${hours ? `<span class="job-pick-qty">${hours} h <small>(${escapeHtml(blocks.map(phase => BENCH_PHASE_TABS[phase]).join(", "))})</small></span>` : ""}
+            </button>
+          </div>`;
+      });
+      const cards = [...orderCards, ...waitingCards, ...extraCards];
       root.innerHTML = cards.length ? cards.join("") : '<span class="empty">None</span>';
     }
 
@@ -3226,10 +3419,26 @@
       }
     }
 
+    // An extra job goes into the block on screen (2 hours a block), or
+    // comes out of it again.
+    function toggleExtraJob(id) {
+      const job = openExtraJobs.find(item => item.id === id);
+      if (!job) return;
+      const list = blockJobs[benchBoardPhase] || [];
+      blockJobs = {
+        ...blockJobs,
+        [benchBoardPhase]: list.includes(job.title) ? list.filter(item => item !== job.title) : [...list, job.title]
+      };
+      markPlanChanged();
+      renderJobsBoard();
+      renderBenchBoard();
+    }
+
     function removeBlockJob(name) {
       blockJobs = { ...blockJobs, [benchBoardPhase]: (blockJobs[benchBoardPhase] || []).filter(item => item !== name) };
       markPlanChanged();
       renderBenchBoard();
+      renderJobsBoard();
     }
 
     function markPlanChanged() {
@@ -4354,6 +4563,7 @@
           benchBoardPhase = WORKFLOW_PHASES[index];
           benchBoardMessage = "";
           benchBoard.clearSelection();
+          renderJobsBoard();
           return;
         }
         const action = event.target.closest("[data-bench-action]");

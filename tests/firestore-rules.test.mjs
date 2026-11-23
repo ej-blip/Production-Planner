@@ -781,6 +781,50 @@ describe("Lists", () => {
     await assertFails(setDoc(doc(db, "workOrders", "listed-order-2"), { ...fields, status: "open", unitKey: "" }));
     await assertFails(setDoc(doc(db, "jobs", "listed-job-2"), { ...fields, stage: "assembly", day: RELEASED, commsKey: 7 }));
     await assertFails(setDoc(doc(db, "workOrders", "listed-order-3"), { ...fields, status: "open", unitType: "gen5" }));
+    await assertSucceeds(setDoc(doc(db, "workOrders", "listed-order-4"), { ...fields, status: "open", connectorKey: "2-pin-plastic" }));
+    await assertFails(setDoc(doc(db, "workOrders", "listed-order-5"), { ...fields, status: "open", connectorKey: 2 }));
+  });
+});
+
+describe("Extra jobs", () => {
+  // What planner-data.js writes for a job that is just text.
+  const extra = fields => ({
+    title: "Test one Solar PCB and send to Western Power", status: "open",
+    createdBy: "Management", createdAt: serverTimestamp(), updatedBy: "Management", updatedAt: serverTimestamp(),
+    ...fields
+  });
+
+  it("management adds, finishes and deletes one", async () => {
+    const db = management();
+    const ref = doc(db, "extraJobs", "extra-1");
+    await assertSucceeds(setDoc(ref, extra()));
+    await assertSucceeds(updateDoc(ref, { status: "done", doneDay: RELEASED, updatedBy: "Management", updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ref, { status: "open", doneDay: null, updatedBy: "Management", updatedAt: serverTimestamp() }));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it("they must be well formed", async () => {
+    const db = management();
+    const ref = doc(db, "extraJobs", "extra-2");
+    await assertFails(setDoc(ref, extra({ title: "" })));
+    await assertFails(setDoc(ref, extra({ title: "x".repeat(201) })));
+    await assertFails(setDoc(ref, extra({ status: "lost" })));
+    await assertFails(setDoc(ref, extra({ doneDay: "tomorrow" })));
+    await assertFails(setDoc(ref, extra({ hours: 2 })));
+  });
+
+  it("benches read them but cannot change them", async () => {
+    await assertSucceeds(setDoc(doc(management(), "extraJobs", "extra-3"), extra()));
+    const db = bench();
+    await assertSucceeds(getDocs(collection(db, "extraJobs")));
+    await assertFails(setDoc(doc(db, "extraJobs", "extra-4"), extra()));
+    await assertFails(updateDoc(doc(db, "extraJobs", "extra-3"), { status: "done", updatedAt: serverTimestamp() }));
+  });
+
+  it("screens without a working PIN see nothing", async () => {
+    for (const screen of [stranger, revoked, spoofed, nobody]) {
+      await assertFails(getDocs(collection(screen(), "extraJobs")));
+    }
   });
 });
 

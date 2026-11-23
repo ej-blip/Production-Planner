@@ -18,9 +18,12 @@
 //   orders.save(order)           → adds an order (no id) or updates one
 //   orders.setStatus(id, status) → "open" | "closed"
 //   orders.remove(id)
-//   orders.usage(ids, skipDate)  → Map id → { packed, released }: job cards not
-//                                  made for skipDate, plus older released days
-//                                  saved before job cards
+//   orders.usage(ids, skipDate)  → Map id → { packed, released, finished }: job
+//                                  cards not made for skipDate, plus older
+//                                  released days saved before job cards;
+//                                  finished counts every packed card
+//   extraJobs.watch(callback)    → live list of text-only jobs not yet done
+//   extraJobs.add(title), extraJobs.finish(id, day), extraJobs.remove(id)
 //   customJobs.watch(callback)   → live list of saved custom job names
 //   customJobs.add(name), customJobs.remove(id)
 //   jobs.watch(callback)         → live list of job cards not yet done
@@ -225,7 +228,7 @@ function watchRosters(dates, callback) {
 // ---------------------------------------------------------------------
 // Work orders: a customer order built over several days
 // ---------------------------------------------------------------------
-const ORDER_FIELDS = ["customer", "unitType", "unitKey", "commsType", "commsKey", "simType", "configKey", "configText", "quantity"];
+const ORDER_FIELDS = ["customer", "unitType", "unitKey", "commsType", "commsKey", "simType", "connectorKey", "configKey", "configText", "quantity"];
 
 function watchOrders(onChange) {
   return onSnapshot(collection(db, "workOrders"), snapshot => {
@@ -270,7 +273,7 @@ function removeOrder(id) {
 // counts those as "today"). Released days saved before job cards count the
 // old way: Packing's real number, or the planned amount until it reports.
 async function orderUsage(ids, skipDate) {
-  const usage = new Map(ids.map(id => [id, { packed: 0, released: 0 }]));
+  const usage = new Map(ids.map(id => [id, { packed: 0, released: 0, finished: 0 }]));
   if (!ids.length) return usage;
   const chunks = [];
   for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
@@ -283,6 +286,7 @@ async function orderUsage(ids, skipDate) {
   jobSnapshots.forEach(snapshot => snapshot.docs.forEach(entry => {
     const job = entry.data();
     const tally = usage.get(job.orderId);
+    if (tally && job.stage === "done") tally.finished += job.quantity;
     if (!tally || job.day === skipDate) return;
     if (job.stage === "done") tally.packed += job.quantity;
     else tally.released += job.quantity;
@@ -298,9 +302,12 @@ async function orderUsage(ids, skipDate) {
     batches.forEach(batch => {
       const tally = usage.get(batch.orderId);
       const item = progressOf(progress, "packing", batch);
-      if (item.status === "hit") tally.packed += Number.isInteger(item.done) ? item.done : expectedUnits(progress, "packing", batch);
-      else if (item.status === "short") tally.packed += item.done || 0;
-      else tally.released += batch.planned;
+      const packed = item.status === "hit"
+        ? (Number.isInteger(item.done) ? item.done : expectedUnits(progress, "packing", batch))
+        : item.status === "short" ? item.done || 0 : 0;
+      tally.packed += packed;
+      tally.finished += packed;
+      if (item.status !== "hit" && item.status !== "short") tally.released += batch.planned;
     });
   }));
   return usage;
@@ -317,6 +324,27 @@ function watchJobs(onChange) {
 }
 
 // Saved names for other work (cleaning, stocktake), A to Z.
+// Jobs that are just text, open ones oldest first.
+const extraJobs = {
+  watch(onChange) {
+    return onSnapshot(query(collection(db, "extraJobs"), where("status", "==", "open")), snapshot => {
+      onChange(snapshot.docs
+        .map(entry => ({ id: entry.id, ...entry.data() }))
+        .sort((a, b) => (a.createdAt?.toMillis?.() || Date.now()) - (b.createdAt?.toMillis?.() || Date.now())));
+    }, () => onChange(null));
+  },
+  add: title => addDoc(collection(db, "extraJobs"), {
+    title: String(title).trim().slice(0, 200),
+    status: "open",
+    createdAt: serverTimestamp(),
+    createdBy: ACTOR,
+    updatedAt: serverTimestamp(),
+    updatedBy: ACTOR
+  }),
+  finish: (id, day) => updateDoc(doc(db, "extraJobs", id), { status: "done", doneDay: day, updatedAt: serverTimestamp(), updatedBy: ACTOR }),
+  remove: id => deleteDoc(doc(db, "extraJobs", id))
+};
+
 const customJobs = {
   watch(onChange) {
     return onSnapshot(collection(db, "customJobs"), snapshot => {
@@ -397,6 +425,7 @@ window.plannerData = {
   orders,
   jobs,
   customJobs,
+  extraJobs,
   requests,
   showPhoto,
   lockScreen,
