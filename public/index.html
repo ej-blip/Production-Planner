@@ -1161,218 +1161,60 @@
       margin-bottom: 14px;
     }
 
+    /* Plan picture: swimlanes across the three blocks ------------------ */
     .production-plan-preview {
       position: relative;
-      min-width: 1250px;
-      background: var(--workflow-bg);
-      color: var(--workflow-text);
+      min-width: 1080px;
+      padding: 22px 24px 26px;
+      background: #ffffff;
+      color: var(--ink);
       border: 1px solid var(--rule-strong);
-      
-      overflow: hidden;
+      border-radius: var(--radius-lg);
+      font-family: var(--font);
     }
-
-    .plan-title {
-      background: var(--accent-soft);
-      color: var(--ink);
-      text-align: center;
-      font-size: 42px;
-      font-weight: 700;
-      padding: 11px 16px;
-      letter-spacing: 0.01em;
-    }
-
-    .plan-header-grid {
-      display: grid;
-      grid-template-columns: 150px minmax(110px, 0.65fr) 155px minmax(170px, 1fr) 225px minmax(230px, 1.3fr);
-      border-top: 1px solid var(--rule);
-      border-left: 1px solid var(--rule);
-      background: var(--raised);
-    }
-
-    .plan-label,
-    .plan-value {
-      min-height: 48px;
-      display: flex;
-      align-items: center;
-      padding: 8px 12px;
-      border-right: 1px solid var(--rule);
-      border-bottom: 1px solid var(--rule);
-      font-size: 20px;
-      line-height: 1.2;
-    }
-
-    .plan-label {
-      background: var(--accent);
-      color: var(--on-accent);
-      font-weight: 700;
-    }
-
-    .plan-value {
-      background: var(--raised);
-      color: var(--ink);
-      font-weight: 500;
-    }
-
-    .plan-value.batch-list {
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: center;
-      gap: 3px;
-      font-size: 16px;
-      line-height: 1.22;
-    }
-
-    .plan-value.config-list {
-      font-size: 13px;
-      line-height: 1.22;
-    }
-
-    .plan-batch-line {
-      display: block;
-      width: 100%;
-    }
-
-    .plan-batch-number {
-      font-weight: 700;
-      margin-right: 3px;
-    }
-
-    .plan-body {
-      position: relative;
-      display: grid;
-      grid-template-columns: 66px minmax(300px, 1fr) 90px minmax(300px, 1fr) 90px minmax(300px, 1fr) 66px;
-      min-height: 590px;
-      background: var(--raised);
-      border-top: 2px solid var(--rule-strong);
-      overflow: hidden;
-    }
-
-    .start-end-bar {
-      background: var(--start-end);
-      color: var(--ink);
-      font-size: 23px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1.6;
-      letter-spacing: 0.08em;
-      text-align: center;
-      z-index: 3;
-      padding: 12px 0;
-    }
-
-    .break-column {
-      background: var(--raised);
-      border-left: 2px dashed var(--rule-strong);
-      border-right: 2px dashed var(--rule-strong);
-      color: var(--muted);
-      font-size: 16px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1.55;
-      text-align: center;
-      z-index: 1;
-    }
-
-    .phase-column {
-      position: relative;
-      padding: 18px 24px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      gap: 18px;
-      z-index: 4;
-      min-width: 0;
-    }
-
-    .phase-caption {
-      text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      margin-bottom: -6px;
-    }
-
-    .workflow-task {
-      position: relative;
-      width: 100%;
-      max-width: 390px;
-      margin: 0 auto;
-      text-align: center;
-      z-index: 5;
-    }
-
-    .task-box {
-      min-height: 72px;
-      border-radius: 2px;
-      box-shadow: 0 2px 5px rgba(15, 39, 71, 0.09);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 14px;
-      color: var(--ink);
-      font-size: 20px;
-      font-weight: 700;
-      line-height: 1.22;
-    }
-
-    .task-green { background: var(--task-green); }
-    .task-red { background: var(--task-red); }
-    .task-blue { background: var(--task-blue); }
-    .task-purple { background: var(--task-purple); }
-
-    .task-workers {
-      margin-top: 7px;
-      min-height: 24px;
-      color: var(--muted);
-      font-size: 14px;
-      font-weight: 600;
-      line-height: 1.55;
+    .swim-head {
+      max-width: 920px;
+      margin: 0 auto 24px;
+      padding: 14px 26px 16px;
+      border: 2px dashed var(--rule-strong);
+      border-radius: 24px;
+      background: var(--inset);
       text-align: center;
     }
-
-    .worker-anchor {
-      position: relative;
-      display: inline-block;
-      padding: 1px 3px;
-      margin: 0 1px;
-      white-space: nowrap;
-      border-radius: 2px;
+    .swim-date { margin-bottom: 4px; font-family: var(--font-label); font-size: 24px; font-weight: 600; letter-spacing: 0.04em; }
+    .swim-line { font-size: 18px; line-height: 1.4; color: var(--ink-2); }
+    .swim-line b { color: var(--ink); text-transform: uppercase; letter-spacing: 0.03em; }
+    .swim-grid { position: relative; display: grid; row-gap: 26px; align-items: start; }
+    .swim-block-head { padding-bottom: 4px; text-align: center; font-family: var(--font-label); font-size: 15px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+    .swim-gap { align-self: stretch; margin: 0 14px; border-left: 2px solid var(--rule); border-right: 2px solid var(--rule); background: var(--paper); }
+    .swim-cell { position: relative; z-index: 2; display: grid; justify-items: center; gap: 6px; padding: 0 12px; }
+    .swim-cell.span { align-self: stretch; grid-template-rows: 1fr auto; }
+    /* Plain hex colours: the picture download can't read color-mix(). */
+    .swim-box {
+      --k: #8a96a6;
+      --k-fill: #eceff2;
+      width: 100%; max-width: 260px; min-height: 66px;
+      display: grid; place-content: center; gap: 3px; padding: 10px 14px;
+      border: 2px solid var(--k); border-radius: 8px;
+      background: var(--k-fill);
+      text-align: center; font-size: 15px; font-weight: 700; line-height: 1.25;
+      text-transform: uppercase; letter-spacing: 0.02em;
     }
-
-    .worker-anchor:not(:last-child)::after {
-      content: ",";
-      margin-left: 1px;
-    }
-
-    .workflow-arrows {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 4;
-      overflow: visible;
-    }
-
-    .workflow-footer-note {
-      background: var(--amber-soft);
-      border-top: 2px solid var(--amber);
-      color: var(--ink);
-      padding: 16px 22px;
-      font-size: 16px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-    }
-
-    .workflow-footer-note strong {
-      font-size: 18px;
-    }
+    .swim-box small { font-size: 14px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-2); }
+    .swim-cell.span .swim-box { height: 100%; }
+    .swim-box.k-assembly { --k: #c2453b; --k-fill: #f6dedb; }
+    .swim-box.k-sub { --k: #7a5bb5; --k-fill: #ebe5f6; }
+    .swim-box.k-testing { --k: #3f7fbf; --k-fill: #dfeaf5; }
+    .swim-box.k-hardware { --k: #3f8f4e; --k-fill: #dfeee2; }
+    .swim-box.k-packbuild { --k: #c75b74; --k-fill: #f6e0e5; }
+    .swim-box.k-packing { --k: #d39d12; --k-fill: #f9efd4; }
+    .swim-box.k-custom { --k: #8a96a6; --k-fill: #eceff2; }
+    .swim-names { max-width: 260px; text-align: center; font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--ink-2); }
+    .swim-empty { padding: 30px; text-align: center; font-size: 18px; font-weight: 600; color: var(--muted); }
+    .swim-arrows { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+    .swim-notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--rule); }
+    .swim-notes b { font-family: var(--font-label); font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .swim-notes p { margin: 4px 0 0; font-size: 15px; line-height: 1.45; white-space: pre-line; }
 
     /* ============================================================
        PHASE 4: FLEXIBLE WORKFLOW / PHASE ASSIGNMENT DISPLAY
@@ -1399,53 +1241,6 @@
       line-height: 1.45;
     }
 
-    .workflow-task.manual-task .task-box {
-      outline: 3px solid color-mix(in srgb, var(--violet) 25%, transparent);
-      outline-offset: 2px;
-    }
-
-    .workflow-task.over-capacity-task .task-box {
-      outline: 4px solid var(--amber);
-      outline-offset: 3px;
-    }
-
-    .workflow-task-badge.capacity-alert {
-      background: var(--amber-soft);
-      color: var(--amber);
-    }
-
-    .workflow-task-detail {
-      margin-top: 5px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 600;
-      line-height: 1.35;
-    }
-
-    .workflow-task-badge {
-      display: inline-flex;
-      margin-top: 5px;
-      padding: 2px 7px;
-      border-radius: var(--radius);
-      background: var(--raised);
-      color: var(--violet);
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .phase-column {
-      align-self: stretch;
-    }
-
-    .phase-column .workflow-task {
-      flex: 0 0 auto;
-    }
-
-    .workflow-arrows path {
-      vector-effect: non-scaling-stroke;
-    }
 
     @media (max-width: 1150px) {
       body {
@@ -7567,34 +7362,145 @@
       return tasks;
     }
 
-    function renderWorkflowTask(task) {
-      const workers = task.workers || [];
-      const workerKeys = workers.map(worker => worker.key).join(",");
-      const workerHtml = task.displayText
-        ? escapeHtml(task.displayText)
-        : workers.length > 0
-          ? workers.map(worker => escapeHtml(worker.first)).join(", ")
-          : "";
-      const detailHtml = task.detail ? `<div class="workflow-task-detail">${escapeHtml(task.detail)}</div>` : "";
-      const manualBadge = task.manual ? '<div class="workflow-task-badge">Manual</div>' : "";
-      const capacityBadge = task.overCapacity ? '<div class="workflow-task-badge capacity-alert">Above capacity</div>' : "";
+    /* ============================================================
+       PLAN PICTURE: the day as swimlanes, like the team's toolbox plan.
+       Columns are the three blocks. Each row is one stream of work that
+       keeps its row from block to block: the build (Assembly, then
+       Hardware Check), Packaging build-up, each testing setup, Sub
+       Assembly, and each one-off job. Arrows follow the work, not the
+       people, so they run along a row. Packing spans the rows that feed
+       it; one-off jobs that start in the 3rd block come out of Packing.
+       ============================================================ */
+    const PLAN_LANE_ORDER = ["build", "build-tap", "pack", "test", "test-vz", "test-gl", "sub"];
+    // What a station hands its units on to in the next block.
+    const PLAN_FLOW_NEXT = {
+      assembly: ["hardware"], assemblyGen4: ["hardware"], assemblyTap: ["hardware"],
+      hardware: ["finalPackaging"], packing: ["finalPackaging"]
+    };
+    const PLAN_KINDS = {
+      subAssembly: "sub", assembly: "assembly", assemblyGen4: "assembly", assemblyTap: "assembly",
+      testing: "testing", testingVerizon: "testing", testingGlobal: "testing",
+      hardware: "hardware", packing: "packbuild", finalPackaging: "packing"
+    };
+    let planFlows = [];
 
+    function planLaneOf(task) {
+      if (task.isCustom) return `custom:${task.title.toLowerCase()}`;
+      const lanes = {
+        subAssembly: "sub", assembly: "build", assemblyGen4: "build", assemblyTap: "build-tap", hardware: "build",
+        packing: "pack", testing: "test", testingVerizon: "test-vz", testingGlobal: "test-gl", finalPackaging: "finish"
+      };
+      return lanes[task.station] || `other:${task.station}`;
+    }
+
+    // The day's work as the picture shows it: new builds at what the plan
+    // will build (what's wanted, until people are placed), and earlier cards.
+    function planPictureWork() {
+      const planned = todaysNewJobs().map(job => ({ ...job, route: ["assembly", "testing"] }));
+      const builds = planned.length ? planned : todaysWork().filter(job => !dayJobs.some(item => item.id === job.id) && job.route[0] === "assembly");
+      const placed = dayJobs.map(liveDayJob).map(job => ({ ...job, quantity: Number(job.quantity) || 0, route: job.route || [] }));
+      return [...builds, ...placed].filter(job => job.quantity > 0);
+    }
+
+    // "36 Gen4 Verizon", "18 Gen4 Fusion NA" for the jobs a station works on.
+    function planWorkText(zone, work) {
+      if (!ZONE_STAGE[zone] || zone === "subAssembly") return "";
+      return work.filter(job => zoneTakes(zone, job))
+        .map(job => `${job.quantity} ${unitTypeLabel(job)} ${commsShort(job)}`)
+        .join(", ");
+    }
+
+    function commsShort(job) {
+      const comms = getCommsLabel(job);
+      const sim = job.simType ? getSimPlanLabel(job.simType) : "";
+      return sim && sim !== comms ? sim : comms;
+    }
+
+    // Header lines: what's being built, and what earlier cards go through today.
+    function planSummaryLines(work) {
+      const describe = job => {
+        const connector = job.connectorKey ? listsApi()?.labelOf("connectors", job.connectorKey) : "";
+        return `${job.quantity} ${unitTypeLabel(job)} ${commsShort(job)} ${job.customer}${connector ? ` (${connector})` : ""}`;
+      };
+      const groups = new Map();
+      const add = (heading, text) => groups.set(heading, [...(groups.get(heading) || []), text]);
+      work.forEach(job => {
+        const first = job.route?.[0];
+        const heading = first === "hardware" ? "Hardware check & pack"
+          : first === "testing" ? "Testing"
+          : first === "packing" ? "Packing"
+          : "Assembly & test";
+        add(heading, describe(job));
+      });
+      return [...groups.entries()];
+    }
+
+    function planLayout(model, mixed) {
+      const blocks = WORKFLOW_PHASES.map(phase => buildWorkflowTasksForPhase(model, mixed, phase));
+      blocks.flat().forEach(task => { task.lane = planLaneOf(task); });
+      const finishTask = blocks[2].find(task => task.lane === "finish") || null;
+      const startedEarlier = new Set([...blocks[0], ...blocks[1]].map(task => task.lane));
+      const after = finishTask ? blocks[2].filter(task => task.lane.startsWith("custom:") && !startedEarlier.has(task.lane)) : [];
+
+      // Rows in lane order; a second task of the same lane in a block gets
+      // its own row just below.
+      const laneSeen = [...new Set(blocks.flat().filter(task => task.lane !== "finish" && !after.includes(task)).map(task => task.lane))];
+      const rows = [...PLAN_LANE_ORDER.filter(lane => laneSeen.includes(lane)), ...laneSeen.filter(lane => !PLAN_LANE_ORDER.includes(lane))];
+      const place = new Map();   // task → row key
+      blocks.forEach((tasks, blockIndex) => {
+        const used = new Set();
+        tasks.forEach(task => {
+          if (task.lane === "finish" || after.includes(task)) return;
+          let key = task.lane;
+          let n = 2;
+          while (used.has(key)) {
+            const next = `${task.lane}#${n++}`;
+            if (!rows.includes(next)) rows.splice(rows.lastIndexOf(rows.find(row => row === key)) + 1, 0, next);
+            key = next;
+          }
+          used.add(key);
+          place.set(task, key);
+        });
+      });
+
+      // Packing spans what feeds it (or takes a row of its own at the top),
+      // tall enough for the jobs that come out of it.
+      let span = null;
+      if (finishTask) {
+        const feeders = rows.filter(row => /^(build|build-tap|pack)(#\d+)?$/.test(row));
+        let start = feeders.length ? rows.indexOf(feeders[0]) : 0;
+        let end = feeders.length ? rows.indexOf(feeders[feeders.length - 1]) : -1;
+        if (end < start) {
+          rows.splice(start, 0, "finish");
+          end = start;
+        }
+        const busy = row => blocks[2].some(task => place.get(task) === rows[row]);
+        // A 3rd-block job in a spanned row sits beside Packing, like the jobs after it.
+        let free = [];
+        for (let row = start; row <= end; row++) if (!busy(row)) free.push(row);
+        while (free.length < after.length) {
+          end += 1;
+          rows.splice(end, 0, `after#${end}`);
+          free.push(end);
+        }
+        span = { start, end };
+        after.forEach((task, index) => place.set(task, rows[free[index]]));
+      }
+      return { blocks, rows, place, finishTask, span, after };
+    }
+
+    function renderPlanBox(task, style, extra = "", work = []) {
+      const kind = task.isCustom ? "custom" : PLAN_KINDS[task.station] || "custom";
+      const names = (task.workers || []).map(worker => worker.first).join(", ");
+      const text = task.detail || planWorkText(task.station, work);
       return `
-        <div
-          class="workflow-task ${task.manual ? "manual-task" : ""} ${task.overCapacity ? "over-capacity-task" : ""}"
-          data-task-id="${safeAttr(task.id)}"
-          data-phase="${safeAttr(task.phase)}"
-          data-path-order="${Number(task.order) || 0}"
-          data-worker-keys="${safeAttr(workerKeys)}"
-          data-station="${safeAttr(task.station || "")}"
-        >
-          <div class="task-box ${task.cssClass || "task-green"}">${escapeHtml(task.title)}</div>
-          <div class="task-workers">${workerHtml}</div>
-          ${detailHtml}
-          ${manualBadge}
-          ${capacityBadge}
-        </div>
-      `;
+        <div class="swim-cell ${extra}" style="${style}" data-task-id="${safeAttr(task.id)}">
+          <div class="swim-box k-${kind}">
+            <span>${escapeHtml(task.title)}</span>
+            ${text ? `<small>${escapeHtml(text)}</small>` : ""}
+          </div>
+          <div class="swim-names">${escapeHtml(names)}</div>
+        </div>`;
     }
 
     function renderWorkflowChart(result, day, commsType, unitType) {
@@ -7605,61 +7511,71 @@
         return;
       }
 
-      const model = result.workflowModel;
-      const mixed = result.mixedCapacity;
-      const plan = getPlanInfo(result, day, commsType, unitType);
-      const phaseTasks = Object.fromEntries(WORKFLOW_PHASES.map(phase => [phase, buildWorkflowTasksForPhase(model, mixed, phase)]));
-      const workflowNotes = buildWorkflowNotesHtml(result);
-      const approvalStrip = "";
+      const layout = planLayout(result.workflowModel, result.mixedCapacity);
+      const work = planPictureWork();
+      const { blocks, rows, place, finishTask, span, after } = layout;
+      const beside = blocks[2].some(task => task !== finishTask && span && rows.indexOf(place.get(task)) >= span.start && rows.indexOf(place.get(task)) <= span.end);
+      const split = Boolean(finishTask && (after.length || beside));
+      const columns = split
+        ? "minmax(200px, 1fr) 56px minmax(200px, 1fr) 56px minmax(170px, 0.9fr) minmax(170px, 0.9fr)"
+        : "minmax(200px, 1fr) 56px minmax(200px, 1fr) 56px minmax(200px, 1fr)";
+      const blockColumn = [1, 3, 5];
+      const rowOf = task => rows.indexOf(place.get(task)) + 2;
+      const lastRow = rows.length + 1;
+
+      const cells = [];
+      blocks.forEach((tasks, blockIndex) => tasks.forEach(task => {
+        if (task === finishTask) {
+          cells.push(renderPlanBox(task, `grid-column:5;grid-row:${span.start + 2} / ${span.end + 3}`, "span", work));
+          return;
+        }
+        const row = rowOf(task);
+        let column = `${blockColumn[blockIndex]}`;
+        if (blockIndex === 2 && split) {
+          const inSpan = span && row - 2 >= span.start && row - 2 <= span.end;
+          column = inSpan ? "6" : "5 / span 2";
+        }
+        cells.push(renderPlanBox(task, `grid-column:${column};grid-row:${row}`, "", work));
+      }));
+
+      // Arrows: along a row, and on to the station that takes the units next.
+      planFlows = [];
+      for (let index = 0; index < 2; index++) {
+        blocks[index].forEach(source => blocks[index + 1].forEach(target => {
+          const sameLane = source.lane === target.lane && target.lane !== "finish";
+          const handsOn = (PLAN_FLOW_NEXT[source.station] || []).includes(target.station);
+          if (sameLane || handsOn) planFlows.push([source.id, target.id]);
+        }));
+      }
+      if (finishTask) after.forEach(task => planFlows.push([finishTask.id, task.id]));
+
+      const summary = planSummaryLines(work);
+      const target = currentPlanTarget();
+      const notes = buildWorkflowNotesHtml(result);
+      const empty = !blocks.flat().length;
 
       section.innerHTML = `
         <div class="workflow-shell">
-          <h2 class="section-title">Workflow Map</h2>
+          <h2 class="section-title">Plan picture</h2>
           <div class="workflow-actions">
             <button onclick="downloadWorkflowJpeg()">Download picture</button>
             <span id="workflowExportStatus" class="success-message"></span>
           </div>
-
           <div class="production-plan-preview" id="productionPlanPreview">
-            <div class="plan-title">Daily Production Plan - ${escapeHtml(plan.date)}</div>
-            ${approvalStrip}
-
-            <div class="plan-header-grid">
-              ${planHeaderCell("Customer", plan.customer, { html: plan.isBatchHeader, className: plan.isBatchHeader ? "batch-list" : "" })}
-              ${planHeaderCell("Unit Type", plan.unitType, { html: plan.isBatchHeader, className: plan.isBatchHeader ? "batch-list" : "" })}
-              ${planHeaderCell("Target Units", plan.targetUnits, { html: plan.isBatchHeader, className: plan.isBatchHeader ? "batch-list" : "" })}
-              ${planHeaderCell("Comms Type", plan.commsType, { html: plan.isBatchHeader, className: plan.isBatchHeader ? "batch-list" : "" })}
-              ${planHeaderCell("SIM Type", plan.simType, { html: plan.isBatchHeader, className: plan.isBatchHeader ? "batch-list" : "" })}
-              ${planHeaderCell("Configuration", plan.configuration, { html: plan.isBatchHeader, className: plan.isBatchHeader ? "batch-list config-list" : "" })}
+            <div class="swim-head">
+              <div class="swim-date">${escapeHtml(longDayLabel(planDateValue()))}${target ? ` · Target ${target}` : ""}</div>
+              ${summary.map(([heading, items]) => `<div class="swim-line"><b>${escapeHtml(heading)}:</b> ${escapeHtml(items.join(" and "))}</div>`).join("")}
             </div>
-
-            <div class="plan-body" id="planBody">
-              <div class="start-end-bar" style="grid-column:1;">S<br>T<br>A<br>R<br>T</div>
-
-              <div class="phase-column" data-phase="start" style="grid-column:2;">
-                <div class="phase-caption">Start Phase</div>
-                ${phaseTasks.start.map(renderWorkflowTask).join("") || '<div class="small" style="text-align:center;color:#64748b;">No assigned jobs</div>'}
-              </div>
-
-              <div class="break-column" style="grid-column:3;">1<br>S<br>T<br><br>B<br>R<br>E<br>A<br>K</div>
-
-              <div class="phase-column" data-phase="second" style="grid-column:4;">
-                <div class="phase-caption">Second Phase</div>
-                ${phaseTasks.second.map(renderWorkflowTask).join("") || '<div class="small" style="text-align:center;color:#64748b;">No assigned jobs</div>'}
-              </div>
-
-              <div class="break-column" style="grid-column:5;">2<br>N<br>D<br><br>B<br>R<br>E<br>A<br>K</div>
-
-              <div class="phase-column" data-phase="finish" style="grid-column:6;">
-                <div class="phase-caption">Finish Phase</div>
-                ${phaseTasks.finish.map(renderWorkflowTask).join("") || '<div class="small" style="text-align:center;color:#64748b;">No assigned jobs</div>'}
-              </div>
-
-              <div class="start-end-bar" style="grid-column:7;">E<br>N<br>D</div>
-              <svg id="workflowArrowSvg" class="workflow-arrows" aria-hidden="true"></svg>
+            <div class="swim-grid" id="planBody" style="grid-template-columns:${columns};grid-template-rows:auto repeat(${Math.max(1, rows.length)}, auto)">
+              <div class="swim-block-head" style="grid-column:1;grid-row:1">1st block</div>
+              <div class="swim-block-head" style="grid-column:3;grid-row:1">2nd block</div>
+              <div class="swim-block-head" style="grid-column:5 / -1;grid-row:1">3rd block</div>
+              <div class="swim-gap" style="grid-column:2;grid-row:1 / ${lastRow + 1}"></div>
+              <div class="swim-gap" style="grid-column:4;grid-row:1 / ${lastRow + 1}"></div>
+              ${empty ? `<div class="swim-empty" style="grid-column:1 / -1;grid-row:2">Nobody placed yet</div>` : cells.join("")}
+              <svg id="workflowArrowSvg" class="swim-arrows" aria-hidden="true"></svg>
             </div>
-
-            ${workflowNotes}
+            ${notes}
           </div>
         </div>
       `;
@@ -7667,129 +7583,61 @@
       requestAnimationFrame(() => requestAnimationFrame(drawWorkerArrows));
     }
 
-    function planHeaderCell(label, value, options = {}) {
-      const extraClass = String(options.className || "").trim();
-      const className = `plan-value${extraClass ? ` ${extraClass}` : ""}`;
-      const content = options.html ? String(value || "") : escapeHtml(value);
-      return `
-        <div class="plan-label">${escapeHtml(label)}:</div>
-        <div class="${className}">${content}</div>
-      `;
-    }
-
+    // Straight arrows where the two boxes share some height; otherwise a
+    // square bend through the gap between the blocks.
     function drawWorkerArrows() {
       const body = document.getElementById("planBody");
       const svg = document.getElementById("workflowArrowSvg");
       if (!body || !svg) return;
-
       const bodyRect = body.getBoundingClientRect();
       const width = body.clientWidth;
       const height = body.clientHeight;
       if (!width || !height) return;
-
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svg.setAttribute("width", String(width));
       svg.setAttribute("height", String(height));
+      const box = id => body.querySelector(`.swim-cell[data-task-id="${CSS.escape(id)}"] .swim-box`)?.getBoundingClientRect();
+      const paths = planFlows.map(([from, to]) => {
+        const a = box(from);
+        const b = box(to);
+        if (!a || !b) return "";
+        const sx = a.right - bodyRect.left;
+        const tx = b.left - bodyRect.left - 7;
+        const top = Math.max(a.top, b.top) - bodyRect.top + 10;
+        const bottom = Math.min(a.bottom, b.bottom) - bodyRect.top - 10;
+        if (top <= bottom) {
+          const smaller = a.height <= b.height ? a : b;
+          const y = Math.min(bottom, Math.max(top, smaller.top - bodyRect.top + smaller.height / 2));
+          return `<path d="M ${sx} ${y} H ${tx}" />`;
+        }
+        const sy = a.top - bodyRect.top + a.height / 2;
+        const ty = b.top - bodyRect.top + b.height / 2;
+        const mx = (sx + tx) / 2;
+        return `<path d="M ${sx} ${sy} H ${mx} V ${ty} H ${tx}" />`;
+      }).join("");
       svg.innerHTML = `
         <defs>
-          <marker id="workerArrowHead" markerWidth="9" markerHeight="9" refX="7.5" refY="3.5" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L0,7 L8,3.5 z" fill="#8091a0"></path>
+          <marker id="workerArrowHead" markerWidth="10" markerHeight="10" refX="1" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2c3440"></path>
           </marker>
         </defs>
-      `;
-
-      const tasks = [...body.querySelectorAll(".workflow-task[data-task-id]")];
-      const byWorker = new Map();
-      tasks.forEach(task => {
-        const phase = task.dataset.phase;
-        const phaseIndex = WORKFLOW_PHASES.indexOf(phase);
-        if (phaseIndex < 0) return;
-        const keys = String(task.dataset.workerKeys || "").split(",").filter(Boolean);
-        keys.forEach(key => {
-          if (!byWorker.has(key)) byWorker.set(key, []);
-          byWorker.get(key).push({ task, phaseIndex });
-        });
-      });
-
-      const routes = new Map();
-      byWorker.forEach(entries => {
-        const ordered = entries.sort((a, b) => a.phaseIndex - b.phaseIndex);
-        for (let index = 0; index < ordered.length - 1; index++) {
-          const source = ordered[index].task;
-          const target = ordered[index + 1].task;
-          if (!source || !target || source === target) continue;
-          const key = `${source.dataset.taskId}=>${target.dataset.taskId}`;
-          if (!routes.has(key)) routes.set(key, { source, target, count: 0 });
-          routes.get(key).count++;
-        }
-      });
-
-      const routeList = [...routes.values()];
-      const bySource = new Map();
-      routeList.forEach(route => {
-        const sourceKey = route.source.dataset.taskId;
-        if (!bySource.has(sourceKey)) bySource.set(sourceKey, []);
-        bySource.get(sourceKey).push(route);
-      });
-
-      function appendRoute(route, splitIndex, splitCount) {
-        const sourceBox = route.source.querySelector(".task-box") || route.source;
-        const targetBox = route.target.querySelector(".task-box") || route.target;
-        const sourceRect = sourceBox.getBoundingClientRect();
-        const targetRect = targetBox.getBoundingClientRect();
-        const splitOffset = (splitIndex - (splitCount - 1) / 2) * 12;
-
-        const sx = sourceRect.right - bodyRect.left + 3;
-        const sy = sourceRect.top - bodyRect.top + sourceRect.height / 2 + splitOffset;
-        const tx = targetRect.left - bodyRect.left - 8;
-        const ty = targetRect.top - bodyRect.top + targetRect.height / 2;
-        const horizontal = Math.max(50, tx - sx);
-        const c1x = sx + Math.max(34, horizontal * 0.34);
-        const c2x = tx - Math.max(34, horizontal * 0.34);
-
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", `M ${sx} ${sy} C ${c1x} ${sy}, ${c2x} ${ty}, ${tx} ${ty}`);
-        path.setAttribute("fill", "none");
-        path.setAttribute("stroke", "#8091a0");
-        path.setAttribute("stroke-width", route.count > 1 ? "2.5" : "2.1");
-        path.setAttribute("stroke-linecap", "round");
-        path.setAttribute("stroke-linejoin", "round");
-        path.setAttribute("marker-end", "url(#workerArrowHead)");
-        path.setAttribute("opacity", "0.78");
-        svg.appendChild(path);
-      }
-
-      routeList.forEach(route => {
-        const siblings = bySource.get(route.source.dataset.taskId) || [route];
-        appendRoute(route, siblings.indexOf(route), siblings.length);
-      });
+        <g fill="none" stroke="#2c3440" stroke-width="2" stroke-linejoin="round" marker-end="url(#workerArrowHead)">${paths}</g>`;
     }
 
     function buildWorkflowNotesHtml(result) {
       const notesText = document.getElementById("notesInstructions").value.trim();
       const model = result.workflowModel;
-      const automaticLines = [];
-
-      if (workDayMode === "mixed" && result.mixedCapacity?.possible) {
-        const mixed = result.mixedCapacity;
-        automaticLines.push(`Requested ${mixed.totalRequested} · max ${mixed.realisticOutput} · limited by ${mixed.bottleneckName}`);
-      } else if (result.workflowCapacity) {
-        automaticLines.push(`Max ${result.workflowCapacity.finalOutput} · limited by ${result.workflowCapacity.bottleneck.name}`);
-      }
-
-      const unassignedByPhase = WORKFLOW_PHASES.map(phase => {
+      const unplaced = WORKFLOW_PHASES.map(phase => {
         const assigned = new Set([...(model?.phases?.[phase]?.keys() || [])]);
         const names = (model?.usableWorkers || []).filter(worker => !assigned.has(worker.key)).map(worker => worker.first);
-        return names.length ? `${phaseLabel(phase)} unassigned: ${names.join(", ")}` : "";
+        return names.length ? `${BENCH_PHASE_TABS[phase]}: ${names.join(", ")}` : "";
       }).filter(Boolean);
-
-      let html = '<div class="workflow-footer-note">';
-      if (automaticLines.length) html += `${escapeHtml(automaticLines.join(" "))}<br>`;
-      if (notesText) html += `<br><strong>Notes:</strong><br>${escapeHtml(notesText)}<br>`;
-      if (unassignedByPhase.length) html += `<br><strong>Unassigned:</strong><br>${escapeHtml(unassignedByPhase.join(" | "))}<br>`;
-      if (lastStationIssues.length > 0) html += `<br><strong>Warnings:</strong><br>${escapeHtml(lastStationIssues.join(" | "))}`;
-      html += "</div>";
-      return html;
+      if (!notesText && !unplaced.length) return "";
+      return `
+        <div class="swim-notes">
+          ${notesText ? `<div><b>Notes</b><p>${escapeHtml(notesText)}</p></div>` : ""}
+          ${unplaced.length ? `<div><b>Not placed</b><p>${escapeHtml(unplaced.join("\n"))}</p></div>` : ""}
+        </div>`;
     }
 
     /* ============================================================
@@ -7811,7 +7659,7 @@
       await new Promise(resolve => requestAnimationFrame(resolve));
 
       return await html2canvas(chart, {
-        backgroundColor: "#e8eef2",
+        backgroundColor: "#ffffff",
         scale: 2,
         useCORS: true
       });
@@ -7903,83 +7751,6 @@
     /* ============================================================
        21. PLAN HEADER / LABEL HELPERS
        ============================================================ */
-    function activePlanBatches() {
-      const numbered = workBatches.map((batch, index) => ({ ...batch, planBatchNumber: index + 1 }));
-      const active = numbered.filter(batch => Number(batch.quantity) > 0);
-      return active.length ? active : numbered;
-    }
-
-    function planBatchLines(batches, valueBuilder) {
-      return batches.map((batch, index) => `
-        <div class="plan-batch-line"><span class="plan-batch-number">${batch.planBatchNumber || index + 1}.</span>${valueBuilder(batch, index)}</div>
-      `).join("");
-    }
-
-    function planConfigurationColour(configKey, configText) {
-      const config = sensorConfigurations[configKey];
-      if (!config) return "#111827";
-      const supplied = String(configText || "").trim();
-      const standard = configurationComponentSummary(configKey).trim();
-      if (supplied && supplied !== standard) return "#111827";
-      if (config.colourHex) return config.colourHex;
-      const colours = {
-        red: "#b91c1c",
-        blue: "#1d4ed8",
-        purple: "#7e22ce",
-        magenta: "#be185d",
-        green: "#15803d",
-        yellow: "#a16207",
-        orange: "#c2410c",
-        pink: "#db2777"
-      };
-      return colours[configKey] || "#111827";
-    }
-
-    function compactPlanConfiguration(batch) {
-      const config = sensorConfigurations[batch.configKey];
-      const supplied = String(batch.configText || "").trim();
-      if (!config) {
-        return { text: supplied || "Not Set", colour: "#111827" };
-      }
-      const standard = configurationComponentSummary(batch.configKey).trim();
-      const usesStandard = !supplied || supplied === standard;
-      const text = usesStandard
-        ? `${config.label} · Mid: ${config.middlePhaseSensor} · Coax: ${config.coaxCableLength} · Pwr: ${config.powerCable}`
-        : `${config.label} · ${supplied}`;
-      return { text, colour: planConfigurationColour(batch.configKey, supplied) };
-    }
-
-    function getPlanInfo(result, day, commsType, unitType) {
-      if (workDayMode === "mixed") {
-        const batches = activePlanBatches();
-        return {
-          date: formatDateForHeader(document.getElementById("planDate").value, day),
-          isBatchHeader: true,
-          customer: planBatchLines(batches, batch => escapeHtml(batch.customer)),
-          unitType: planBatchLines(batches, batch => escapeHtml(unitTypeLabel(batch))),
-          targetUnits: planBatchLines(batches, batch => escapeHtml(String(batch.quantity))),
-          commsType: planBatchLines(batches, batch => escapeHtml(getCommsLabel(batch))),
-          simType: planBatchLines(batches, batch => escapeHtml(getSimPlanLabel(batch.simType))),
-          configuration: planBatchLines(batches, batch => {
-            const detail = compactPlanConfiguration(batch);
-            return `<span style="color:${safeAttr(detail.colour)};font-weight:700;">${escapeHtml(detail.text)}</span>`;
-          })
-        };
-      }
-
-      const singleBatch = batchFromSingleControls();
-      return {
-        date: formatDateForHeader(document.getElementById("planDate").value, day),
-        isBatchHeader: false,
-        customer: safeValue("customer", "Customer"),
-        unitType: unitTypeLabel(singleBatch),
-        commsType: getCommsLabel(singleBatch),
-        simType: getSimPlanLabel(singleBatch.simType),
-        targetUnits: result.workflowCapacity?.finalOutput ?? result.finalOutput,
-        configuration: configurationLabel(document.getElementById("sensorConfig")?.value || "blue")
-      };
-    }
-
     /* Names come from the Lists screen. Each takes a key, or an order,
        batch or job card (which may name a list item: unitKey / commsKey). */
     function listsApi() {
