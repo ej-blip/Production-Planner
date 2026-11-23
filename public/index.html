@@ -2117,6 +2117,16 @@
       }
     }
 
+    // No builds on the day: one empty batch with no order, which plans nothing.
+    function clearDayBuilds() {
+      workDayMode = "single";
+      workBatches = [normalizeWorkBatch({ customer: "", quantity: 0 })];
+      applyPrimaryBatchToSingleControls();
+      applyWorkDayModeUi();
+      renderWorkMixTable();
+      saveWorkMixState();
+    }
+
     function makeWorkBatchId() {
       const randomPart = Math.random().toString(36).slice(2, 8);
       return `batch-${Date.now().toString(36)}-${randomPart}`;
@@ -3132,7 +3142,7 @@
       const before = new Date(y, m - 1, d, 12);
       do before.setDate(before.getDate() - 1); while (before.getDay() === 0 || before.getDay() === 6);
       const iso = `${before.getFullYear()}-${String(before.getMonth() + 1).padStart(2, "0")}-${String(before.getDate()).padStart(2, "0")}`;
-      return day === iso ? "Yesterday's" : `${shortDay(day)}'s`;
+      return day === iso ? "Yesterday's" : `from ${shortDay(day).replace(",", "")}`;
     }
 
     const routeText = route => route.filter(bench => bench !== "cage").map(bench => STAGE_NAMES[bench] || bench).join(" → ");
@@ -6765,8 +6775,10 @@
         if (loaded?.plan) {
           applySavedPlan(loaded.plan);
         } else if (!loadError) {
-          // A day with no saved plan starts from the work mix on screen, but
-          // not from another day's hand-made bench moves, job cards or notes.
+          // A day with no saved plan starts fresh: no builds (jobs are picked
+          // on Benches), and none of another day's bench moves, job cards or
+          // notes.
+          clearDayBuilds();
           stationAdjustments = [];
           dayJobs = [];
           keepManualBuild = false;
