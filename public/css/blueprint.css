@@ -58,7 +58,8 @@
   /* Type */
   --font: "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-label: "Barlow Condensed", "Barlow", "Arial Narrow", sans-serif;
-  --radius: 3px;
+  --radius: 8px;
+  --radius-lg: 14px;
   --shadow: 0 1px 0 rgba(15, 39, 71, 0.05), 0 10px 24px -18px rgba(15, 39, 71, 0.45);
 
   /* Older names still used by page styles */
@@ -305,7 +306,7 @@ input::placeholder, textarea::placeholder { color: #5d7391; }
 section.card {
   background: var(--sheet);
   border: 1px solid var(--rule-strong);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
 }
 .card > h2,
 .card-head h2,

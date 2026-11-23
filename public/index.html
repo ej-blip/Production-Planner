@@ -55,12 +55,45 @@
     }
     .mgmt-top .tb-day input[type="date"]:hover { border-color: rgba(255, 255, 255, 0.38); }
 
-    /* Custom jobs on the crew board ------------------------------------ */
-    .bench-board .crew-add { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--inset); }
-    .bench-board .crew-add label { margin: 0; font-family: var(--font-label); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
-    .bench-board .crew-add input { padding: 9px 10px; font-size: 15px; }
-    .bench-board .crew-add button { margin: 0; align-self: flex-start; min-height: 36px; padding: 6px 14px; }
+    /* Benches: jobs to pick, job creator, team members, blocks ---------- */
+    .jobs-top { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(240px, 1fr); gap: 24px; align-items: start; }
+    .jobs-top .section-title { margin-top: 0; }
+    .job-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+    .job-picks .empty { color: var(--muted); font-size: 14px; }
+    .job-pick-wrap { position: relative; }
+    .job-pick {
+      --comms: var(--rule-strong);
+      position: relative; display: grid; gap: 2px; width: 100%; min-height: 0; margin: 0;
+      padding: 12px 34px 12px 20px; text-align: left; font-weight: 500;
+      border: 1px solid var(--rule-strong); border-radius: var(--radius-lg);
+      background: var(--raised); color: var(--ink); box-shadow: inset 6px 0 0 var(--comms);
+    }
+    .job-pick:hover { background: var(--inset); }
+    .job-pick b { font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .job-pick span { font-size: 14px; color: var(--muted); }
+    .job-pick .job-pick-qty { margin-top: 6px; font-family: var(--font-label); font-size: 22px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink); }
+    .job-pick .job-pick-qty small { margin-left: 4px; font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--muted); }
+    .job-pick.on { border-color: var(--comms); background: color-mix(in srgb, var(--comms) 10%, var(--raised)); box-shadow: inset 6px 0 0 var(--comms), 0 0 0 1px var(--comms); }
+    .job-pick.on::after { content: "✓"; position: absolute; top: 10px; right: 12px; font-size: 18px; font-weight: 700; color: var(--comms); }
+    .job-pick-delete { position: absolute; top: 6px; right: 6px; width: 28px; min-height: 28px; padding: 0; margin: 0; border-radius: 50%; display: grid; place-items: center; }
+    .job-pick-delete .ico { width: 14px; height: 14px; }
+    .job-creator form { display: grid; gap: 6px; }
+    .job-creator label { margin: 0; font-family: var(--font-label); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+    .job-creator-row { display: flex; gap: 8px; }
+    .job-creator-row input { flex: 1; min-width: 0; padding: 10px 12px; }
+    .job-creator-row button { margin: 0; }
     .bench-board .crew-remove { margin-left: auto; color: var(--muted); }
+    .crew-actions { margin-left: auto; display: flex; gap: 6px; }
+    .crew-actions button { margin: 0; min-height: 36px; padding: 6px 14px; white-space: nowrap; }
+    .block-nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .block-nav button { margin: 0; white-space: nowrap; }
+    .block-nav h3 { margin: 0; padding: 8px 12px; text-align: center; font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); background: var(--raised); }
+    .crew-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--rule); font-family: var(--font-label); font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+    .crew-foot span { display: flex; align-items: baseline; gap: 6px; }
+    .crew-foot b { font-size: 20px; color: var(--ink); }
+    .crew-foot.short span:last-child b { color: var(--red); }
+    .crew-foot.ok span:last-child b { color: var(--ok); }
+    @media (max-width: 900px) { .jobs-top { grid-template-columns: 1fr; } }
 
     /* Jobs ------------------------------------------------------------- */
     .job-lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
@@ -986,11 +1019,11 @@
 
     .bench-phase-tabs { margin: 6px 0 12px; }
     /* Crew-style bench board: crew cards with skill dots, stations with slots */
-    .bench-board .crew-layout { display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.6fr); gap: 0; align-items: stretch; border-top: 1px solid var(--rule); }
+    .bench-board .crew-layout { display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.6fr); gap: 0; align-items: stretch; }
     .bench-board .crew-panel { background: none; border: 0; border-radius: 0; padding: 12px 16px 4px 0; }
     .bench-board .crew-panel + .crew-panel { border-left: 1px solid var(--rule); padding: 12px 0 4px 16px; }
-    .bench-board .crew-panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-    .bench-board .crew-panel-head h3 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+    .bench-board .crew-panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .bench-board .crew-panel-head h3 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink); white-space: nowrap; }
     .bench-board .crew-panel-head span { color: var(--muted); font-size: 12px; font-weight: 600; }
     .bench-board .zone.crew-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; min-height: 90px; padding: 4px; border: 2px dashed transparent; background: transparent; }
     .chip.crew-card {
@@ -1021,27 +1054,25 @@
     .crew-skill.k-hardware { color: var(--violet); } .crew-skill.k-packing { color: var(--ok); }
     .crew-pips { grid-column: 2; display: flex; gap: 3px; }
     .crew-pips i { width: 22px; height: 5px; border-radius: 2px; background: var(--btn); }
-    .bench-board .crew-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1px; padding: 1px 0; background: var(--sheet); }
-    .bench-board .crew-stations > * { box-shadow: 0 0 0 1px var(--rule); }
-    .bench-board .zone.crew-station { min-height: 130px; border: 0; border-radius: 0; background: var(--sheet); padding: 10px; transition: box-shadow 0.12s, background 0.12s, opacity 0.12s; }
-    .bench-board .zone.crew-station.other { opacity: 0.75; }
+    .bench-board .crew-stations { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .bench-board .zone.crew-station { display: flex; flex-direction: column; min-height: 180px; border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); background: var(--raised); padding: 10px; transition: box-shadow 0.12s, background 0.12s, opacity 0.12s; }
     .crew-station-head { display: flex; align-items: center; gap: 8px; }
     .crew-station-head b { font-size: 15px; }
     .crew-icon { width: 28px; height: 28px; border-radius: var(--radius); display: grid; place-items: center; font-size: 11px; font-weight: 700; --k: var(--k-cage); color: var(--k); background: color-mix(in srgb, var(--k) 9%, var(--raised)); border: 1px solid var(--k); font-family: var(--font-label); letter-spacing: 0.04em; flex: none; }
     .crew-state { font-size: 12px; font-weight: 600; margin: 6px 0 8px; color: var(--muted); }
     .crew-state.ok { color: var(--accent); }
     .crew-state.short { color: var(--warn); }
-    .crew-slots { display: flex; flex-direction: column; gap: 6px; }
+    .crew-slots { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 10px; }
     .crew-slots .chip.crew-card { grid-template-columns: 32px 1fr; padding: 6px 8px; }
     .crew-slots .crew-avatar { width: 32px; height: 32px; font-size: 12px; }
     .crew-slots .crew-skills, .crew-slots .crew-pips { display: none; }
     .crew-drop { min-height: 40px; border: 1px dashed var(--rule-strong); border-radius: var(--radius); padding: 8px; text-align: center; color: var(--muted); font-size: 12px; font-weight: 600; }
     .crew-station .cant { display: none; margin-left: auto; font-size: 11px; font-weight: 700; color: var(--bad); }
-    .bench-board .zone.crew-station.fit-3 { box-shadow: 0 0 0 1px var(--rule), inset 0 0 0 2px var(--accent); background: var(--accent-soft); opacity: 1; }
-    .bench-board .zone.crew-station.fit-2 { box-shadow: 0 0 0 1px var(--rule), inset 0 0 0 1px var(--accent); opacity: 1; }
+    .bench-board .zone.crew-station.fit-3 { box-shadow: inset 0 0 0 2px var(--accent); background: var(--accent-soft); opacity: 1; }
+    .bench-board .zone.crew-station.fit-2 { box-shadow: inset 0 0 0 1px var(--accent); opacity: 1; }
     .bench-board .zone.crew-station.fit-0 { opacity: 0.35; }
     .bench-board .zone.crew-station.fit-0 .cant { display: inline; }
-    .bench-board .zone.drop-target { background: var(--accent-soft); box-shadow: 0 0 0 1px var(--rule), inset 0 0 0 2px var(--accent); }
+    .bench-board .zone.drop-target { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
     .crew-detail { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
     .crew-detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     .crew-detail-head b { font-size: 16px; }
@@ -1654,17 +1685,26 @@
          days, and open orders to start building
          ========================================================== -->
     <div class="card jobs-card" data-step="benches">
-      <h2 class="section-title">Jobs</h2>
-      <div class="jobs-board" id="jobsBoard"></div>
+      <div class="jobs-top">
+        <section>
+          <h2 class="section-title">Jobs</h2>
+          <div class="job-picks" id="jobsBoard"></div>
+        </section>
+        <section class="job-creator">
+          <h2 class="section-title">Job creator</h2>
+          <form id="jobCreator" autocomplete="off">
+            <label for="jobCreatorTitle">Title</label>
+            <div class="job-creator-row">
+              <input id="jobCreatorTitle" type="text" maxlength="60" list="jobCreatorNames" />
+              <button type="submit">Add</button>
+            </div>
+            <datalist id="jobCreatorNames"></datalist>
+          </form>
+        </section>
+      </div>
     </div>
 
     <div class="card bench-card" data-step="benches">
-      <h2 class="section-title">Bench Assignments</h2>
-      <div id="benchPhaseTabs" class="phase-toggle-group bench-phase-tabs"></div>
-      <div class="attendance-head">
-        <strong id="benchBoardSummary"></strong>
-        <button type="button" class="secondary" onclick="resetBenchPhase()">Reset this phase</button>
-      </div>
       <div id="benchBoard" class="bench-board"></div>
       <p id="benchBoardMessage" class="small save-state"></p>
     </div>
@@ -2608,6 +2648,7 @@
       // Today's batches and target may now be capped by what each order has left.
       syncLinkedBatches();
       renderOrders();
+      renderJobsBoard();
       renderBenchBoard();
       renderFlow();
     }
@@ -2739,7 +2780,6 @@
             const today = onToday ? todayQuantityFor(order.id) : 0;
             const before = orderLeftBefore(order);
             const left = before === null ? null : Math.max(0, before - today);
-            const nothingLeft = before === 0 && !onToday;
             return `
               <tr class="${onToday ? "on-today" : ""}">
                 <td><b>${escapeHtml(order.customer)}</b></td>
@@ -2751,7 +2791,6 @@
                 <td class="num"><b>${count(left)}</b></td>
                 <td>
                   <div class="row-actions">
-                    <button type="button" class="${onToday ? "" : "secondary"}" data-order-today="${safeAttr(order.id)}" aria-pressed="${onToday}" ${nothingLeft ? "disabled" : ""}>${onToday ? "Building today" : "Build today"}</button>
                     <button type="button" class="secondary" data-order-edit="${safeAttr(order.id)}">Edit</button>
                     <button type="button" class="secondary" data-order-close="${safeAttr(order.id)}">Close</button>
                   </div>
@@ -2942,33 +2981,24 @@
        JOB CARDS
        A job card is some units of an order on their way through the
        benches. Each day's build becomes new cards at release (Assembly,
-       then Testing). Cards waiting from earlier days are dragged onto a
-       bench for the day: onto Hardware Check they go on to Packing the same
-       day. Benches move a card on as they finish it (see js/floor.js).
+       then Testing). Clicking a card waiting from an earlier day puts it on
+       the day at the bench it waits for: from Hardware Check it goes on to
+       Packing the same day. Benches move a card on as they finish it (see
+       js/floor.js).
        ============================================================ */
     let activeJobs = [];          // cards not yet done, from the database
     let dayJobs = [];             // waiting cards put on this day's benches
-    let jobsBoard = null;
-    let jobsRenderPending = false;
 
-    const JOB_LANES = [["assembly", "Assembly"], ["testing", "Testing"], ["hardware", "Hardware Check"], ["packing", "Packing"]];
     const LANE_ROUTES = { assembly: ["assembly", "testing"], testing: ["testing"], hardware: ["hardware", "packing"], packing: ["packing"] };
     const STAGE_NAMES = { cage: "Cage", assembly: "Assembly", testing: "Testing", hardware: "Hardware Check", packing: "Packing" };
 
     function wireJobs() {
       const root = document.getElementById("jobsBoard");
-      jobsBoard = window.attachDragBoard(root, {
-        onMove: onJobMove,
-        onSelect: () => renderJobsBoard(),
-        onDragEnd: () => {
-          if (!jobsRenderPending) return;
-          jobsRenderPending = false;
-          renderJobsBoard();
-        }
-      });
       root.addEventListener("click", event => {
         const remove = event.target.closest("[data-delete-job]");
-        if (remove) deleteWaitingJob(remove.dataset.deleteJob);
+        if (remove) return deleteWaitingJob(remove.dataset.deleteJob);
+        const pick = event.target.closest("[data-pick]");
+        if (pick) pickJob(pick.dataset.pick);
       });
       window.plannerData.jobs.watch(list => {
         if (!list) return;
@@ -3063,7 +3093,22 @@
         renderPlanStatus();
       }
       renderJobsBoard();
+      renderBenchBoard();
       renderFlow();
+    }
+
+    // Clicking a job card puts it on the day, or takes it off again. An
+    // order builds (Assembly, then Testing); a card from an earlier day
+    // goes on at the bench it waits for.
+    function pickJob(key) {
+      const split = key.indexOf(":");
+      const kind = key.slice(0, split);
+      const id = key.slice(split + 1);
+      if (kind === "order") return toggleOrderToday(id);
+      if (kind !== "job") return;
+      if (dayJobs.some(job => job.id === id)) return onJobMove(key, "lane", "waiting");
+      const job = activeJobs.find(item => item.id === id);
+      if (job && LANE_ROUTES[job.stage]) onJobMove(key, "waiting", `lane:${job.stage}`);
     }
 
     async function deleteWaitingJob(jobId) {
@@ -3072,21 +3117,35 @@
       if (!window.confirm(`Delete the card for ${job.quantity} ${job.customer} ${unitTypeLabel(job)}, waiting for ${STAGE_NAMES[job.stage] || job.stage}?`)) return;
       try {
         await window.plannerData.jobs.remove(jobId);
-        jobsBoard?.clearSelection();
       } catch (problem) {
         window.alert(`That wasn't deleted: ${window.plannerData.friendlyError(problem)}`);
       }
     }
 
-    function jobCardHtml(job, { key, zone, note, fresh = false, order = false, selected = false }) {
-      const comms = commsAndSim(job);
+    const STAGE_VERBS = { assembly: "Build", testing: "Test", hardware: "Check", packing: "Pack" };
+
+    function jobPickHtml(job, { key, on, qty, note = "", deletable = false }) {
+      const colour = listsApi()?.commsColour(job) || "var(--rule-strong)";
       return `
-        <div class="chip job-card ${fresh ? "fresh" : ""} ${order ? "order-chip" : ""} ${selected ? "selected" : ""}" data-staff="${safeAttr(key)}" data-zone="${safeAttr(zone)}">
-          <b>${escapeHtml(job.customer)} · ${escapeHtml(unitTypeLabel(job))}</b>
-          <span class="job-qty">${escapeHtml(job.quantity)}</span>
-          <span class="job-meta">${escapeHtml(comms)} · ${escapeHtml(configurationLabel(job.configKey))}</span>
-          <span class="job-route">${escapeHtml(note)}</span>
+        <div class="job-pick-wrap">
+          <button type="button" class="job-pick ${on ? "on" : ""}" data-pick="${safeAttr(key)}" aria-pressed="${on}" style="--comms:${safeAttr(colour)}">
+            <b>${escapeHtml(unitTypeLabel(job))} ${escapeHtml(job.customer)}</b>
+            <span>${escapeHtml(commsAndSim(job))}</span>
+            <span class="job-pick-qty">${escapeHtml(qty)}${note ? ` <small>${escapeHtml(note)}</small>` : ""}</span>
+          </button>
+          ${deletable ? `<button type="button" class="secondary job-pick-delete" data-delete-job="${safeAttr(job.id)}" aria-label="Delete card"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>` : ""}
         </div>`;
+    }
+
+    // "Yesterday's" for the working day before; otherwise the day.
+    function jobDayNote(day) {
+      const today = planDateValue();
+      if (!day || !today) return "";
+      const [y, m, d] = today.split("-").map(Number);
+      const before = new Date(y, m - 1, d, 12);
+      do before.setDate(before.getDate() - 1); while (before.getDay() === 0 || before.getDay() === 6);
+      const iso = `${before.getFullYear()}-${String(before.getMonth() + 1).padStart(2, "0")}-${String(before.getDate()).padStart(2, "0")}`;
+      return day === iso ? "Yesterday's" : `${shortDay(day)}'s`;
     }
 
     const routeText = route => route.filter(bench => bench !== "cage").map(bench => STAGE_NAMES[bench] || bench).join(" → ");
@@ -3098,71 +3157,32 @@
     function renderJobsBoard() {
       const root = document.getElementById("jobsBoard");
       if (!root) return;
-      if (jobsBoard?.isDragging()) {
-        jobsRenderPending = true;
-        return;
-      }
-      const selectedKey = jobsBoard?.selected?.staffKey || null;
-      const fresh = todaysNewJobs();
-      const onToday = new Set([...fresh.map(job => job.id), ...dayJobs.map(job => job.id)]);
-      const waiting = activeJobs.filter(job => !onToday.has(job.id));
-      const openOrders = workOrdersLoaded
+      const prefix = planDateValue().replaceAll("-", "");
+      const todaysBuilds = new Set(workBatches.map(batch => `${prefix}-${batch.id}`));
+      const placed = new Set(dayJobs.map(job => job.id));
+      const waiting = activeJobs.filter(job => !todaysBuilds.has(job.id) && STAGE_VERBS[job.stage]);
+      const orders = workOrdersLoaded
         ? workOrders.filter(order => order.status !== "closed"
-            && !workBatches.some(batch => batch.orderId === order.id)
-            && (orderLeftBefore(order) ?? order.quantity) > 0)
+            && (workBatches.some(batch => batch.orderId === order.id) || (orderLeftBefore(order) ?? order.quantity) > 0))
         : [];
 
-      const lanes = JOB_LANES.map(([lane, label]) => {
-        const cards = [
-          ...(lane === "assembly"
-            ? fresh.map(job => ({ job, key: `new:${job.batchId}`, note: `${routeText(job.route)}${job.orderId ? "" : " · Build setup"}`, fresh: true }))
-            : []),
-          ...dayJobs.filter(job => job.route[0] === lane)
-            .map(job => ({ job: liveDayJob(job), key: `job:${job.id}`, note: routeText(job.route) }))
-        ];
-        const units = cards.reduce((sum, card) => sum + (Number(card.job.quantity) || 0), 0);
-        return `
-          <div class="zone job-lane" data-zone="lane:${lane}">
-            <div class="job-lane-head"><b>${escapeHtml(label)}</b><span>${units || ""}</span></div>
-            ${cards.map(card => jobCardHtml(card.job, { key: card.key, zone: `lane:${lane}`, note: card.note, fresh: card.fresh, selected: card.key === selectedKey })).join("")}
-          </div>`;
-      }).join("");
-
-      const waitingCards = waiting.map(job => jobCardHtml(job, {
-        key: `job:${job.id}`,
-        zone: "waiting",
-        note: `Waiting for ${STAGE_NAMES[job.stage] || job.stage} · ${shortDay(job.day)}`,
-        selected: `job:${job.id}` === selectedKey
-      })).join("");
-      const orderCards = openOrders.map(order => {
-        const left = orderLeftBefore(order);
-        return jobCardHtml({ ...order, quantity: left ?? order.quantity }, {
-          key: `order:${order.id}`,
-          zone: "orders",
-          note: `Left of ${order.quantity}`,
-          order: true,
-          selected: `order:${order.id}` === selectedKey
+      const orderCards = orders.map(order => {
+        const batch = workBatches.find(item => item.orderId === order.id);
+        const wanted = wantedToday(batch || order);
+        return jobPickHtml(order, { key: `order:${order.id}`, on: Boolean(batch), qty: `Build ${wanted}` });
+      });
+      const waitingCards = waiting.map(job => {
+        const on = placed.has(job.id);
+        return jobPickHtml(job, {
+          key: `job:${job.id}`,
+          on,
+          qty: `${STAGE_VERBS[job.stage]} ${job.quantity}`,
+          note: `(${jobDayNote(job.day)})`,
+          deletable: !on
         });
-      }).join("");
-
-      const selectedWaiting = selectedKey?.startsWith("job:") ? waiting.find(job => `job:${job.id}` === selectedKey) : null;
-      root.innerHTML = `
-        <div class="job-lanes">${lanes}</div>
-        <div class="job-pools">
-          <div class="zone job-pool" data-zone="waiting">
-            <div class="job-lane-head"><b>Waiting</b><span>${waiting.length || ""}</span></div>
-            <div class="job-pool-cards">${waitingCards || '<span class="empty">None</span>'}</div>
-          </div>
-          <div class="zone job-pool" data-zone="orders">
-            <div class="job-lane-head"><b>Orders</b><span>${openOrders.length || ""}</span></div>
-            <div class="job-pool-cards">${orderCards || '<span class="empty">None</span>'}</div>
-          </div>
-        </div>
-        ${selectedWaiting ? `
-          <div class="job-actions">
-            <span>${escapeHtml(selectedWaiting.quantity)} ${escapeHtml(selectedWaiting.customer)} ${escapeHtml(unitTypeLabel(selectedWaiting))}</span>
-            <button type="button" class="danger" data-delete-job="${safeAttr(selectedWaiting.id)}">Delete card</button>
-          </div>` : ""}`;
+      });
+      const cards = [...orderCards, ...waitingCards];
+      root.innerHTML = cards.length ? cards.join("") : '<span class="empty">None</span>';
     }
 
     /* ============================================================
@@ -3175,50 +3195,47 @@
     let savedCustomJobs = [];     // [{ id, name }]
 
     function wireCustomJobs() {
-      const root = document.getElementById("benchBoard");
-      root.addEventListener("submit", event => {
-        const form = event.target.closest("[data-custom-job-form]");
-        if (!form) return;
+      document.getElementById("jobCreator").addEventListener("submit", event => {
         event.preventDefault();
-        addCustomJob();
-      });
-      root.addEventListener("click", event => {
-        const remove = event.target.closest("[data-remove-custom-job]");
-        if (remove) removeCustomJob(remove.dataset.removeCustomJob, remove);
+        addBlockJob();
       });
       window.plannerData.customJobs.watch(list => {
         if (!list) return;
         savedCustomJobs = list;
-        renderBenchBoard();
+        document.getElementById("jobCreatorNames").innerHTML = list
+          .map(job => `<option value="${safeAttr(job.name)}"></option>`)
+          .join("");
       });
     }
 
-    async function addCustomJob() {
-      const input = document.getElementById("newCustomJob");
+    // A one-off job for the block on screen. New titles are remembered as
+    // suggestions for next time; the job itself belongs to this day only.
+    function addBlockJob() {
+      const input = document.getElementById("jobCreatorTitle");
       const name = input.value.trim().replace(/\s+/g, " ").slice(0, 60);
       if (!name) return;
-      if (savedCustomJobs.some(job => job.name.toLowerCase() === name.toLowerCase())) {
-        input.value = "";
-        return;
-      }
       input.value = "";
-      try {
-        await window.plannerData.customJobs.add(name);
-      } catch (problem) {
-        const current = document.getElementById("newCustomJob");
-        if (current && !current.value) current.value = name;
-        window.alert(`That wasn't saved: ${window.plannerData.friendlyError(problem)}`);
+      const list = blockJobs[benchBoardPhase] || [];
+      if (!list.some(item => item.toLowerCase() === name.toLowerCase())) {
+        blockJobs = { ...blockJobs, [benchBoardPhase]: [...list, name] };
+        markPlanChanged();
+        renderBenchBoard();
+      }
+      if (!savedCustomJobs.some(job => job.name.toLowerCase() === name.toLowerCase())) {
+        window.plannerData.customJobs.add(name).catch(() => {});
       }
     }
 
-    async function removeCustomJob(id, button) {
-      button.disabled = true;
-      try {
-        await window.plannerData.customJobs.remove(id);
-      } catch (problem) {
-        button.disabled = false;
-        window.alert(`That wasn't removed: ${window.plannerData.friendlyError(problem)}`);
-      }
+    function removeBlockJob(name) {
+      blockJobs = { ...blockJobs, [benchBoardPhase]: (blockJobs[benchBoardPhase] || []).filter(item => item !== name) };
+      markPlanChanged();
+      renderBenchBoard();
+    }
+
+    function markPlanChanged() {
+      if (loadingPlan) return;
+      planDirty = true;
+      renderPlanStatus();
     }
 
     function getWorkMixTotalQuantity() {
@@ -3950,20 +3967,23 @@
        ============================================================ */
     let benchBoard = null;
     let benchBoardPhase = "start";
+    let autoAssign = false;       // the computer's best layout is in use
+    let blockJobs = { start: [], second: [], finish: [] };   // one-off jobs per block
     let benchBoardRenderPending = false;
     let benchBoardMessage = "";
 
     const BENCH_PHASE_TABS = {
-      start: "1 · Start",
-      second: "2 · Second",
-      finish: "3 · Finish"
+      start: "1st block",
+      second: "2nd block",
+      finish: "3rd block"
     };
 
-    // Jobs usually staffed in each phase come first; the rest follow.
-    const BENCH_PHASE_TYPICAL = {
+    // Stations each block shows (as the day mode offers them), then one-off
+    // jobs added to the block and any job someone is already on.
+    const BLOCK_STATIONS = {
       start: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap", "testing", "testingVerizon", "testingGlobal"],
       second: ["testing", "testingVerizon", "testingGlobal", "hardware", "packing"],
-      finish: ["finalPackaging", "packing"]
+      finish: ["finalPackaging"]
     };
 
     function benchZoneKind(zone) {
@@ -3977,6 +3997,10 @@
     function benchZoneLabel(zone) {
       if (zone === "none") return "Not assigned";
       if (zone.startsWith("custom:")) return zone.slice(7);
+      if (workDayMode !== "mixed" && (zone === "assembly" || zone === "testing")) {
+        const first = workBatches.find(batch => batch.orderId) || workBatches[0];
+        if (first) return zone === "assembly" ? `${unitTypeLabel(first)} Assembly` : `${getCommsLabel(first)} Testing`;
+      }
       return workflowStationLabel(zone);
     }
 
@@ -3988,26 +4012,86 @@
     }
 
     function benchBoardZones(phase, people) {
-      const typical = BENCH_PHASE_TYPICAL[phase] || [];
-      const rank = zone => {
-        const index = typical.indexOf(zone);
-        return index === -1 ? 100 : index;
-      };
-      const zones = workflowStationOptions()
-        .map(([value]) => value)
-        .filter(value => value !== "custom")
-        .sort((a, b) => rank(a) - rank(b));
-      // Saved custom jobs, then jobs people are already on (another custom
-      // job, or a job from another mode).
-      savedCustomJobs.forEach(job => {
-        const zone = `custom:${job.name}`;
+      const offered = new Set(workflowStationOptions().map(([value]) => value));
+      const zones = BLOCK_STATIONS[phase].filter(zone => offered.has(zone));
+      (blockJobs[phase] || []).forEach(name => {
+        const zone = `custom:${name}`;
         if (!zones.includes(zone)) zones.push(zone);
       });
       people.forEach(({ zone }) => {
         if (zone !== "none" && !zones.includes(zone)) zones.push(zone);
       });
-      zones.push("none");
-      return zones.map(zone => ({ zone, typical: zone === "none" || zone.startsWith("custom:") || rank(zone) < 100 }));
+      return zones;
+    }
+
+    /* Target and Actual under each station. Target: units today's jobs
+       need from it, less what it did in earlier blocks. Actual: what the
+       people on it can do in this block, at the Rates tab's speeds. */
+    const ZONE_STAGE = {
+      subAssembly: "assembly", assembly: "assembly", assemblyGen4: "assembly", assemblyTap: "assembly",
+      testing: "testing", testingVerizon: "testing", testingGlobal: "testing",
+      hardware: "hardware", packing: "packing", finalPackaging: "packing"
+    };
+
+    // What a new build from an order asks for today: what the order has
+    // left, up to a day's testing.
+    function wantedToday(batch) {
+      // Takes a day's batch or an order.
+      const order = workOrders.find(item => item.id === (batch.orderId || batch.id)) || null;
+      const left = order ? orderLeftBefore(order) : null;
+      const limit = Math.floor(dailyTestingLimit(batch.commsKey || batch.commsType));
+      const asked = left ?? (workDayMode === "single" ? limit : Number(batch.quantity) || 0);
+      return Math.max(0, Math.min(asked, limit));
+    }
+
+    function todaysWork() {
+      const builds = workBatches
+        .filter(batch => batch.orderId || keepManualBuild)
+        .map(batch => ({ ...batch, quantity: wantedToday(batch), route: ["assembly", "testing"] }));
+      const placed = dayJobs.map(liveDayJob).map(job => ({ ...job, quantity: Number(job.quantity) || 0, route: job.route || [] }));
+      return [...builds, ...placed].filter(job => job.quantity > 0);
+    }
+
+    function zoneTakes(zone, job) {
+      if (!job.route.includes(ZONE_STAGE[zone])) return false;
+      if (zone === "assemblyGen4") return job.unitType !== "tap";
+      if (zone === "assemblyTap") return job.unitType === "tap";
+      if (zone === "testingVerizon") return job.commsType !== "global";
+      if (zone === "testingGlobal") return job.commsType === "global";
+      return true;
+    }
+
+    // The job whose speeds a station works at: its biggest one today.
+    function zoneJob(zone, work) {
+      const best = work.filter(job => zoneTakes(zone, job)).sort((a, b) => b.quantity - a.quantity)[0]
+        || workBatches.find(batch => batch.orderId) || workBatches[0] || {};
+      return { unitKey: best.unitKey || best.unitType || "gen4", commsKey: best.commsKey || best.commsType || "verizon" };
+    }
+
+    function stationActual(zone, phase, work) {
+      if (!lastWorkflowModel) return 0;
+      const on = station => workflowPhaseWorkers(lastWorkflowModel, phase, station).length;
+      const count = on(zone);
+      const job = zoneJob(zone, work);
+      if (zone === "subAssembly") {
+        return count > 0 ? ["assembly", "assemblyGen4", "assemblyTap"].reduce((sum, item) => sum + stationActual(item, phase, work), 0) : 0;
+      }
+      if (ZONE_STAGE[zone] === "assembly") return on("subAssembly") > 0 ? count * assemblyPerBench(job.unitKey) : 0;
+      if (zone === "testing") return singleTestingCapacityPerPhase(count, job.commsKey);
+      if (zone === "testingVerizon" || zone === "testingGlobal") return count > 0 ? dailyTestingLimit(job.commsKey) / 2 : 0;
+      if (zone === "hardware") return hardwareCapacity(count, job.unitKey, job.commsKey);
+      if (zone === "packing") return packingCapacity(count, job.unitKey);
+      return null;
+    }
+
+    function stationFigures(phase) {
+      const work = todaysWork();
+      const earlierBlocks = WORKFLOW_PHASES.slice(0, WORKFLOW_PHASES.indexOf(phase));
+      return Object.fromEntries(Object.keys(ZONE_STAGE).map(zone => {
+        const need = work.filter(job => zoneTakes(zone, job)).reduce((sum, job) => sum + job.quantity, 0);
+        const done = earlierBlocks.reduce((sum, block) => sum + (stationActual(zone, block, work) || 0), 0);
+        return [zone, { target: Math.max(0, Math.floor(need - done)), actual: stationActual(zone, phase, work) }];
+      }));
     }
 
     function benchBoardPeople(phase) {
@@ -4045,60 +4129,49 @@
         return;
       }
       benchBoardRenderPending = false;
-
-      const tabs = document.getElementById("benchPhaseTabs");
-      const summary = document.getElementById("benchBoardSummary");
       const message = document.getElementById("benchBoardMessage");
 
       if (!attendanceReady() || !lastWorkflowModel) {
-        tabs.innerHTML = "";
-        summary.textContent = "";
         message.textContent = "";
         root.innerHTML = `<div class="empty">${attendanceReady() ? "Waiting for the calculation…" : "Loading…"}</div>`;
         return;
       }
 
-      tabs.innerHTML = WORKFLOW_PHASES.map(phase => {
-        const staffed = [...lastWorkflowModel.phases[phase].values()].length;
-        return `<button type="button" class="phase-toggle ${phase === benchBoardPhase ? "active" : ""}" data-phase="${phase}">${BENCH_PHASE_TABS[phase]} (${staffed})</button>`;
-      }).join("");
-
-      summary.textContent = benchTargetSummary();
-
-      const notes = [benchBoardMessage, ...lastStationIssues].filter(Boolean);
+      const notes = [benchBoardMessage, ...lastStationIssues, currentPlanTarget() === null ? benchTargetSummary() : ""].filter(Boolean);
       message.textContent = notes.join(" ");
       message.classList.toggle("error", notes.length > 0);
 
-      const typing = document.getElementById("newCustomJob");
-      const typed = typing ? typing.value : "";
-      const typingFocused = typing && document.activeElement === typing;
       const people = benchBoardPeople(benchBoardPhase);
       const selectedKey = benchBoard?.selected?.staffKey || null;
       const free = people.filter(person => person.zone === "none");
-      const stations = benchBoardZones(benchBoardPhase, people).filter(({ zone }) => zone !== "none");
+      const figures = stationFigures(benchBoardPhase);
+      const index = WORKFLOW_PHASES.indexOf(benchBoardPhase);
 
       root.innerHTML = `
         <div class="crew-layout">
           <section class="crew-panel">
-            <div class="crew-panel-head"><h3>Crew</h3><span>${free.length} free</span></div>
+            <div class="crew-panel-head">
+              <h3>Team members</h3>
+              <span>${free.length}</span>
+              <div class="crew-actions">
+                <button type="button" data-bench-action="auto">Auto assign</button>
+                <button type="button" class="secondary" data-bench-action="clear">Clear</button>
+              </div>
+            </div>
             <div class="zone crew-roster" data-zone="none">${free.map(person => crewCardHtml(person, selectedKey)).join("")}</div>
             <div class="crew-detail">${crewDetailHtml(selectedKey)}</div>
           </section>
           <section class="crew-panel">
-            <div class="crew-panel-head"><h3>Stations</h3></div>
+            <div class="block-nav">
+              <button type="button" class="secondary" data-block-step="-1" ${index === 0 ? "disabled" : ""}>‹ Previous block</button>
+              <h3>${escapeHtml(BENCH_PHASE_TABS[benchBoardPhase])}</h3>
+              <button type="button" class="secondary" data-block-step="1" ${index === WORKFLOW_PHASES.length - 1 ? "disabled" : ""}>Next block ›</button>
+            </div>
             <div class="crew-stations">
-              ${stations.map(({ zone, typical }) => crewStationHtml(zone, typical, people, selectedKey)).join("")}
-              <form class="crew-add" data-custom-job-form autocomplete="off">
-                <label for="newCustomJob">Custom job</label>
-                <input id="newCustomJob" type="text" maxlength="60" />
-                <button type="submit" class="secondary">Add</button>
-              </form>
+              ${benchBoardZones(benchBoardPhase, people).map(zone => crewStationHtml(zone, people, selectedKey, figures[zone])).join("")}
             </div>
           </section>
         </div>`;
-      const input = document.getElementById("newCustomJob");
-      input.value = typed;
-      if (typingFocused) input.focus();
       highlightBenchFit(selectedKey);
     }
 
@@ -4150,45 +4223,33 @@
         </div>`;
     }
 
-    // Units a station gives this phase (single build only).
-    function crewStationOutput(zone, count) {
-      if (workDayMode === "mixed") return null;
-      const unitType = document.getElementById("unitType").value;
-      const commsType = document.getElementById("commsType").value;
-      const phase = lastWorkflowModel.phases[benchBoardPhase];
-      const subAssembly = [...phase.values()].filter(item => normalizeWorkflowStation(item.station) === "subAssembly").length;
-      if (zone === "assembly") return subAssembly > 0 ? count * assemblyPerBench(unitType) : 0;
-      if (zone === "testing") return singleTestingCapacityPerPhase(count, commsType);
-      if (zone === "hardware") return hardwareCapacity(count, unitType, commsType);
-      if (zone === "packing") return packingCapacity(count, unitType);
-      return null;
-    }
-
-    function crewStationHtml(zone, typical, people, selectedKey) {
+    function crewStationHtml(zone, people, selectedKey, figure) {
       const inZone = people.filter(person => person.zone === zone);
       const kind = crewStationKind(zone);
-      const icon = zone.startsWith("custom:") ? "CJ" : CREW_ICONS[zone] || "··";
+      const custom = zone.startsWith("custom:");
+      const icon = custom ? "JB" : CREW_ICONS[zone] || "··";
       const needed = Math.max(0, (CREW_MIN[zone] || 0) - inZone.length);
-      const output = crewStationOutput(zone, inZone.length);
-      const state = needed > 0 && inZone.length > 0
-        ? `<div class="crew-state short">Needs ${needed} more</div>`
-        : inZone.length
-          ? `<div class="crew-state ok">Running${output !== null ? ` · ${output} units` : ""}</div>`
-          : '<div class="crew-state">Idle</div>';
-      const saved = zone.startsWith("custom:") ? savedCustomJobs.find(job => `custom:${job.name}` === zone) : null;
+      const removable = custom && !inZone.length && (blockJobs[benchBoardPhase] || []).includes(zone.slice(7));
+      let foot = "";
+      if (figure) {
+        const actual = figure.actual === null ? null : Math.floor(figure.actual);
+        const state = actual === null || !figure.target ? "" : actual >= figure.target ? "ok" : "short";
+        foot = `<div class="crew-foot ${state}"><span>Target<b>${figure.target}</b></span><span>Actual<b>${actual === null ? "–" : actual}</b></span></div>`;
+      }
       return `
-        <div class="zone crew-station ${typical ? "" : "other"}" data-zone="${safeAttr(zone)}" data-station="${safeAttr(zone)}">
+        <div class="zone crew-station" data-zone="${safeAttr(zone)}" data-station="${safeAttr(zone)}">
           <div class="crew-station-head">
             <span class="crew-icon kind-${kind}">${escapeHtml(icon)}</span>
             <b>${escapeHtml(benchZoneLabel(zone))}</b>
             <span class="cant">Can't</span>
-            ${saved && !inZone.length ? `<button type="button" class="link crew-remove" data-remove-custom-job="${safeAttr(saved.id)}">Remove</button>` : ""}
+            ${removable ? `<button type="button" class="link crew-remove" data-remove-block-job="${safeAttr(zone.slice(7))}">Remove</button>` : ""}
           </div>
-          ${state}
+          ${needed > 0 && inZone.length ? `<div class="crew-state short">Needs ${needed} more</div>` : ""}
           <div class="crew-slots">
             ${inZone.map(person => crewCardHtml(person, selectedKey)).join("")}
             <div class="crew-drop" aria-label="Empty slot"></div>
           </div>
+          ${foot}
         </div>`;
     }
 
@@ -4255,12 +4316,22 @@
       calculateFromRoster();
     }
 
-    function resetBenchPhase() {
-      const before = stationAdjustments.length;
-      stationAdjustments = stationAdjustments.filter(item => (item.phase || "start") !== benchBoardPhase);
+    // Auto assign: the computer's best layout for all three blocks, made
+    // fresh (moves by hand are dropped). Clear: everyone back to Team members.
+    function autoAssignPeople() {
+      autoAssign = true;
+      stationAdjustments = [];
       benchBoardMessage = "";
-      if (stationAdjustments.length !== before) calculateFromRoster();
-      else renderBenchBoard();
+      benchBoard?.clearSelection();
+      calculateFromRoster();
+    }
+
+    function clearAssignments() {
+      autoAssign = false;
+      stationAdjustments = [];
+      benchBoardMessage = "";
+      benchBoard?.clearSelection();
+      calculateFromRoster();
     }
 
     function wireBenchBoard() {
@@ -4275,12 +4346,21 @@
         isBusy: () => !attendanceReady() || !lastWorkflowModel
       });
 
-      document.getElementById("benchPhaseTabs").addEventListener("click", event => {
-        const button = event.target.closest("button[data-phase]");
-        if (!button) return;
-        benchBoardPhase = button.dataset.phase;
-        benchBoardMessage = "";
-        benchBoard.clearSelection();
+      document.getElementById("benchBoard").addEventListener("click", event => {
+        const step = event.target.closest("[data-block-step]");
+        if (step) {
+          const index = WORKFLOW_PHASES.indexOf(benchBoardPhase) + Number(step.dataset.blockStep);
+          if (index < 0 || index >= WORKFLOW_PHASES.length) return;
+          benchBoardPhase = WORKFLOW_PHASES[index];
+          benchBoardMessage = "";
+          benchBoard.clearSelection();
+          return;
+        }
+        const action = event.target.closest("[data-bench-action]");
+        if (action?.dataset.benchAction === "auto") return autoAssignPeople();
+        if (action?.dataset.benchAction === "clear") return clearAssignments();
+        const remove = event.target.closest("[data-remove-block-job]");
+        if (remove) removeBlockJob(remove.dataset.removeBlockJob);
       });
     }
 
@@ -5981,13 +6061,13 @@
         });
       }
       const candidates = usableWorkers
-        .filter(worker => mixedWorkerEligible(worker, "packing") && !model.phases.finish.has(worker.key) && !testingKeys.has(worker.key))
+        .filter(worker => mixedWorkerEligible(worker, "packing") && !model.phases.second.has(worker.key) && !testingKeys.has(worker.key))
         .sort((a, b) => {
           const score = mixedStationCandidateScore(a, "packing") - mixedStationCandidateScore(b, "packing");
           return score || compareByRosterThenPriority(a, b);
         })
         .slice(0, maxPackingBenches);
-      candidates.forEach(worker => setWorkflowAssignment(model, "finish", worker, "packing"));
+      candidates.forEach(worker => setWorkflowAssignment(model, "second", worker, "packing"));
     }
 
     function buildSuggestedWorkflowModel(result, mixed, usableWorkers) {
@@ -5996,8 +6076,8 @@
       if (workDayMode === "mixed" && mixed?.possible) {
         /* Preferred mixed-day flow:
            Start  = support + Gen4/Tap Assembly + Testing
-           Second = Testing continues + Hardware Check
-           Finish = Packing / Final Packaging
+           Second = Testing continues + Hardware Check + Packaging build-up
+           Finish = Packing
            Manual phase assignments can override this starting workflow. */
         const reservedKeys = new Set();
         const needsSubAssembly = mixed.batches.some(batch => batch.quantity > 0);
@@ -6531,7 +6611,10 @@
         ? calculateMixedPhaseCapacity(usableWorkers, workBatches)
         : null;
 
-      const workflowModel = buildSuggestedWorkflowModel(result, automaticMixed, usableWorkers);
+      // Nobody is placed until Auto assign; moves by hand go on top.
+      const workflowModel = autoAssign
+        ? buildSuggestedWorkflowModel(result, automaticMixed, usableWorkers)
+        : makeWorkflowModel(usableWorkers);
       applyManualWorkflowAssignments(workflowModel, usableWorkers);
       lastStationIssues = [...workflowModel.warnings];
 
@@ -6633,6 +6716,8 @@
           stationAdjustments = [];
           dayJobs = [];
           keepManualBuild = false;
+          autoAssign = false;
+          blockJobs = { start: [], second: [], finish: [] };
           seenPlanJobIds = new Set();
           lastStationIssues = [];
           document.getElementById("notesInstructions").value = "";
@@ -6706,6 +6791,10 @@
       renderWorkMixTable();
       saveWorkMixState();
 
+      // Plans saved before Auto assign existed used the computer's layout.
+      autoAssign = plan.autoAssign !== false;
+      blockJobs = Object.fromEntries(WORKFLOW_PHASES.map(phase => [phase,
+        Array.isArray(plan.blockJobs?.[phase]) ? plan.blockJobs[phase].map(String).filter(Boolean) : []]));
       stationAdjustments = Array.isArray(plan.adjustments)
         ? plan.adjustments.filter(adjustment => adjustment && adjustment.workerKey)
         : [];
@@ -6743,6 +6832,8 @@
           customJobName: adjustment.customJobName || ""
         })),
         notes: document.getElementById("notesInstructions").value || "",
+        autoAssign,
+        blockJobs,
         snapshot: buildPlanSnapshot()
       };
     }

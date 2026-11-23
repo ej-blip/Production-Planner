@@ -86,7 +86,8 @@ typography:
     letterSpacing: "0.1em"
 rounded:
   photo: "2px"
-  sheet: "3px"
+  control: "8px"
+  sheet: "14px"
 spacing:
   xs: "6px"
   sm: "8px"
@@ -185,7 +186,7 @@ The screen speaks only in titles, labels and numbers. There is no instructional 
 **Key Characteristics:**
 - Blueprint grid paper ground (16px minor, 80px major), fixed behind the page.
 - Cyanotype title block header with labelled data cells divided by thin white rules.
-- Near-white sheets with 1px blue-grey rules and 3px corners; flat, no resting shadows.
+- Near-white sheets with 1px blue-grey rules and rounded corners (14px sheets, 8px controls); flat, no resting shadows.
 - Sections divided by ruled lines, not by separate floating cards.
 - Barlow for text, Barlow Condensed capitals for labels and figures, tabular numerals.
 - Status always carried by words plus a coloured rule, never by colour alone.
@@ -264,13 +265,13 @@ Flat. Sheets, notes, figures and rows sit on the paper with a 1px rule and no sh
 
 ## Shapes
 
-Square-cornered drafting forms: 3px corners on sheets, buttons, fields, tags, notes, badges and dialogs; 2px on photos. The only round shapes are the connection light, skill dots, and scrollbar thumbs. Borders are 1px throughout (strong rule for outlines, light rule for dividers); the one heavy stroke is the 3px rule under the title block. Dragging uses a 2px dashed drop outline.
+Rounded drafting forms (Ethan asked for softer corners, 2026-11-23): 14px on sheets, station cards, job cards and the block title; 8px on buttons, fields, tags, notes, badges and dialogs; 2px on photos. The only round shapes are the connection light, skill dots, and scrollbar thumbs. Borders are 1px throughout (strong rule for outlines, light rule for dividers); the one heavy stroke is the 3px rule under the title block. Dragging uses a 2px dashed drop outline.
 
 ## Components
 
 ### Buttons
 Plain, solid and unmistakably clickable.
-- **Shape:** 3px corners, 1px border, 40px minimum height, 10px 16px padding.
+- **Shape:** 8px corners, 1px border, 40px minimum height, 10px 16px padding.
 - **Primary:** cyanotype print fill with white lettering and a deep-print edge (Release plan, Resolved, Received).
 - **Hover / Focus:** fill lifts to lighter print over 0.12s; focus is a 2px drafting-blue outline offset 2px.
 - **Secondary:** white with ink text and a strong-rule outline (Save draft, + Note); hover goes to inset with an ink-2 edge.
