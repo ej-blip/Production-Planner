@@ -300,7 +300,7 @@
       const f = figures();
       const byBench = Object.entries(BENCH_STATIONS).map(([name, stations]) => {
         const lines = PHASES.map(([phase, label]) => {
-          const keys = state.assignments.filter(item => item.phase === phase && stations.includes(item.station)).map(item => item.staffKey);
+          const keys = state.assignments.filter(item => item.phase === phase && (stations.includes(item.station) || stations.includes(String(item.station).split(":")[0]))).map(item => item.staffKey);
           return keys.length ? `${label}: ${keys.map(firstOf).join(", ")}` : "";
         }).filter(Boolean);
         return lines.length ? `<p><b>${name}</b> · ${escapeHtml(lines.join(" · "))}</p>` : "";

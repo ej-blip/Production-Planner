@@ -395,7 +395,8 @@
 
     function magnetsFor(bench) {
       const stations = MAGNET_STATIONS[bench] || [];
-      const people = [...new Set(state.assignments.filter(item => stations.includes(item.station)).map(item => item.staffKey))];
+      // A unit's own stations ("assembly:solar") count for their bench too.
+      const people = [...new Set(state.assignments.filter(item => stations.includes(item.station) || stations.includes(String(item.station).split(":")[0])).map(item => item.staffKey))];
       return people.map(staffName).sort((a, b) => a.localeCompare(b));
     }
 

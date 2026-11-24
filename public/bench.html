@@ -396,7 +396,7 @@
     } from "./js/floor.js";
     import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
     import {
-      watchLists, unitLabel, simLabel, labelOf, unitKeyOf, commsKeyOf,
+      watchLists, unitLabel, simLabel, labelOf, unitKeyOf, commsKeyOf, usesComms,
       testingPerDay, assemblyRate, hardwareRate, packagingBuildRate
     } from "./js/lists.js";
 
@@ -414,6 +414,21 @@
       packing:        { label: "Packaging build-up" },
       finalPackaging: { label: "Packing" }
     };
+
+    // A unit's own stations ("assembly:solar", "testing:solar") belong to
+    // the bench of their first part.
+    const baseOf = station => String(station || "").split(":")[0];
+    const productOf = station => (String(station || "").includes(":") ? String(station).split(":").slice(1).join(":") : null);
+
+    function stationInfo(station) {
+      if (STATIONS[station]) return STATIONS[station];
+      const product = productOf(station);
+      if (product && baseOf(station) === "assembly") return { label: `${labelOf("units", product)} Assembly` };
+      if (product && baseOf(station) === "testing") return { label: `${labelOf("units", product)} Testing` };
+      return null;
+    }
+
+    const onList = (list, station) => list.includes(station) || (Boolean(productOf(station)) && list.includes(baseOf(station)));
 
     // Each bench screen: its jobs, and which batch details it shows.
     const BENCHES = {
@@ -539,12 +554,12 @@
     }
 
     function isBenchStation(station) {
-      return Boolean(bench?.stations.includes(station));
+      return Boolean(bench) && onList(bench.stations, station);
     }
 
     // 0 dots = can't do it. Not in production = can't do anything.
     function canDo(person, station) {
-      return Boolean(STATIONS[station]) && window.PlannerSkills.levelFor(person, station) > 0;
+      return Boolean(stationInfo(station)) && window.PlannerSkills.levelFor(person, station) > 0;
     }
 
     // Best rating this person has for any job on this bench.
@@ -559,7 +574,17 @@
       const mixed = state.plan.workMode === "mixed";
       let stations;
 
-      if (benchKey === "testing") {
+      if (state.plan.productsDay && (benchKey === "testing" || benchKey === "assembly")) {
+        // Any mix of units: each unit its own Assembly; network units test
+        // on their network's station, standalone units on their own.
+        const units = [...new Set(batches.map(unitKeyOf))];
+        stations = benchKey === "assembly"
+          ? ["subAssembly", ...units.map(unit => `assembly:${unit}`)]
+          : [
+              ...["verizon", "global"].filter(network => batches.some(batch => usesComms(batch) && networkOf(batch) === network)).map(network => NETWORKS[network].station),
+              ...[...new Set(batches.filter(batch => !usesComms(batch)).map(unitKeyOf))].map(unit => `testing:${unit}`)
+            ];
+      } else if (benchKey === "testing") {
         stations = mixed
           ? ["verizon", "global"].filter(network => batches.some(batch => networkOf(batch) === network)).map(network => NETWORKS[network].station)
           : ["testing"];
@@ -583,14 +608,14 @@
       const singleNetwork = networkOf(batches[0] || { commsType: "verizon" });
       return stations.map(station => ({
         station,
-        label: STATIONS[station]?.label || station,
-        network: STATIONS[station]?.network || (benchKey === "testing" ? singleNetwork : null)
+        label: stationInfo(station)?.label || station,
+        network: stationInfo(station)?.network || (benchKey === "testing" && !productOf(station) ? singleNetwork : null)
       }));
     }
 
     function jobLabel(station) {
       if (station === "off") return `Not on ${bench.label}`;
-      return STATIONS[station]?.label || station;
+      return stationInfo(station)?.label || station;
     }
 
     function benchPeople(phase, assignments = state.assignments) {
@@ -644,6 +669,8 @@
       if (!batches.length) return 0;
       const onStation = (phase, station) => assignments.filter(item => item.phase === phase && item.station === station).length;
 
+      if (plan.productsDay) return scaledLimit("testing", ["testing", "testingVerizon", "testingGlobal"], plan, assignments);
+
       if (plan.workMode !== "mixed") {
         const max = dailyLimit(commsKeyOf(batches[0]));
         const total = PHASE_KEYS.reduce((sum, phase) => sum + (onStation(phase, "testing") >= 2 ? max / 2 : 0), 0);
@@ -663,6 +690,22 @@
       return capacityInteger(requested * Math.min(1, ...ratios));
     }
 
+    // Mixed or products day: what a stage could do at release, scaled by
+    // how many people are on its jobs now compared with then.
+    function scaledLimit(key, stations, plan, assignments) {
+      const planned = Number(plan.snapshot?.capacity?.stages?.[key]);
+      if (!Number.isFinite(planned)) return null;
+      const releasedOn = list => PHASE_KEYS.reduce((sum, phase) => sum + (plan.snapshot?.phases?.[phase] || [])
+        .filter(task => onList(list, task.station))
+        .reduce((inner, task) => inner + (task.workers?.length || 0), 0), 0);
+      const nowOn = list => PHASE_KEYS.reduce((sum, phase) =>
+        sum + assignments.filter(item => item.phase === phase && onList(list, item.station)).length, 0);
+      if (key === "assembly" && releasedOn(["subAssembly"]) > 0 && nowOn(["subAssembly"]) === 0) return 0;
+      const before = releasedOn(stations);
+      if (!before) return planned;
+      return Math.floor(planned * Math.min(1, nowOn(stations) / before));
+    }
+
     const CAPACITY_STATIONS = {
       assembly: ["assembly", "assemblyGen4", "assemblyTap"],
       hardware: ["hardware"],
@@ -676,7 +719,7 @@
       if (!stations) return null;
       const batches = activeBatches(plan);
       if (!batches.length) return 0;
-      const count = (phase, list) => assignments.filter(item => item.phase === phase && list.includes(item.station)).length;
+      const count = (phase, list) => assignments.filter(item => item.phase === phase && onList(list, item.station)).length;
 
       if (plan.workMode !== "mixed") {
         const unitKey = unitKeyOf(batches[0]);
@@ -689,18 +732,7 @@
         }, 0);
       }
 
-      // Mixed day: scale what this stage could do at release by how many
-      // people are on its jobs now compared with then.
-      const planned = Number(plan.snapshot?.capacity?.stages?.[key]);
-      if (!Number.isFinite(planned)) return null;
-      const releasedOn = list => PHASE_KEYS.reduce((sum, phase) => sum + (plan.snapshot?.phases?.[phase] || [])
-        .filter(task => list.includes(task.station))
-        .reduce((inner, task) => inner + (task.workers?.length || 0), 0), 0);
-      const nowOn = list => PHASE_KEYS.reduce((sum, phase) => sum + count(phase, list), 0);
-      if (key === "assembly" && releasedOn(["subAssembly"]) > 0 && nowOn(["subAssembly"]) === 0) return 0;
-      const before = releasedOn(stations);
-      if (!before) return planned;
-      return Math.floor(planned * Math.min(1, nowOn(stations) / before));
+      return scaledLimit(key, stations, plan, assignments);
     }
 
     // ------------------------------------------------------------------
@@ -1131,7 +1163,9 @@
       const cell = (column, batch) => {
         if (column === "customer") return `<td>${escapeHtml(batch.customer)}</td>`;
         if (column === "unit") return `<td><strong>${escapeHtml(unitLabel(batch))}</strong></td>`;
-        if (column === "network") return `<td>${escapeHtml(NETWORKS[networkOf(batch)].label)} · ${escapeHtml(simLabel(batch.simType))}</td>`;
+        if (column === "network") return usesComms(batch)
+          ? `<td>${escapeHtml(NETWORKS[networkOf(batch)].label)} · ${escapeHtml(simLabel(batch.simType))}</td>`
+          : "<td>–</td>";
         if (column === "config") {
           const preset = presetFor(batch);
           const swatch = preset?.colourHex ? `<span class="swatch" style="background:${escapeHtml(preset.colourHex)}"></span>` : "";
@@ -1153,11 +1187,37 @@
     }
 
     function testingSetupsHtml() {
-      const batches = activeBatches();
+      const batches = activeBatches().filter(usesComms);
+      const standalone = activeBatches().filter(batch => !usesComms(batch));
       const networks = ["verizon", "global"].filter(network => batches.some(batch => networkOf(batch) === network));
       const tasks = state.plan.snapshot?.phases || {};
 
-      return networks.map(network => {
+      // A unit without a network (Solar) tests on its own station.
+      const unitCards = [...new Set(standalone.map(unitKeyOf))].map(unit => {
+        const station = `testing:${unit}`;
+        const rows = standalone.filter(batch => unitKeyOf(batch) === unit);
+        const phaseLines = PHASES.map(([phase, label]) => {
+          const people = benchPeople(phase).filter(item => item.station === station).map(item => staffName(item.staffKey));
+          return people.length ? `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(people.join(", "))}</div>` : "";
+        }).join("");
+        return `
+          <div class="setup">
+            <h3>${escapeHtml(labelOf("units", unit))} testing</h3>
+            <table>
+              <thead><tr><th>Customer</th><th>Units</th></tr></thead>
+              <tbody>
+                ${rows.map(batch => `
+                  <tr>
+                    <td>${escapeHtml(batch.customer)}</td>
+                    <td><strong>${plannedUnits(batch)}</strong>${plannedUnits(batch) < Number(batch.quantity) ? ` of ${Number(batch.quantity)}` : ""}</td>
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+            <div class="phases">${phaseLines || "No testers assigned."}</div>
+          </div>`;
+      }).join("");
+
+      return unitCards + networks.map(network => {
         const rows = batches.filter(batch => networkOf(batch) === network);
         const sims = [...new Set(rows.map(batch => simLabel(batch.simType)))];
         const job = benchJobs().find(item => item.network === network) || { station: NETWORKS[network].station };
@@ -1226,7 +1286,7 @@
     function pipsHtml(key) {
       return PHASE_KEYS.map(phase => {
         const job = jobFor(key, phase);
-        const colour = job ? KIND_COLOUR[STATION_KIND[job.station]] || "var(--k-cage)" : "var(--btn)";
+        const colour = job ? KIND_COLOUR[STATION_KIND[job.station] || STATION_KIND[baseOf(job.station)]] || "var(--k-cage)" : "var(--btn)";
         return `<i style="background:${colour}" title="${escapeHtml(phaseLabel(phase))}: ${escapeHtml(job ? job.jobLabel || jobLabel(job.station) : "Free")}"></i>`;
       }).join("");
     }
@@ -1263,8 +1323,9 @@
 
     function stationHtml(job, tasks, selectedKey) {
       const people = benchPeople(state.phase).filter(item => item.station === job.station).map(item => item.staffKey);
-      const kind = STATION_KIND[job.station] || "final";
-      const needed = Math.max(0, (STATION_MIN[job.station] || 0) - people.length);
+      const kind = STATION_KIND[job.station] || STATION_KIND[baseOf(job.station)] || "final";
+      const least = STATION_MIN[job.station] ?? (productOf(job.station) ? 1 : STATION_MIN[baseOf(job.station)] || 0);
+      const needed = Math.max(0, least - people.length);
       const output = stationOutput(job.station, people.length);
       const detail = tasks.find(task => task.station === job.station)?.detail || "";
       const status = needed > 0 && people.length > 0
@@ -1275,7 +1336,7 @@
       return `
         <div class="zone crew-station ${NETWORKS[job.network]?.cls || ""}" data-zone="${escapeHtml(job.station)}" data-station="${escapeHtml(job.station)}">
           <div class="crew-station-head">
-            <span class="crew-icon kind-${kind}">${escapeHtml(STATION_ICON[job.station] || "··")}</span>
+            <span class="crew-icon kind-${kind}">${escapeHtml(STATION_ICON[job.station] || STATION_ICON[baseOf(job.station)] || "··")}</span>
             <b>${escapeHtml(job.label)}</b>
             <span class="cant">Can't</span>
           </div>

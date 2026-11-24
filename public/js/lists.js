@@ -1,7 +1,10 @@
 // Production Planner — the lists every choice in the app comes from.
 //
 //   lists/{name} = { items: [{ key, label, active, … }] }
-//     units       unit types       + planAs "gen4" | "tap", rates (build speeds)
+//     units       unit types       + planAs "gen4" | "tap", rates (build speeds),
+//                                    usesComms / usesConnector / usesConfig
+//                                    (false for a standalone unit like Solar:
+//                                    no network, SIM, connector or colour)
 //     customers   customers
 //     connectors  connectors
 //     comms       comms types      + colourHex, planAs "verizon" | "global",
@@ -97,7 +100,7 @@ export const labelOf = (name, key) => find(name, key)?.label || key || "";
 export const unitKeyOf = thing => thing?.unitKey || thing?.unitType || "gen4";
 export const commsKeyOf = thing => thing?.commsKey || thing?.commsType || "verizon";
 export const unitLabel = thing => labelOf("units", unitKeyOf(thing));
-export const commsLabel = thing => labelOf("comms", commsKeyOf(thing));
+export const commsLabel = thing => (usesComms(thing) ? labelOf("comms", commsKeyOf(thing)) : "");
 export const simLabel = key => labelOf("sims", key);
 export const commsColour = thing => find("comms", commsKeyOf(thing))?.colourHex || "";
 
@@ -121,6 +124,8 @@ const wholeNumber = value => Math.max(0, Math.min(9999, Math.round(Number(value)
 function ownRates(unitKey) {
   const item = find("units", unitKey);
   if (item?.rates) return item.rates;
+  // A standalone unit (Solar) borrows nothing from Gen4 / Tap's saved speeds.
+  if (item && item.usesComms === false) return {};
   return find("units", unitPlanAs(unitKey))?.rates || {};
 }
 
@@ -175,6 +180,31 @@ export function testingPerDay(commsKey) {
 export function usefulPeople(table) {
   const best = Math.max(...table);
   return best <= 0 ? 0 : table.findIndex(value => value >= best) + 1;
+}
+
+// ---------------------------------------------------------------------
+// What a unit type uses. A standalone unit (Solar) has no network or SIM,
+// connector or configuration colour; those fields don't show for it, and
+// it plans as a product of its own (its own Assembly and Testing stations).
+// Gen4 and Tap always use all three.
+// ---------------------------------------------------------------------
+export function unitUses(unitKey, field) {
+  if (UNIT_PLANS.includes(unitKey)) return true;
+  return find("units", unitKey)?.[field] !== false;
+}
+
+export const usesComms = thing => unitUses(unitKeyOf(thing), "usesComms");
+
+// Units one tester tests in a block (standalone units only).
+export function testingRate(unitKey) {
+  const value = ownRates(unitKey).testing;
+  return value === undefined || value === null ? 0 : wholeNumber(value);
+}
+
+// Most a standalone unit can be built in a day (null: no limit set).
+export function unitDailyLimit(unitKey) {
+  const value = ownRates(unitKey).dailyLimit;
+  return value === undefined || value === null || value === "" ? null : wholeNumber(value);
 }
 
 // SIM types for a comms type. A SIM key still on the list (even retired)
@@ -268,6 +298,9 @@ const clean = item => {
   if (item.comms) out.comms = item.comms;
   if (item.rates) out.rates = item.rates;
   if (item.testingPerDay !== undefined && item.testingPerDay !== null) out.testingPerDay = wholeNumber(item.testingPerDay);
+  ["usesComms", "usesConnector", "usesConfig"].forEach(field => {
+    if (item[field] === false) out[field] = false;
+  });
   return out;
 };
 

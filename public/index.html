@@ -1360,12 +1360,12 @@
         <div class="order-pickers">
           <div><label for="orderUnit">Unit</label><select id="orderUnit"></select></div>
           <div><label for="orderCustomer">Customer</label><input id="orderCustomer" type="text" maxlength="80" list="orderCustomerList" /><datalist id="orderCustomerList"></datalist></div>
-          <div><label for="orderConnector">Connector</label><select id="orderConnector"></select></div>
-          <div><label for="orderComms">Comms</label><select id="orderComms"></select></div>
-          <div><label for="orderSim">SIM</label><select id="orderSim"></select></div>
+          <div data-uses="usesConnector"><label for="orderConnector">Connector</label><select id="orderConnector"></select></div>
+          <div data-uses="usesComms"><label for="orderComms">Comms</label><select id="orderComms"></select></div>
+          <div data-uses="usesComms"><label for="orderSim">SIM</label><select id="orderSim"></select></div>
         </div>
         <div class="order-lower">
-          <div class="order-configs">
+          <div class="order-configs" data-uses="usesConfig">
             <span class="order-label" id="orderConfigLabel">Configuration</span>
             <div class="config-picks" id="orderConfigPicks" role="radiogroup" aria-labelledby="orderConfigLabel"></div>
             <input type="hidden" id="orderConfig" />
@@ -2147,15 +2147,19 @@
         ? lists.commsPlanAs(commsKey)
         : raw.commsType === "global" || commsKey === "global" ? "global" : "verizon";
       const validGlobalSims = ["att", "fusion-na", "telstra"];
-      const simType = lists
-        ? lists.simFor(commsKey, raw.simType)
-        : commsType === "verizon" ? "verizon" : validGlobalSims.includes(raw.simType) ? raw.simType : "att";
+      const withComms = !lists || lists.unitUses(unitKey, "usesComms");
+      const withConfig = !lists || lists.unitUses(unitKey, "usesConfig");
+      const simType = !withComms ? ""
+        : lists
+          ? lists.simFor(commsKey, raw.simType)
+          : commsType === "verizon" ? "verizon" : validGlobalSims.includes(raw.simType) ? raw.simType : "att";
 
-      const configKey = sensorConfigurations[raw.configKey] ? raw.configKey : "blue";
+      const configKey = !withConfig ? "" : sensorConfigurations[raw.configKey] ? raw.configKey : "blue";
       const hasConfigText = Object.prototype.hasOwnProperty.call(raw, "configText");
-      const configText = hasConfigText
-        ? String(raw.configText ?? "")
-        : configurationComponentSummary(configKey);
+      const configText = !withConfig ? ""
+        : hasConfigText
+          ? String(raw.configText ?? "")
+          : configurationComponentSummary(configKey);
 
       return {
         id: String(raw.id || makeWorkBatchId()),
@@ -2444,7 +2448,10 @@
       });
 
       // Auto-fill follows the unit and customer; fields picked by hand stay.
-      document.getElementById("orderUnit").addEventListener("change", autoFillOrder);
+      document.getElementById("orderUnit").addEventListener("change", () => {
+        applyOrderFieldUse();
+        autoFillOrder();
+      });
       document.getElementById("orderCustomer").addEventListener("change", autoFillOrder);
       document.getElementById("orderConnector").addEventListener("change", () => orderTouched.add("connector"));
       document.getElementById("orderComms").addEventListener("change", () => {
@@ -2582,7 +2589,7 @@
 
     function applyWorkBatchChange() {
       keepManualBuild = false;
-      workDayMode = workBatches.length > 1 ? "mixed" : "single";
+      workDayMode = workBatches.length > 1 || productsDay() ? "mixed" : "single";
       lastStationIssues = [];
       applyPrimaryBatchToSingleControls();
       applyWorkDayModeUi();
@@ -2640,7 +2647,8 @@
     function orderWho(order) {
       const comms = getCommsLabel(order);
       const sim = order.simType ? getSimPlanLabel(order.simType) : "";
-      return `${order.customer} – ${sim && sim !== comms ? sim : comms}`;
+      const network = sim && sim !== comms ? sim : comms;
+      return network ? `${order.customer} – ${network}` : order.customer;
     }
 
     /* What an order still has to do at each bench: units not yet past a
@@ -2774,6 +2782,20 @@
       );
       fillOrderSimOptions(document.getElementById("orderSim").value);
       renderConfigPicks(document.getElementById("orderConfig").value);
+      applyOrderFieldUse();
+    }
+
+    // A unit type's unused fields (Solar: network, SIM, connector, colour)
+    // don't show on the form, and aren't saved.
+    function orderUses(field) {
+      const lists = listsApi();
+      return !lists || lists.unitUses(document.getElementById("orderUnit").value, field);
+    }
+
+    function applyOrderFieldUse() {
+      document.querySelectorAll("#orderPanel [data-uses]").forEach(element => {
+        element.classList.toggle("hidden", !orderUses(element.dataset.uses));
+      });
     }
 
     function defaultConfigKey() {
@@ -2842,6 +2864,7 @@
       fillOrderSimOptions(source.simType);
       renderConfigPicks(sensorConfigurations[source.configKey] ? source.configKey : firstConfig);
       document.getElementById("orderQuantity").value = source.quantity;
+      applyOrderFieldUse();
       document.getElementById("orderPanelTitle").textContent = order ? `${unitTypeLabel(order)} · ${order.customer}` : "New order";
       document.getElementById("orderDelete").classList.toggle("hidden", !order);
       const status = document.getElementById("orderStatusButton");
@@ -2870,7 +2893,7 @@
         error.textContent = "Enter the customer.";
         return;
       }
-      if (!configKey) {
+      if (!configKey && orderUses("usesConfig")) {
         error.textContent = "Pick a configuration.";
         return;
       }
@@ -2881,7 +2904,10 @@
       const lists = listsApi();
       const unitKey = document.getElementById("orderUnit").value;
       const commsKey = document.getElementById("orderComms").value;
-      if (!unitKey || !commsKey) {
+      const withComms = orderUses("usesComms");
+      const withConnector = orderUses("usesConnector");
+      const withConfig = orderUses("usesConfig");
+      if (!unitKey || (withComms && !commsKey)) {
         error.textContent = "Pick the unit and comms type.";
         return;
       }
@@ -2893,12 +2919,14 @@
           customer,
           unitType: lists.unitPlanAs(unitKey),
           unitKey,
-          commsType: lists.commsPlanAs(commsKey),
-          commsKey,
-          simType: document.getElementById("orderSim").value,
-          connectorKey: document.getElementById("orderConnector").value || null,
-          configKey,
-          configText: configurationComponentSummary(configKey),
+          // A unit without a network still stores the built-in comms type
+          // the database expects; nothing shows or plans by it.
+          commsType: withComms ? lists.commsPlanAs(commsKey) : "verizon",
+          commsKey: withComms ? commsKey : null,
+          simType: withComms ? document.getElementById("orderSim").value : "",
+          connectorKey: withConnector ? document.getElementById("orderConnector").value || null : null,
+          configKey: withConfig ? configKey : "",
+          configText: withConfig ? configurationComponentSummary(configKey) : "",
           quantity
         });
         closeOrderForm();
@@ -3400,6 +3428,7 @@
     }
 
     function workflowStationOptions() {
+      if (productsDay()) return productsStationOptions();
       const stations = [["subAssembly", "Sub Assembly"]];
 
       if (workDayMode === "mixed") {
@@ -4074,8 +4103,8 @@
     }
 
     function benchBoardZones(phase, people) {
-      const offered = new Set(workflowStationOptions().map(([value]) => value));
-      const zones = BLOCK_STATIONS[phase].filter(zone => offered.has(zone));
+      const zones = workflowStationOptions().map(([value]) => value)
+        .filter(zone => BLOCK_STATIONS[phase].includes(zone) || (stationProduct(zone) && BLOCK_STATIONS[phase].includes(stationBase(zone))));
       (blockJobs[phase] || []).forEach(name => {
         const zone = `custom:${name}`;
         if (!zones.includes(zone)) zones.push(zone);
@@ -4095,13 +4124,18 @@
       hardware: "hardware", packing: "packing", finalPackaging: "packing"
     };
 
+    const zoneStage = zone => ZONE_STAGE[zone] || ZONE_STAGE[stationBase(zone)] || null;
+
     // What a new build from an order asks for today: what the order has
     // left, up to a day's testing.
     function wantedToday(batch) {
       // Takes a day's batch or an order.
       const order = workOrders.find(item => item.id === (batch.orderId || batch.id)) || null;
       const left = order ? orderLeftBefore(order) : null;
-      const limit = Math.floor(dailyTestingLimit(batch.commsKey || batch.commsType));
+      const standaloneLimit = isStandalone(batch) ? listsApi().unitDailyLimit(batch.unitKey || batch.unitType) : null;
+      const limit = isStandalone(batch)
+        ? standaloneLimit ?? (left ?? (Number(batch.quantity) || 0))
+        : Math.floor(dailyTestingLimit(batch.commsKey || batch.commsType));
       const asked = left ?? (workDayMode === "single" ? limit : Number(batch.quantity) || 0);
       return Math.max(0, Math.min(asked, limit));
     }
@@ -4115,11 +4149,13 @@
     }
 
     function zoneTakes(zone, job) {
-      if (!job.route.includes(ZONE_STAGE[zone])) return false;
+      if (!job.route.includes(zoneStage(zone))) return false;
+      const product = stationProduct(zone);
+      if (product) return (job.unitKey || job.unitType) === product;
       if (zone === "assemblyGen4") return job.unitType !== "tap";
       if (zone === "assemblyTap") return job.unitType === "tap";
-      if (zone === "testingVerizon") return job.commsType !== "global";
-      if (zone === "testingGlobal") return job.commsType === "global";
+      if (zone === "testingVerizon") return job.commsType !== "global" && !isStandalone(job);
+      if (zone === "testingGlobal") return job.commsType === "global" && !isStandalone(job);
       return true;
     }
 
@@ -4136,9 +4172,11 @@
       const count = on(zone);
       const job = zoneJob(zone, work);
       if (zone === "subAssembly") {
-        return count > 0 ? ["assembly", "assemblyGen4", "assemblyTap"].reduce((sum, item) => sum + stationActual(item, phase, work), 0) : 0;
+        const assemblyZones = workflowStationOptions().map(([value]) => value).filter(item => item !== "subAssembly" && zoneStage(item) === "assembly");
+        return count > 0 ? assemblyZones.reduce((sum, item) => sum + stationActual(item, phase, work), 0) : 0;
       }
-      if (ZONE_STAGE[zone] === "assembly") return on("subAssembly") > 0 ? count * assemblyPerBench(job.unitKey) : 0;
+      if (zoneStage(zone) === "assembly") return on("subAssembly") > 0 ? count * assemblyPerBench(job.unitKey) : 0;
+      if (stationProduct(zone) && stationBase(zone) === "testing") return count * listsApi().testingRate(stationProduct(zone));
       if (zone === "testing") return singleTestingCapacityPerPhase(count, job.commsKey);
       if (zone === "testingVerizon" || zone === "testingGlobal") return count > 0 ? dailyTestingLimit(job.commsKey) / 2 : 0;
       if (zone === "hardware") return hardwareCapacity(count, job.unitKey, job.commsKey);
@@ -4150,7 +4188,8 @@
     function stationFigures(phase) {
       const work = todaysWork();
       const earlierBlocks = WORKFLOW_PHASES.slice(0, WORKFLOW_PHASES.indexOf(phase));
-      return Object.fromEntries(Object.keys(ZONE_STAGE).map(zone => {
+      const zones = [...new Set([...Object.keys(ZONE_STAGE), ...workflowStationOptions().map(([value]) => value).filter(zoneStage)])];
+      return Object.fromEntries(zones.map(zone => {
         const need = work.filter(job => zoneTakes(zone, job)).reduce((sum, job) => sum + job.quantity, 0);
         const done = earlierBlocks.reduce((sum, block) => sum + (stationActual(zone, block, work) || 0), 0);
         return [zone, { target: Math.max(0, Math.floor(need - done)), actual: stationActual(zone, phase, work) }];
@@ -4290,8 +4329,9 @@
       const inZone = people.filter(person => person.zone === zone);
       const kind = crewStationKind(zone);
       const custom = zone.startsWith("custom:");
-      const icon = custom ? "JB" : CREW_ICONS[zone] || "··";
-      const needed = Math.max(0, (CREW_MIN[zone] || 0) - inZone.length);
+      const icon = custom ? "JB" : CREW_ICONS[zone] || CREW_ICONS[stationBase(zone)] || "··";
+      const least = CREW_MIN[zone] ?? (stationProduct(zone) ? 1 : CREW_MIN[stationBase(zone)] || 0);
+      const needed = Math.max(0, least - inZone.length);
       const removable = custom && !inZone.length && (blockJobs[benchBoardPhase] || []).includes(zone.slice(7));
       let foot = "";
       if (figure) {
@@ -5686,6 +5726,227 @@
     }
 
     /* ============================================================
+       PRODUCTS DAY: any mix of unit types on one day. Each unit type gets
+       its own Assembly station ("assembly:<unit>"); a standalone unit like
+       Solar (no network) also gets its own Testing station
+       ("testing:<unit>"), while network units test on the Verizon /
+       Global stations. Sub Assembly, Hardware Check, Packaging build-up
+       and Packing are shared. Used whenever the day builds a standalone
+       unit; days of only Gen4 / Tap plan as before.
+       ============================================================ */
+    const PRODUCT_MAX_ASSEMBLY = 6;
+
+    const stationBase = station => window.PlannerSkills.stationBase(station);
+    const stationProduct = station => (String(station || "").includes(":") ? String(station).split(":").slice(1).join(":") : null);
+
+    function isStandalone(thing) {
+      const lists = listsApi();
+      return Boolean(lists) && !lists.usesComms(thing);
+    }
+
+    function dayBuilds() {
+      return workBatches.filter(batch => batch.orderId || keepManualBuild);
+    }
+
+    function productsDay() {
+      return dayBuilds().some(isStandalone);
+    }
+
+    // The day's unit types in batch order, with what needs testing where.
+    function productsOfDay() {
+      const seen = new Map();
+      dayBuilds().forEach(batch => {
+        const key = batch.unitKey || batch.unitType;
+        if (!seen.has(key)) seen.set(key, { key, standalone: isStandalone(batch) });
+      });
+      return [...seen.values()];
+    }
+
+    function productsTestingStations() {
+      const stations = [];
+      const network = batch => (batch.commsType === "global" ? "testingGlobal" : "testingVerizon");
+      const testedToday = [...dayBuilds(), ...dayJobs.map(liveDayJob).filter(job => (job.route || []).includes("testing"))];
+      ["testingVerizon", "testingGlobal"].forEach(station => {
+        if (testedToday.some(job => !isStandalone(job) && network(job) === station)) stations.push(station);
+      });
+      [...new Set(testedToday.filter(isStandalone).map(job => job.unitKey || job.unitType))]
+        .forEach(key => stations.push(`testing:${key}`));
+      return stations;
+    }
+
+    function productsStationOptions() {
+      return [
+        ["subAssembly", "Sub Assembly"],
+        ...productsOfDay().map(product => [`assembly:${product.key}`, workflowStationLabel(`assembly:${product.key}`)]),
+        ...productsTestingStations().map(station => [station, workflowStationLabel(station)]),
+        ["hardware", "Hardware Check"],
+        ["packing", "Packaging build-up"],
+        ["finalPackaging", "Packing"],
+        ["custom", "Custom / Other Job"]
+      ];
+    }
+
+    // What the day can build of each order: what its unit's Assembly and
+    // Testing can do (shared by orders of the same unit or network, in
+    // proportion to what each wants), up to each unit's daily limit.
+    function productsCapacity(model) {
+      const lists = listsApi();
+      const on = (phase, station) => workflowPhaseWorkers(model, phase, station).length;
+      const requested = dayBuilds()
+        .map(batch => ({ ...batch, originalIndex: workBatches.indexOf(batch), quantity: wantedToday(batch) }))
+        .filter(batch => batch.quantity > 0);
+      const totalRequested = requested.reduce((sum, batch) => sum + batch.quantity, 0);
+      const keyOf = batch => batch.unitKey || batch.unitType;
+      const share = (pool, members) => {
+        const wanted = members.reduce((sum, batch) => sum + batch.quantity, 0);
+        return new Map(members.map(batch => [batch, wanted ? pool * batch.quantity / wanted : 0]));
+      };
+
+      const assemblyCap = new Map();
+      const testingCap = new Map();
+      const assemblyAt = {};
+      const testingAt = {};
+      productsOfDay().forEach(product => {
+        const members = requested.filter(batch => keyOf(batch) === product.key);
+        const built = WORKFLOW_PHASES.reduce((sum, phase) =>
+          sum + (on(phase, "subAssembly") > 0 ? on(phase, `assembly:${product.key}`) * assemblyPerBench(product.key) : 0), 0);
+        assemblyAt[product.key] = built;
+        share(built, members).forEach((value, batch) => assemblyCap.set(batch, value));
+        if (product.standalone) {
+          const tested = WORKFLOW_PHASES.reduce((sum, phase) => sum + on(phase, `testing:${product.key}`) * lists.testingRate(product.key), 0);
+          const limit = lists.unitDailyLimit(product.key);
+          const capped = limit === null ? tested : Math.min(tested, limit);
+          testingAt[`testing:${product.key}`] = capped;
+          share(capped, members).forEach((value, batch) => testingCap.set(batch, value));
+        }
+      });
+      ["testingVerizon", "testingGlobal"].forEach(station => {
+        const members = requested.filter(batch => !isStandalone(batch) && (batch.commsType === "global") === (station === "testingGlobal"));
+        if (!members.length) return;
+        const limit = dailyTestingLimit(members[0].commsKey || members[0].commsType);
+        const tested = Math.min(limit, WORKFLOW_PHASES.reduce((sum, phase) => sum + (on(phase, station) > 0 ? limit / 2 : 0), 0));
+        testingAt[station] = tested;
+        share(tested, members).forEach((value, batch) => testingCap.set(batch, value));
+      });
+
+      let bottleneck = null;
+      const batches = requested.map(batch => {
+        const assembly = assemblyCap.get(batch) || 0;
+        const testing = testingCap.get(batch) || 0;
+        const achievable = Math.max(0, Math.floor(Math.min(batch.quantity, assembly, testing) + 1e-9));
+        const short = batch.quantity - achievable;
+        if (short > 0 && (!bottleneck || short > bottleneck.short)) {
+          const station = assembly <= testing ? `assembly:${keyOf(batch)}`
+            : isStandalone(batch) ? `testing:${keyOf(batch)}`
+            : batch.commsType === "global" ? "testingGlobal" : "testingVerizon";
+          bottleneck = { short, name: workflowStationLabel(station) };
+        }
+        return { ...batch, achievable };
+      });
+      const realisticOutput = batches.reduce((sum, batch) => sum + batch.achievable, 0);
+      const work = todaysWork();
+      const stageTotal = stage => WORKFLOW_PHASES.reduce((sum, phase) => {
+        const zones = workflowStationOptions().map(([value]) => value).filter(zone => zone !== "subAssembly" && zoneStage(zone) === stage);
+        return sum + zones.reduce((inner, zone) => inner + (stationActual(zone, phase, work) || 0), 0);
+      }, 0);
+
+      return {
+        possible: true,
+        generic: true,
+        totalRequested,
+        realisticOutput,
+        shortfall: Math.max(0, totalRequested - realisticOutput),
+        bottleneckName: bottleneck?.name || "",
+        reason: "",
+        batches,
+        stageCapacityUnits: {
+          assembly: Object.values(assemblyAt).reduce((sum, value) => sum + value, 0),
+          testing: Object.values(testingAt).reduce((sum, value) => sum + value, 0),
+          hardware: Math.floor(stageTotal("hardware")),
+          packing: Math.floor(stageTotal("packing"))
+        },
+        assemblyCapacityByUnit: {},
+        phases: [],
+        testing: { networks: [] },
+        warnings: [...model.warnings],
+        workflowDriven: true
+      };
+    }
+
+    // Auto assign for a products day: testers first (they stay on through
+    // the 2nd block), one on Sub Assembly, then Assembly shared out by what
+    // each unit needs (up to 6 people), Hardware Check and Packaging
+    // build-up in the 2nd block when today's cards need them, and everyone
+    // else on Packing in the 3rd block.
+    function suggestProductsModel(usableWorkers) {
+      const lists = listsApi();
+      const model = makeWorkflowModel(usableWorkers);
+      const workers = usableWorkers.filter(worker => window.PlannerSkills.inProduction(worker));
+      const free = phase => workers.filter(worker => !model.phases[phase].has(worker.key));
+      const best = (phase, station, count) => free(phase)
+        .filter(worker => workflowWorkerEligible(worker, station))
+        .sort((a, b) => workerStationScore(a, station) - workerStationScore(b, station) || compareByRosterThenPriority(a, b))
+        .slice(0, Math.max(0, count));
+      const place = (phases, station, people) => people.forEach(worker => phases.forEach(phase => {
+        if (!model.phases[phase].has(worker.key)) setWorkflowAssignment(model, phase, worker, station);
+      }));
+      const builds = dayBuilds().map(batch => ({ batch, wanted: wantedToday(batch) })).filter(item => item.wanted > 0);
+      const keyOf = batch => batch.unitKey || batch.unitType;
+      const wantedOf = key => builds.filter(item => keyOf(item.batch) === key).reduce((sum, item) => sum + item.wanted, 0);
+
+      // Testing, for the 1st and 2nd blocks.
+      productsTestingStations().forEach(station => {
+        const product = stationProduct(station);
+        let people = 1;
+        if (product) {
+          const rate = lists.testingRate(product);
+          people = rate > 0 ? Math.max(1, Math.ceil(wantedOf(product) / (2 * rate))) : 1;
+        }
+        place(["start", "second"], station, best("start", station, people).filter(worker => !model.phases.second.has(worker.key)));
+      });
+
+      // Sub Assembly, then Assembly by need.
+      const assembling = productsOfDay().filter(product => wantedOf(product.key) > 0);
+      if (assembling.length) place(["start"], "subAssembly", best("start", "subAssembly", 1));
+      let room = PRODUCT_MAX_ASSEMBLY;
+      const needs = assembling.map(product => {
+        const rate = assemblyPerBench(product.key);
+        return { product, need: rate > 0 ? Math.ceil(wantedOf(product.key) / rate) : 1 };
+      });
+      const totalNeed = needs.reduce((sum, item) => sum + item.need, 0);
+      needs.forEach((item, index) => {
+        const fair = totalNeed <= room ? item.need : Math.max(1, Math.round(PRODUCT_MAX_ASSEMBLY * item.need / totalNeed));
+        const count = Math.min(room, fair);
+        const people = best("start", `assembly:${item.product.key}`, count);
+        place(["start"], `assembly:${item.product.key}`, people);
+        room -= people.length;
+        // Not finished in the 1st block: the same people carry on.
+        const rate = assemblyPerBench(item.product.key);
+        if (people.length && people.length * rate < wantedOf(item.product.key)) {
+          place(["second"], `assembly:${item.product.key}`, people.filter(worker => !model.phases.second.has(worker.key)));
+          if (!workflowPhaseWorkers(model, "second", "subAssembly").length) {
+            const helper = workflowPhaseWorkers(model, "start", "subAssembly")[0];
+            if (helper && !model.phases.second.has(helper.key)) setWorkflowAssignment(model, "second", helper, "subAssembly");
+          }
+        }
+      });
+
+      // Today's earlier cards: Hardware Check and Packaging build-up.
+      const work = todaysWork();
+      const needsStage = stage => work.some(job => !String(job.id || "").startsWith("batch-") && (job.route || []).includes(stage));
+      const lead = work.find(job => (job.route || []).includes("hardware")) || work[0] || {};
+      const leadUnit = lead.unitKey || lead.unitType || "gen4";
+      const leadComms = lead.commsKey || lead.commsType || "verizon";
+      if (needsStage("hardware")) place(["second"], "hardware", best("second", "hardware", usefulHardwareBenches(leadUnit, leadComms)));
+      if (needsStage("packing")) place(["second"], "packing", best("second", "packing", usefulPackingBenches(leadUnit)));
+
+      usableWorkers.forEach(worker => {
+        if (!model.phases.finish.has(worker.key)) setWorkflowAssignment(model, "finish", worker, "finalPackaging");
+      });
+      return model;
+    }
+
+    /* ============================================================
        15. AUTOMATIC ALLOCATION SEARCH (SINGLE BUILD)
        Start phase: one Sub Assembly and as many Assembly benches as
        possible (up to 6). Testing: 2–3 testers for the first two phases.
@@ -5809,6 +6070,9 @@
 
     function workflowStationLabel(station) {
       const normalized = normalizeWorkflowStation(station);
+      const product = stationProduct(normalized);
+      if (product && stationBase(normalized) === "assembly") return `${unitTypeLabel(product)} Assembly`;
+      if (product && stationBase(normalized) === "testing") return `${unitTypeLabel(product)} Testing`;
       const labels = {
         subAssembly: "Sub Assembly",
         assembly: "Assembly",
@@ -5830,10 +6094,10 @@
       if (!worker || !window.PlannerSkills.inProduction(worker)) return false;
       if (normalized === "custom" || normalized === "finalPackaging") return true;
       if (normalized === "subAssembly") return mixedWorkerEligible(worker, "subAssembly");
-      if (normalized === "assembly" || normalized === "assemblyGen4" || normalized === "assemblyTap") {
+      if (normalized === "assembly" || normalized === "assemblyGen4" || normalized === "assemblyTap" || stationBase(normalized) === "assembly") {
         return mixedWorkerEligible(worker, "assembly");
       }
-      if (normalized === "testing" || normalized === "testingVerizon" || normalized === "testingGlobal") {
+      if (normalized === "testing" || normalized === "testingVerizon" || normalized === "testingGlobal" || stationBase(normalized) === "testing") {
         return mixedWorkerEligible(worker, "testing");
       }
       return mixedWorkerEligible(worker, normalized);
@@ -6671,18 +6935,24 @@
         lastStationIssues = [];
       }
 
-      const automaticMixed = workDayMode === "mixed"
+      const products = productsDay();
+      const automaticMixed = workDayMode === "mixed" && !products
         ? calculateMixedPhaseCapacity(usableWorkers, workBatches)
         : null;
 
       // Nobody is placed until Auto assign; moves by hand go on top.
-      const workflowModel = autoAssign
-        ? buildSuggestedWorkflowModel(result, automaticMixed, usableWorkers)
-        : makeWorkflowModel(usableWorkers);
+      const workflowModel = !autoAssign ? makeWorkflowModel(usableWorkers)
+        : products ? suggestProductsModel(usableWorkers)
+        : buildSuggestedWorkflowModel(result, automaticMixed, usableWorkers);
       applyManualWorkflowAssignments(workflowModel, usableWorkers);
       lastStationIssues = [...workflowModel.warnings];
 
-      if (workDayMode === "mixed" && automaticMixed?.possible) {
+      if (products) {
+        lastWorkflowModel = workflowModel;
+        lastMixedCapacityResult = productsCapacity(workflowModel);
+        workflowModel.batchAllocations = null;
+        result.mixedCapacity = lastMixedCapacityResult;
+      } else if (workDayMode === "mixed" && automaticMixed?.possible) {
         lastMixedCapacityResult = evaluateMixedWorkflowCapacity(workflowModel, workBatches, automaticMixed);
         workflowModel.batchAllocations = buildWorkflowBatchAllocations(workflowModel, lastMixedCapacityResult);
         result.mixedCapacity = lastMixedCapacityResult;
@@ -6900,6 +7170,7 @@
         notes: document.getElementById("notesInstructions").value || "",
         autoAssign,
         blockJobs,
+        productsDay: productsDay(),
         snapshot: buildPlanSnapshot()
       };
     }
@@ -7104,6 +7375,10 @@
        ============================================================ */
     function render(result, day, commsType, unitType) {
       const out = document.getElementById("output");
+      if (result.mixedCapacity?.generic) {
+        out.innerHTML = "";
+        return;
+      }
       const commsLabel = getCommsLabel(commsType);
 
       if (workDayMode === "mixed") {
@@ -7252,7 +7527,7 @@
         subAssembly: 45, custom: 60, finalPackaging: 70
       };
       const order = phase === "second" ? secondOrder : phase === "finish" ? finishOrder : startOrder;
-      return order[normalized] ?? 60;
+      return order[normalized] ?? order[stationBase(normalized)] ?? 60;
     }
 
     function taskClassForWorkflowStation(station, customJobName = "") {
@@ -7269,11 +7544,12 @@
         packing: "task-red",
         finalPackaging: "task-red"
       };
-      return classes[normalizeWorkflowStation(station)] || "task-purple";
+      return classes[normalizeWorkflowStation(station)] || classes[stationBase(normalizeWorkflowStation(station))] || "task-purple";
     }
 
     function workflowTaskStage(station) {
       const normalized = normalizeWorkflowStation(station);
+      if (stationProduct(normalized)) return stationBase(normalized);
       if (normalized === "assembly" || normalized === "assemblyGen4" || normalized === "assemblyTap") return "assembly";
       if (normalized === "testing" || normalized === "testingVerizon" || normalized === "testingGlobal") return "testing";
       if (normalized === "hardware") return "hardware";
@@ -7398,6 +7674,9 @@
 
     function planLaneOf(task) {
       if (task.isCustom) return `custom:${task.title.toLowerCase()}`;
+      const product = stationProduct(task.station);
+      if (product && stationBase(task.station) === "assembly") return product === productsOfDay()[0]?.key ? "build" : `build:${product}`;
+      if (product && stationBase(task.station) === "testing") return `test:${product}`;
       const lanes = {
         subAssembly: "sub", assembly: "build", assemblyGen4: "build", assemblyTap: "build-tap", hardware: "build",
         packing: "pack", testing: "test", testingVerizon: "test-vz", testingGlobal: "test-gl", finalPackaging: "finish"
@@ -7416,7 +7695,7 @@
 
     // "36 Gen4 Verizon", "18 Gen4 Fusion NA" for the jobs a station works on.
     function planWorkText(zone, work) {
-      if (!ZONE_STAGE[zone] || zone === "subAssembly") return "";
+      if (!zoneStage(zone) || zone === "subAssembly") return "";
       return work.filter(job => zoneTakes(zone, job))
         .map(job => `${job.quantity} ${unitTypeLabel(job)} ${commsShort(job)}`)
         .join(", ");
@@ -7457,7 +7736,13 @@
       // Rows in lane order; a second task of the same lane in a block gets
       // its own row just below.
       const laneSeen = [...new Set(blocks.flat().filter(task => task.lane !== "finish" && !after.includes(task)).map(task => task.lane))];
-      const rows = [...PLAN_LANE_ORDER.filter(lane => laneSeen.includes(lane)), ...laneSeen.filter(lane => !PLAN_LANE_ORDER.includes(lane))];
+      const laneRank = lane => {
+        if (lane.startsWith("build:")) return 0.5;
+        if (lane.startsWith("test:")) return 5.5;
+        const index = PLAN_LANE_ORDER.indexOf(lane);
+        return index === -1 ? 99 : index;
+      };
+      const rows = laneSeen.slice().sort((a, b) => laneRank(a) - laneRank(b));
       const place = new Map();   // task → row key
       blocks.forEach((tasks, blockIndex) => {
         const used = new Set();
@@ -7479,7 +7764,7 @@
       // tall enough for the jobs that come out of it.
       let span = null;
       if (finishTask) {
-        const feeders = rows.filter(row => /^(build|build-tap|pack)(#\d+)?$/.test(row));
+        const feeders = rows.filter(row => /^(build(:[^#]+)?|build-tap|pack)(#\d+)?$/.test(row));
         let start = feeders.length ? rows.indexOf(feeders[0]) : 0;
         let end = feeders.length ? rows.indexOf(feeders[feeders.length - 1]) : -1;
         if (end < start) {
@@ -7502,7 +7787,7 @@
     }
 
     function renderPlanBox(task, style, extra = "", work = []) {
-      const kind = task.isCustom ? "custom" : PLAN_KINDS[task.station] || "custom";
+      const kind = task.isCustom ? "custom" : PLAN_KINDS[task.station] || PLAN_KINDS[stationBase(task.station)] || "custom";
       const names = (task.workers || []).map(worker => worker.first).join(", ");
       const text = task.detail || planWorkText(task.station, work);
       return `
@@ -7555,7 +7840,7 @@
       for (let index = 0; index < 2; index++) {
         blocks[index].forEach(source => blocks[index + 1].forEach(target => {
           const sameLane = source.lane === target.lane && target.lane !== "finish";
-          const handsOn = (PLAN_FLOW_NEXT[source.station] || []).includes(target.station);
+          const handsOn = (PLAN_FLOW_NEXT[source.station] || PLAN_FLOW_NEXT[stationBase(source.station)] || []).includes(target.station);
           if (sameLane || handsOn) planFlows.push([source.id, target.id]);
         }));
       }
@@ -7797,6 +8082,7 @@
     function getCommsLabel(value) {
       const lists = listsApi();
       if (value && typeof value === "object") return lists ? lists.commsLabel(value) : getCommsLabel(value.commsType);
+      if (value === "") return "";
       if (lists) return lists.labelOf("comms", value || "verizon");
       return value === "verizon" ? "Verizon" : "Global";
     }

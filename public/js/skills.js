@@ -38,6 +38,10 @@
     return aliases[text] || text;
   }
 
+  // A station can belong to one product: "assembly:solar", "testing:solar".
+  // Its first part says which job (and skill) it is.
+  const stationBase = station => String(station || "").split(":")[0];
+
   const benchList = value => String(value || "").split(/[;,|]/).map(benchToken).filter(Boolean);
   const clampLevel = value => Math.max(0, Math.min(3, Math.round(Number(value) || 0)));
 
@@ -78,10 +82,11 @@
   // 0–3 for a station (or a skill key). Not in production = 0.
   function levelFor(person, station, key) {
     if (!person || !inProduction(person)) return 0;
-    const skill = STATION_SKILL[station] || (SKILL_KEYS.includes(station) ? station : null);
+    const base = stationBase(station);
+    const skill = STATION_SKILL[station] || STATION_SKILL[base] || (SKILL_KEYS.includes(base) ? base : null);
     if (!skill) return 1;
     return skillsOf(person, key)[skill];
   }
 
-  window.PlannerSkills = { SKILL_KEYS, SKILL_LABELS, SKILL_SHORT, skillsOf, inProduction, levelFor, clampLevel };
+  window.PlannerSkills = { SKILL_KEYS, SKILL_LABELS, SKILL_SHORT, skillsOf, inProduction, levelFor, clampLevel, stationBase };
 })();

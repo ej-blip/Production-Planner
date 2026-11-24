@@ -221,8 +221,9 @@
       { id: "titles", title: "Job titles" },
       { id: "staff", title: "Staff" }
     ];
-    const LIST_COLUMNS = { units: ["plan"], customers: [], connectors: [], comms: ["colour", "plan"], sims: ["comms"] };
-    const COLUMN_TITLES = { colour: "Colour", plan: "Planned as", comms: "Comms" };
+    const LIST_COLUMNS = { units: ["plan", "usesComms", "usesConnector", "usesConfig"], customers: [], connectors: [], comms: ["colour", "plan"], sims: ["comms"] };
+    const COLUMN_TITLES = { colour: "Colour", plan: "Planned as", comms: "Comms", usesComms: "Network & SIM", usesConnector: "Connector", usesConfig: "Configuration" };
+    const USES_FIELDS = ["usesComms", "usesConnector", "usesConfig"];
     const PLAN_KEYS = { units: Lists.UNIT_PLANS, comms: Lists.COMMS_PLANS };
     const NEW_COLOUR = "#64748b";
 
@@ -353,8 +354,18 @@
       return `<input type="color" ${attr} value="${esc(item?.colourHex || NEW_COLOUR)}" aria-label="Colour" />`;
     }
 
+    // What a unit type uses. Gen4 and Tap use everything.
+    function usesCell(item, field, isNew) {
+      const fixed = !isNew && Lists.UNIT_PLANS.includes(item.key);
+      const on = isNew || item[field] !== false;
+      const attr = isNew ? `data-new="${field}"` : `data-field="${field}"`;
+      return `<td class="center"><input type="checkbox" ${attr} ${on ? "checked" : ""} ${fixed ? "disabled" : ""} aria-label="${esc(COLUMN_TITLES[field])}" /></td>`;
+    }
+
     function extraCells(name, item, isNew) {
       return LIST_COLUMNS[name].map(column => {
+        if (USES_FIELDS.includes(column)) return usesCell(item, column, isNew);
+        if (column === "plan" && name === "units" && !isNew && item.usesComms === false) return '<td><span class="plan-fixed">–</span></td>';
         if (column === "plan") return `<td>${planCell(name, item, isNew)}</td>`;
         if (column === "comms") return `<td>${commsCell(item, isNew)}</td>`;
         return `<td>${colourCell(item, isNew)}</td>`;
@@ -391,7 +402,7 @@
           <table class="list" data-list="${name}">
             <thead><tr>
               <th class="wide">Name</th>
-              ${columns.map(column => `<th>${COLUMN_TITLES[column]}</th>`).join("")}
+              ${columns.map(column => `<th class="${USES_FIELDS.includes(column) ? "center" : ""}">${COLUMN_TITLES[column]}</th>`).join("")}
               <th></th>
             </tr></thead>
             <tbody>
@@ -429,6 +440,9 @@
           return draw();
         }
         item.label = label;
+      } else if (USES_FIELDS.includes(field)) {
+        if (value) delete item[field];
+        else item[field] = false;
       } else {
         item[field] = value;
       }
@@ -472,7 +486,12 @@
       }
       const item = { key: Lists.makeKey(label, items.map(entry => entry.key)), label, active: true };
       row.querySelectorAll("[data-new]").forEach(field => {
-        if (field.dataset.new !== "label") item[field.dataset.new] = field.value;
+        if (field.dataset.new === "label") return;
+        if (field.type === "checkbox") {
+          if (!field.checked) item[field.dataset.new] = false;
+        } else {
+          item[field.dataset.new] = field.value;
+        }
       });
       const active = items.filter(entry => entry.active !== false);
       const retired = items.filter(entry => entry.active === false);
@@ -646,6 +665,13 @@
 
       const unit = item => {
         const rates = Lists.unitRates(item.key);
+        const standalone = item.usesComms === false;
+        const perPerson = (field, name, value) => `
+          <tr>
+            <td class="row-name">${esc(name)}</td>
+            <td class="num">${numberInput(`data-rate="${field}"`, value, `${name}, 1 person`)}</td>
+            ${[2, 3, 4].map(n => `<td class="num"><span class="derived">${value * n}</span></td>`).join("")}
+          </tr>`;
         const tableRow = (field, name) => `
           <tr>
             <td class="row-name">${esc(name)}</td>
@@ -653,7 +679,7 @@
           </tr>`;
         return `
           <section class="rate-group" data-unit="${esc(item.key)}">
-            <h3>${esc(item.label)}${item.rates || Lists.UNIT_PLANS.includes(item.key) ? "" : `<small>${esc(Lists.labelOf("units", Lists.unitPlanAs(item.key)))}</small>`}</h3>
+            <h3>${esc(item.label)}${item.rates || Lists.UNIT_PLANS.includes(item.key) || standalone ? "" : `<small>${esc(Lists.labelOf("units", Lists.unitPlanAs(item.key)))}</small>`}</h3>
             <div class="table-scroll">
               <table class="list rates">
                 <thead><tr>
@@ -661,15 +687,19 @@
                   ${PEOPLE_HEADS.map(head => `<th class="num">${head}</th>`).join("")}
                 </tr></thead>
                 <tbody>
-                  <tr>
-                    <td class="row-name">Assembly</td>
-                    <td class="num">${numberInput('data-rate="assembly"', rates.assembly, "Assembly, 1 person")}</td>
-                    ${[2, 3, 4].map(n => `<td class="num"><span class="derived">${rates.assembly * n}</span></td>`).join("")}
-                  </tr>
-                  ${tableRow("hardwareVerizon", `Hardware Check · ${verizon}`)}
-                  ${tableRow("hardwareGlobal", `Hardware Check · ${global}`)}
+                  ${perPerson("assembly", "Assembly", rates.assembly)}
+                  ${standalone ? perPerson("testing", "Testing", Lists.testingRate(item.key)) : ""}
+                  ${standalone
+                    ? tableRow("hardwareVerizon", "Hardware Check").replace(/data-rate="hardwareVerizon"/g, 'data-rate="hardware"')
+                    : `${tableRow("hardwareVerizon", `Hardware Check · ${verizon}`)}${tableRow("hardwareGlobal", `Hardware Check · ${global}`)}`}
                   ${tableRow("packagingBuild", "Packaging build-up")}
                   ${tableRow("packing", "Packing")}
+                  ${standalone ? `
+                  <tr>
+                    <td class="row-name">Most per day</td>
+                    <td class="num">${numberInput('data-rate="dailyLimit"', Lists.unitDailyLimit(item.key) ?? "", "Most per day")}</td>
+                    <td colspan="3"></td>
+                  </tr>` : ""}
                 </tbody>
               </table>
             </div>
@@ -684,7 +714,7 @@
       const commsEl = field.closest("[data-comms]");
       const number = Math.max(0, Math.min(9999, Math.round(Number(value))));
       // Packing may be left blank; every other speed needs a number.
-      const blankPacking = value === "" && field.dataset.rate === "packing";
+      const blankPacking = value === "" && (field.dataset.rate === "packing" || field.dataset.rate === "dailyLimit");
       if (!blankPacking && (value === "" || !Number.isFinite(number))) return draw();
       if (commsEl) {
         const items = editable("comms");
@@ -697,10 +727,14 @@
       const items = editable("units");
       const item = items.find(entry => entry.key === unitEl.dataset.unit);
       if (!item) return;
-      const rates = Lists.unitRates(item.key);
+      const rates = { ...Lists.unitRates(item.key), testing: Lists.testingRate(item.key), dailyLimit: Lists.unitDailyLimit(item.key) };
       const name = field.dataset.rate;
-      if (name === "assembly") rates.assembly = number;
-      else rates[name][Number(field.dataset.index)] = blankPacking ? null : number;
+      if (name === "assembly" || name === "testing") rates[name] = number;
+      else if (name === "dailyLimit") rates.dailyLimit = blankPacking ? null : number;
+      else if (name === "hardware") {
+        rates.hardwareVerizon[Number(field.dataset.index)] = number;
+        rates.hardwareGlobal[Number(field.dataset.index)] = number;
+      } else rates[name][Number(field.dataset.index)] = blankPacking ? null : number;
       item.rates = rates;
       writeList("units", items);
     }
