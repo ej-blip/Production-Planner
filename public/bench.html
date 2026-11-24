@@ -421,6 +421,7 @@
     const productOf = station => (String(station || "").includes(":") ? String(station).split(":").slice(1).join(":") : null);
 
     function stationInfo(station) {
+      if (station === "subAssembly" && state.plan?.subAssemblyPacks) return { label: "Sub Assembly & Packaging build-up" };
       if (STATIONS[station]) return STATIONS[station];
       const product = productOf(station);
       if (product && baseOf(station) === "assembly") return { label: `${labelOf("units", product)} Assembly` };

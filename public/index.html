@@ -4087,6 +4087,7 @@
 
     function benchZoneLabel(zone) {
       if (zone === "none") return "Not assigned";
+      if (zone === "subAssembly") return workflowStationLabel(zone);
       if (zone.startsWith("custom:")) return zone.slice(7);
       if (workDayMode !== "mixed" && (zone === "assembly" || zone === "testing")) {
         const first = workBatches.find(batch => batch.orderId) || workBatches[0];
@@ -4173,6 +4174,45 @@
       return { items, sets, blocks, rate: blocks > 0 ? sets / blocks : 0 };
     }
 
+    /* Spare Sub Assembly time. Each block's Sub Assembly people have 120
+       minutes each; tomorrow's parts take their minutes first (earliest
+       blocks first) and on a day that builds a unit ticked "Spare Sub
+       Assembly time → Packaging build-up" (Solar), what's left goes to
+       Packaging build-up at that unit's speed. */
+    const BLOCK_MINUTES = 120;
+
+    function spareUnit() {
+      const lists = listsApi();
+      if (!lists) return null;
+      const batch = dayBuilds().find(item => lists.spareToPackaging(item.unitKey || item.unitType));
+      if (!batch) return null;
+      const key = batch.unitKey || batch.unitType;
+      const perPerson = lists.packagingBuildRate(1, key);
+      return perPerson > 0 ? { key, minutesPerUnit: BLOCK_MINUTES / perPerson } : null;
+    }
+
+    function subAssemblyMinutesNeeded(usePlanned = true) {
+      const lists = listsApi();
+      return subAssemblyLoad(usePlanned).items.reduce((sum, item) => {
+        const rate = lists ? lists.subAssemblyRate(item.unitKey) : 13;
+        return sum + (rate > 0 ? item.sets * BLOCK_MINUTES / rate : 0);
+      }, 0);
+    }
+
+    // Packaging build-up units Sub Assembly's spare time gives in a block.
+    function sparePackagingUnits(phase, model = lastWorkflowModel, usePlanned = true) {
+      const unit = spareUnit();
+      if (!unit || !model) return 0;
+      let left = subAssemblyMinutesNeeded(usePlanned);
+      for (const block of WORKFLOW_PHASES) {
+        const available = workflowPhaseWorkers(model, block, "subAssembly").length * BLOCK_MINUTES;
+        const used = Math.min(available, left);
+        left -= used;
+        if (block === phase) return Math.floor((available - used) / unit.minutesPerUnit + 1e-9);
+      }
+      return 0;
+    }
+
     // Auto assign: enough people on Sub Assembly for tomorrow's sets. The
     // person already on it carries on in later blocks where they're free
     // (or on Packing); then the best free people.
@@ -4231,7 +4271,7 @@
       if (zone === "testing") return singleTestingCapacityPerPhase(count, job.commsKey);
       if (zone === "testingVerizon" || zone === "testingGlobal") return count > 0 ? dailyTestingLimit(job.commsKey) / 2 : 0;
       if (zone === "hardware") return hardwareCapacity(count, job.unitKey, job.commsKey);
-      if (zone === "packing") return packingCapacity(count, job.unitKey);
+      if (zone === "packing") return packingCapacity(count, job.unitKey) + sparePackagingUnits(phase);
       if (zone === "finalPackaging") return listsApi()?.packingRate(count, rateUnitKey(job.unitKey)) ?? null;
       return null;
     }
@@ -4401,6 +4441,7 @@
             ${removable ? `<button type="button" class="link crew-remove" data-remove-block-job="${safeAttr(zone.slice(7))}">Remove</button>` : ""}
           </div>
           ${needed > 0 && inZone.length ? `<div class="crew-state short">Needs ${needed} more</div>` : ""}
+          ${zone === "subAssembly" && sparePackagingUnits(benchBoardPhase) > 0 ? `<div class="crew-state ok">+${sparePackagingUnits(benchBoardPhase)} Packaging build-up</div>` : ""}
           <div class="crew-slots">
             ${inZone.map(person => crewCardHtml(person, selectedKey)).join("")}
             <div class="crew-drop" aria-label="Empty slot"></div>
@@ -5945,7 +5986,14 @@
       }));
       const builds = dayBuilds().map(batch => ({ batch, wanted: wantedToday(batch) })).filter(item => item.wanted > 0);
       const keyOf = batch => batch.unitKey || batch.unitType;
-      const wantedOf = key => builds.filter(item => keyOf(item.batch) === key).reduce((sum, item) => sum + item.wanted, 0);
+      const picked = dayJobs.map(liveDayJob);
+      // Units a unit type needs at a stage today: its new builds, plus any
+      // earlier cards picked for that stage (e.g. "Test 30").
+      const pickedAt = (key, stage) => picked
+        .filter(job => keyOf(job) === key && (job.route || []).includes(stage))
+        .reduce((sum, job) => sum + (Number(job.quantity) || 0), 0);
+      const wantedOf = (key, stage = "assembly") => builds.filter(item => keyOf(item.batch) === key).reduce((sum, item) => sum + item.wanted, 0)
+        + pickedAt(key, stage);
 
       // Testing, for the 1st and 2nd blocks.
       productsTestingStations().forEach(station => {
@@ -5953,13 +6001,15 @@
         let people = 1;
         if (product) {
           const rate = lists.testingRate(product);
-          people = rate > 0 ? Math.max(1, Math.ceil(wantedOf(product) / (2 * rate))) : 1;
+          people = rate > 0 ? Math.max(1, Math.ceil(wantedOf(product, "testing") / (2 * rate))) : 1;
         }
         place(["start", "second"], station, best("start", station, people).filter(worker => !model.phases.second.has(worker.key)));
       });
 
       // Sub Assembly, then Assembly by need.
-      const assembling = productsOfDay().filter(product => wantedOf(product.key) > 0);
+      const assembling = [...new Set([...productsOfDay().map(product => product.key), ...picked.filter(job => (job.route || []).includes("assembly")).map(keyOf)])]
+        .map(key => ({ key }))
+        .filter(product => wantedOf(product.key) > 0);
       if (assembling.length) place(["start"], "subAssembly", best("start", "subAssembly", 1));
       let room = PRODUCT_MAX_ASSEMBLY;
       const needs = assembling.map(product => {
@@ -6004,7 +6054,8 @@
         const most = usefulHardwareBenches(leadUnit, leadComms);
         place(["second"], "hardware", best("second", "hardware", peopleFor(people => hardwareCapacity(people, leadUnit, leadComms), hardwareUnits, most)));
       }
-      const packingUnits = unitsFor("packing");
+      // Sub Assembly's spare time in the 1st block already covers some.
+      const packingUnits = Math.max(0, unitsFor("packing") - sparePackagingUnits("start", model, false));
       if (packingUnits > 0) {
         const most = usefulPackingBenches(leadUnit);
         place(["second"], "packing", best("second", "packing", peopleFor(people => packingCapacity(people, leadUnit), packingUnits, most)));
@@ -6140,6 +6191,7 @@
 
     function workflowStationLabel(station) {
       const normalized = normalizeWorkflowStation(station);
+      if (normalized === "subAssembly" && spareUnit()) return "Sub Assembly & Packaging build-up";
       const product = stationProduct(normalized);
       if (product && stationBase(normalized) === "assembly") return `${unitTypeLabel(product)} Assembly`;
       if (product && stationBase(normalized) === "testing") return `${unitTypeLabel(product)} Testing`;
@@ -7242,6 +7294,7 @@
         autoAssign,
         blockJobs,
         productsDay: productsDay(),
+        subAssemblyPacks: Boolean(spareUnit()),
         snapshot: buildPlanSnapshot()
       };
     }
@@ -7769,6 +7822,11 @@
       if (zone === "subAssembly") {
         const sets = subAssemblyLoad().items;
         return sets.length ? `${sets.map(item => `${item.sets} ${unitTypeLabel(item.unitKey)}`).join(", ")} for tomorrow` : "";
+      }
+      if (zone === "packing" && spareUnit()) {
+        const fromSpare = WORKFLOW_PHASES.reduce((sum, phase) => sum + sparePackagingUnits(phase), 0);
+        const text = work.filter(job => zoneTakes(zone, job)).map(job => `${job.quantity} ${unitTypeLabel(job)} ${commsShort(job)}`.trim()).join(", ");
+        return [text, fromSpare ? `+${fromSpare} from Sub Assembly` : ""].filter(Boolean).join(" · ");
       }
       if (!zoneStage(zone)) return "";
       return work.filter(job => zoneTakes(zone, job))

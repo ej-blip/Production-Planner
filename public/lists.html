@@ -695,6 +695,11 @@
                     : `${tableRow("hardwareVerizon", `Hardware Check · ${verizon}`)}${tableRow("hardwareGlobal", `Hardware Check · ${global}`)}`}
                   ${tableRow("packagingBuild", "Packaging build-up")}
                   ${tableRow("packing", "Packing")}
+                  <tr>
+                    <td class="row-name">Spare Sub Assembly time → Packaging build-up</td>
+                    <td class="num"><input type="checkbox" data-rate="spareToPackaging" ${rates.spareToPackaging ? "checked" : ""} aria-label="Spare Sub Assembly time goes to Packaging build-up" /></td>
+                    <td colspan="3"></td>
+                  </tr>
                   ${standalone ? `
                   <tr>
                     <td class="row-name">Most per day</td>
@@ -713,6 +718,13 @@
     function editRate(field, value) {
       const unitEl = field.closest("[data-unit]");
       const commsEl = field.closest("[data-comms]");
+      if (field.type === "checkbox" && unitEl) {
+        const items = editable("units");
+        const item = items.find(entry => entry.key === unitEl.dataset.unit);
+        if (!item) return;
+        item.rates = { ...Lists.unitRates(item.key), testing: Lists.testingRate(item.key), dailyLimit: Lists.unitDailyLimit(item.key), [field.dataset.rate]: field.checked };
+        return writeList("units", items);
+      }
       const number = Math.max(0, Math.min(9999, Math.round(Number(value))));
       // Packing may be left blank; every other speed needs a number.
       const blankPacking = value === "" && (field.dataset.rate === "packing" || field.dataset.rate === "dailyLimit");
@@ -730,6 +742,7 @@
       if (!item) return;
       const rates = { ...Lists.unitRates(item.key), testing: Lists.testingRate(item.key), dailyLimit: Lists.unitDailyLimit(item.key) };
       const name = field.dataset.rate;
+      if (name === "spareToPackaging") return;
       if (name === "assembly" || name === "testing" || name === "subAssembly") rates[name] = number;
       else if (name === "dailyLimit") rates.dailyLimit = blankPacking ? null : number;
       else if (name === "hardware") {

@@ -63,6 +63,8 @@ export const STARTING_LISTS = {
 //   packagingBuild  boxes Packaging build-up makes with 1, 2, 3, 4+ people
 //   packing         units Packing packs with 1, 2, 3, 4+ people (blank until
 //                   set: it doesn't limit the day's target)
+//   spareToPackaging true: time Sub Assembly has left after tomorrow's parts
+//                   goes to Packaging build-up (Solar)
 // and per day, on each comms type: testingPerDay (half each block with
 // 2+ testers). A unit or comms type without its own figures uses the ones
 // of the type it plans as.
@@ -144,6 +146,7 @@ export function unitRates(unitKey) {
     hardwareVerizon: table(own.hardwareVerizon, base.hardwareVerizon),
     hardwareGlobal: table(own.hardwareGlobal, base.hardwareGlobal),
     packagingBuild: table(own.packagingBuild, base.packagingBuild),
+    spareToPackaging: own.spareToPackaging === true,
     packing: packingSet
       ? Array.from({ length: RATE_PEOPLE }, (_, index) => {
           const value = own.packing[index];
@@ -157,6 +160,7 @@ const fromTable = (table, people) => (people <= 0 ? 0 : table[Math.min(people, t
 
 export const assemblyRate = unitKey => unitRates(unitKey).assembly;
 export const subAssemblyRate = unitKey => unitRates(unitKey).subAssembly;
+export const spareToPackaging = unitKey => unitRates(unitKey).spareToPackaging;
 
 export function hardwareRate(people, unitKey, commsKey) {
   const rates = unitRates(unitKey);
