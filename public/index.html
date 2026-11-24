@@ -4280,10 +4280,16 @@
       const work = todaysWork();
       const earlierBlocks = WORKFLOW_PHASES.slice(0, WORKFLOW_PHASES.indexOf(phase));
       const zones = [...new Set([...Object.keys(ZONE_STAGE), ...workflowStationOptions().map(([value]) => value).filter(zoneStage)])];
+      // Hardware Check, Packaging build-up and Packing work on earlier days'
+      // units: the cards picked for today, or with none picked, as many as
+      // today builds (yesterday built about the same), as Auto assign plans.
+      const laterStages = ["hardware", "packing"];
+      const asToday = dayBuilds().reduce((sum, batch) => sum + wantedToday(batch), 0);
       return Object.fromEntries(zones.map(zone => {
-        const need = zone === "subAssembly"
-          ? subAssemblyLoad().sets
-          : work.filter(job => zoneTakes(zone, job)).reduce((sum, job) => sum + job.quantity, 0);
+        const picked = work.filter(job => zoneTakes(zone, job)).reduce((sum, job) => sum + job.quantity, 0);
+        const need = zone === "subAssembly" ? subAssemblyLoad().sets
+          : laterStages.includes(zoneStage(zone)) && !picked ? asToday
+          : picked;
         const done = earlierBlocks.reduce((sum, block) => sum + (stationActual(zone, block, work) || 0), 0);
         return [zone, { target: Math.max(0, Math.floor(need - done)), actual: stationActual(zone, phase, work) }];
       }));
