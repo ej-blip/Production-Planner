@@ -5929,8 +5929,8 @@
     // Auto assign for a products day: testers first (they stay on through
     // the 2nd block), one on Sub Assembly, then Assembly shared out by what
     // each unit needs (up to 6 people), Hardware Check and Packaging
-    // build-up in the 2nd block when today's cards need them, and everyone
-    // else on Packing in the 3rd block.
+    // build-up in the 2nd block, and everyone else on Packing in the 3rd
+    // block.
     function suggestProductsModel(usableWorkers) {
       const lists = listsApi();
       const model = makeWorkflowModel(usableWorkers);
@@ -5984,14 +5984,31 @@
         }
       });
 
-      // Today's earlier cards: Hardware Check and Packaging build-up.
-      const work = todaysWork();
-      const needsStage = stage => work.some(job => !String(job.id || "").startsWith("batch-") && (job.route || []).includes(stage));
-      const lead = work.find(job => (job.route || []).includes("hardware")) || work[0] || {};
-      const leadUnit = lead.unitKey || lead.unitType || "gen4";
-      const leadComms = lead.commsKey || lead.commsType || "verizon";
-      if (needsStage("hardware")) place(["second"], "hardware", best("second", "hardware", usefulHardwareBenches(leadUnit, leadComms)));
-      if (needsStage("packing")) place(["second"], "packing", best("second", "packing", usefulPackingBenches(leadUnit)));
+      // Hardware Check and Packaging build-up in the 2nd block, always, as
+      // on Gen4 days: sized for the earlier cards picked for today, or, with
+      // none picked, for as many as today builds (yesterday built about
+      // the same). Just enough people, at the speeds of the biggest job.
+      const earlier = todaysWork().filter(job => !String(job.id || "").startsWith("batch-"));
+      const todaysUnits = builds.reduce((sum, item) => sum + item.wanted, 0);
+      const unitsFor = stage => earlier.filter(job => (job.route || []).includes(stage)).reduce((sum, job) => sum + job.quantity, 0) || todaysUnits;
+      const biggest = [...earlier.map(job => ({ job, size: job.quantity })), ...builds.map(item => ({ job: item.batch, size: item.wanted }))]
+        .sort((a, b) => b.size - a.size)[0]?.job || {};
+      const leadUnit = biggest.unitKey || biggest.unitType || "gen4";
+      const leadComms = biggest.commsKey || biggest.commsType || "verizon";
+      const peopleFor = (rateAt, units, most) => {
+        for (let people = 1; people <= most; people++) if (rateAt(people) >= units) return people;
+        return most;
+      };
+      const hardwareUnits = unitsFor("hardware");
+      if (hardwareUnits > 0) {
+        const most = usefulHardwareBenches(leadUnit, leadComms);
+        place(["second"], "hardware", best("second", "hardware", peopleFor(people => hardwareCapacity(people, leadUnit, leadComms), hardwareUnits, most)));
+      }
+      const packingUnits = unitsFor("packing");
+      if (packingUnits > 0) {
+        const most = usefulPackingBenches(leadUnit);
+        place(["second"], "packing", best("second", "packing", peopleFor(people => packingCapacity(people, leadUnit), packingUnits, most)));
+      }
 
       usableWorkers.forEach(worker => {
         if (!model.phases.finish.has(worker.key)) setWorkflowAssignment(model, "finish", worker, "finalPackaging");
