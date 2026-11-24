@@ -55,6 +55,8 @@ export const STARTING_LISTS = {
 };
 
 // Build speeds, edited on the Rates tab. Per 2-hour block:
+//   subAssembly     sets one person makes for the next day's build (PSU +
+//                   DCU for Gen4 / Tap, chargers for Solar)
 //   assembly        units one person assembles (only with Sub Assembly on)
 //   hardwareVerizon units Hardware Check does with 1, 2, 3, 4+ people
 //   hardwareGlobal  the same for Global units
@@ -66,8 +68,8 @@ export const STARTING_LISTS = {
 // of the type it plans as.
 export const RATE_PEOPLE = 4;
 export const STARTING_UNIT_RATES = {
-  gen4: { assembly: 6, hardwareVerizon: [0, 24, 30, 36], hardwareGlobal: [0, 24, 30, 36], packagingBuild: [0, 30, 36, 36] },
-  tap: { assembly: 8, hardwareVerizon: [0, 36, 42, 50], hardwareGlobal: [0, 30, 36, 42], packagingBuild: [0, 50, 50, 50] }
+  gen4: { subAssembly: 13, assembly: 6, hardwareVerizon: [0, 24, 30, 36], hardwareGlobal: [0, 24, 30, 36], packagingBuild: [0, 30, 36, 36] },
+  tap: { subAssembly: 13, assembly: 8, hardwareVerizon: [0, 36, 42, 50], hardwareGlobal: [0, 30, 36, 42], packagingBuild: [0, 50, 50, 50] }
 };
 export const STARTING_TESTING_PER_DAY = { verizon: 36, global: 30 };
 
@@ -137,6 +139,7 @@ export function unitRates(unitKey) {
     wholeNumber(Array.isArray(value) && value[index] !== undefined && value[index] !== null ? value[index] : fallback[index]));
   const packingSet = Array.isArray(own.packing) && own.packing.some(value => value !== null && value !== undefined && value !== "");
   return {
+    subAssembly: own.subAssembly !== undefined && own.subAssembly !== null ? wholeNumber(own.subAssembly) : base.subAssembly,
     assembly: own.assembly !== undefined && own.assembly !== null ? wholeNumber(own.assembly) : base.assembly,
     hardwareVerizon: table(own.hardwareVerizon, base.hardwareVerizon),
     hardwareGlobal: table(own.hardwareGlobal, base.hardwareGlobal),
@@ -153,6 +156,7 @@ export function unitRates(unitKey) {
 const fromTable = (table, people) => (people <= 0 ? 0 : table[Math.min(people, table.length) - 1]);
 
 export const assemblyRate = unitKey => unitRates(unitKey).assembly;
+export const subAssemblyRate = unitKey => unitRates(unitKey).subAssembly;
 
 export function hardwareRate(people, unitKey, commsKey) {
   const rates = unitRates(unitKey);

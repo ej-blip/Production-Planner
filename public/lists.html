@@ -687,6 +687,7 @@
                   ${PEOPLE_HEADS.map(head => `<th class="num">${head}</th>`).join("")}
                 </tr></thead>
                 <tbody>
+                  ${perPerson("subAssembly", "Sub Assembly", rates.subAssembly)}
                   ${perPerson("assembly", "Assembly", rates.assembly)}
                   ${standalone ? perPerson("testing", "Testing", Lists.testingRate(item.key)) : ""}
                   ${standalone
@@ -729,7 +730,7 @@
       if (!item) return;
       const rates = { ...Lists.unitRates(item.key), testing: Lists.testingRate(item.key), dailyLimit: Lists.unitDailyLimit(item.key) };
       const name = field.dataset.rate;
-      if (name === "assembly" || name === "testing") rates[name] = number;
+      if (name === "assembly" || name === "testing" || name === "subAssembly") rates[name] = number;
       else if (name === "dailyLimit") rates.dailyLimit = blankPacking ? null : number;
       else if (name === "hardware") {
         rates.hardwareVerizon[Number(field.dataset.index)] = number;

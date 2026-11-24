@@ -4148,6 +4148,60 @@
       return [...builds, ...placed].filter(job => job.quantity > 0);
     }
 
+    /* Sub Assembly makes the parts for the NEXT day's build (PSU + DCU for
+       Gen4 / Tap, chargers for Solar). Its Target is tomorrow's sets: as
+       many as today builds, or what each order has left after today if
+       that's less. Today's assembly uses yesterday's parts, so it isn't
+       held back by this; but the work still needs people. */
+    function subAssemblyLoad(usePlanned = true) {
+      const lists = listsApi();
+      const planned = usePlanned ? new Map(todaysNewJobs().map(job => [job.batchId, job.quantity])) : new Map();
+      const items = dayBuilds().map(batch => {
+        const wanted = wantedToday(batch);
+        const today = planned.get(batch.id) ?? wanted;
+        const order = batch.orderId ? workOrders.find(item => item.id === batch.orderId) : null;
+        const left = order ? orderLeftBefore(order) : null;
+        const afterToday = left === null ? today : Math.max(0, left - today);
+        return { unitKey: batch.unitKey || batch.unitType, sets: Math.min(wanted, afterToday) };
+      }).filter(item => item.sets > 0);
+      const sets = items.reduce((sum, item) => sum + item.sets, 0);
+      // Person-blocks the sets take, so mixed parts average out.
+      const blocks = items.reduce((sum, item) => {
+        const rate = lists ? lists.subAssemblyRate(item.unitKey) : 13;
+        return sum + (rate > 0 ? item.sets / rate : 0);
+      }, 0);
+      return { items, sets, blocks, rate: blocks > 0 ? sets / blocks : 0 };
+    }
+
+    // Auto assign: enough people on Sub Assembly for tomorrow's sets. The
+    // person already on it carries on in later blocks where they're free
+    // (or on Packing); then the best free people.
+    function staffSubAssembly(model) {
+      const load = subAssemblyLoad(false);
+      const onIt = phase => workflowPhaseWorkers(model, phase, "subAssembly");
+      let missing = Math.ceil(load.blocks - 1e-9) - WORKFLOW_PHASES.reduce((sum, phase) => sum + onIt(phase).length, 0);
+      if (missing <= 0) return;
+      const lead = onIt("start")[0] || null;
+      const movable = (phase, worker) => {
+        const assignment = model.phases[phase].get(worker.key);
+        return !assignment || normalizeWorkflowStation(assignment.station) === "finalPackaging";
+      };
+      const candidates = model.usableWorkers
+        .filter(worker => window.PlannerSkills.inProduction(worker) && workflowWorkerEligible(worker, "subAssembly"))
+        .sort((a, b) => (lead && a.key === lead.key ? -1 : lead && b.key === lead.key ? 1 : 0)
+          || workerStationScore(a, "subAssembly") - workerStationScore(b, "subAssembly")
+          || compareByRosterThenPriority(a, b));
+      for (let round = 0; round < 3 && missing > 0; round++) {
+        for (const phase of ["second", "finish", "start"]) {
+          if (missing <= 0) break;
+          const pick = candidates.find(worker => movable(phase, worker));
+          if (!pick) continue;
+          setWorkflowAssignment(model, phase, pick, "subAssembly");
+          missing -= 1;
+        }
+      }
+    }
+
     function zoneTakes(zone, job) {
       if (!job.route.includes(zoneStage(zone))) return false;
       const product = stationProduct(zone);
@@ -4171,10 +4225,7 @@
       const on = station => workflowPhaseWorkers(lastWorkflowModel, phase, station).length;
       const count = on(zone);
       const job = zoneJob(zone, work);
-      if (zone === "subAssembly") {
-        const assemblyZones = workflowStationOptions().map(([value]) => value).filter(item => item !== "subAssembly" && zoneStage(item) === "assembly");
-        return count > 0 ? assemblyZones.reduce((sum, item) => sum + stationActual(item, phase, work), 0) : 0;
-      }
+      if (zone === "subAssembly") return count * subAssemblyLoad().rate;
       if (zoneStage(zone) === "assembly") return on("subAssembly") > 0 ? count * assemblyPerBench(job.unitKey) : 0;
       if (stationProduct(zone) && stationBase(zone) === "testing") return count * listsApi().testingRate(stationProduct(zone));
       if (zone === "testing") return singleTestingCapacityPerPhase(count, job.commsKey);
@@ -4190,7 +4241,9 @@
       const earlierBlocks = WORKFLOW_PHASES.slice(0, WORKFLOW_PHASES.indexOf(phase));
       const zones = [...new Set([...Object.keys(ZONE_STAGE), ...workflowStationOptions().map(([value]) => value).filter(zoneStage)])];
       return Object.fromEntries(zones.map(zone => {
-        const need = work.filter(job => zoneTakes(zone, job)).reduce((sum, job) => sum + job.quantity, 0);
+        const need = zone === "subAssembly"
+          ? subAssemblyLoad().sets
+          : work.filter(job => zoneTakes(zone, job)).reduce((sum, job) => sum + job.quantity, 0);
         const done = earlierBlocks.reduce((sum, block) => sum + (stationActual(zone, block, work) || 0), 0);
         return [zone, { target: Math.max(0, Math.floor(need - done)), actual: stationActual(zone, phase, work) }];
       }));
@@ -6944,6 +6997,7 @@
       const workflowModel = !autoAssign ? makeWorkflowModel(usableWorkers)
         : products ? suggestProductsModel(usableWorkers)
         : buildSuggestedWorkflowModel(result, automaticMixed, usableWorkers);
+      if (autoAssign) staffSubAssembly(workflowModel);
       applyManualWorkflowAssignments(workflowModel, usableWorkers);
       lastStationIssues = [...workflowModel.warnings];
 
@@ -7695,7 +7749,11 @@
 
     // "36 Gen4 Verizon", "18 Gen4 Fusion NA" for the jobs a station works on.
     function planWorkText(zone, work) {
-      if (!zoneStage(zone) || zone === "subAssembly") return "";
+      if (zone === "subAssembly") {
+        const sets = subAssemblyLoad().items;
+        return sets.length ? `${sets.map(item => `${item.sets} ${unitTypeLabel(item.unitKey)}`).join(", ")} for tomorrow` : "";
+      }
+      if (!zoneStage(zone)) return "";
       return work.filter(job => zoneTakes(zone, job))
         .map(job => `${job.quantity} ${unitTypeLabel(job)} ${commsShort(job)}`)
         .join(", ");
