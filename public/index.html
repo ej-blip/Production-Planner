@@ -1054,6 +1054,7 @@
     .alerts-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: 17px; }
     .alerts-head button { margin: 0 0 0 6px; padding: 6px 10px; }
     .alerts-head svg { width: 18px; height: 18px; vertical-align: -3px; }
+    .alerts-desk:not(:empty) { margin-bottom: 10px; }
     .alert-toast {
       position: fixed; z-index: 70; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 12px;
       max-width: min(480px, calc(100vw - 32px)); padding: 12px 14px; border-radius: var(--radius); background: var(--sheet);
@@ -1307,6 +1308,7 @@
           <button type="button" class="secondary" id="alertsClose" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </span>
       </div>
+      <div class="alerts-desk" id="deskAlerts"></div>
       <div class="req-list" id="alertsList"></div>
     </div>
     <div class="alert-toast" id="alertToast" role="status" hidden>
@@ -3786,7 +3788,8 @@
        Help calls, stock requests and faulty reports from today's
        benches, live (whatever day is being planned). The Requests button
        shows how many are waiting; a new one pops up with a chime, and
-       the browser tab shows the count.
+       the browser tab shows the count. Kinds this computer has turned
+       on under Pop-ups also show as Windows notifications.
        ============================================================ */
     const ALERT_BENCH = { cage: "Cage", assembly: "Assembly", testing: "Testing", hardware: "Hardware", packing: "Packing", management: "Management" };
     let alertRequests = [];
@@ -3808,7 +3811,10 @@
       alertsLoaded = false;
       alertRequests = [];
       stopAlerts = requests.watch(today, list => {
-        if (alertsLoaded) announceNewRequests(list);
+        if (alertsLoaded) {
+          announceNewRequests(list);
+          requests.popUp(alertRequests, list, () => setAlertsPanel(true));
+        }
         alertRequests = list;
         alertsLoaded = true;
         renderAlerts();
@@ -3837,6 +3843,13 @@
         ? active.map(request => window.plannerData.requests.cardHtml(request)).join("")
         : '<p class="small">No open requests.</p>';
       drawAlertSound();
+      drawDeskAlerts();
+    }
+
+    // This computer's Windows pop-ups (Help / Stock / Faulty).
+    function drawDeskAlerts() {
+      const box = document.getElementById("deskAlerts");
+      if (box) box.innerHTML = window.plannerData?.requests?.deskHtml?.() || "";
     }
 
     function showAlertToast(text) {
@@ -3876,7 +3889,10 @@
     function setAlertsPanel(open) {
       document.getElementById("alertsPanel").hidden = !open;
       document.getElementById("alertsButton").setAttribute("aria-expanded", String(open));
-      if (open) document.getElementById("alertToast").hidden = true;
+      if (open) {
+        document.getElementById("alertToast").hidden = true;
+        drawDeskAlerts();
+      }
     }
 
     function wireAlerts() {
@@ -3889,6 +3905,12 @@
       }, { once: true });
       document.getElementById("alertsButton").addEventListener("click", () => setAlertsPanel(document.getElementById("alertsPanel").hidden));
       document.getElementById("alertsClose").addEventListener("click", () => setAlertsPanel(false));
+      document.getElementById("deskAlerts").addEventListener("click", async event => {
+        const kind = event.target.closest("[data-desk-kind]")?.dataset.deskKind;
+        if (!kind) return;
+        await window.plannerData.requests.toggleDesk(kind);
+        drawDeskAlerts();
+      });
       document.getElementById("alertToastView").addEventListener("click", () => setAlertsPanel(true));
       document.getElementById("alertsSound").addEventListener("click", () => {
         alertsMuted = !alertsMuted;
@@ -3912,6 +3934,7 @@
         }
       });
       drawAlertSound();
+      drawDeskAlerts();
       watchAlerts();
       setInterval(watchAlerts, 60000);   // picks up the new day after midnight
     }

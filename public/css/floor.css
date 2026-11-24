@@ -211,3 +211,25 @@ button.link:hover { background: none; color: var(--ink); }
   .req-photo, .req-status { grid-column: 2; justify-self: start; }
   .req-go { grid-column: 2 / -1; }
 }
+
+/* Windows pop-ups: which kinds this computer gets ------------------------- */
+.desk-alerts { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.desk-alerts-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  font-family: var(--font-label);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.desk-alerts-label svg { width: 16px; height: 16px; }
+.desk-kind { margin: 0; padding: 5px 12px; background: var(--raised); color: var(--ink-2); border: 1px solid var(--rule-strong); }
+.desk-kind:hover { background: var(--inset); }
+.desk-kind.on { font-weight: 700; border-width: 2px; padding: 4px 11px; }
+.desk-kind.on.desk-help { color: var(--amber); background: var(--amber-soft); border-color: var(--amber); }
+.desk-kind.on.desk-stock { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+.desk-kind.on.desk-faulty { color: var(--red); background: var(--red-soft); border-color: var(--red); }
+.desk-alerts-blocked { font-size: 13px; font-weight: 600; color: var(--red); }

@@ -31,6 +31,8 @@
 //   requests.watch(date, callback) → live list of help / stock / faulty requests
 //   requests.advance(date, request, status) → moves one on (and logs it)
 //   requests.cardHtml(request)   → a request card with its next-step button
+//   requests.deskHtml() / toggleDesk(kind) / popUp(before, list, onOpen)
+//                                → this computer's Windows pop-ups
 //   showPhoto(src)
 //   lockScreen()
 import {
@@ -38,7 +40,10 @@ import {
   onSnapshot, query, orderBy, limit, where
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, ensureAccess, lockScreen, friendlyError } from "./session.js";
-import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./requests.js";
+import {
+  REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml,
+  deskAlertsHtml, toggleDeskAlert, popUpRequests
+} from "./requests.js";
 import { showPhoto, floorBatches, progressOf, expectedUnits, JOB_STAGES } from "./floor.js";
 import * as lists from "./lists.js";
 
@@ -396,6 +401,9 @@ const requests = {
   advance: advanceRequest,
   title: requestTitle,
   kinds: REQUEST_KINDS,
+  deskHtml: deskAlertsHtml,
+  toggleDesk: toggleDeskAlert,
+  popUp: popUpRequests,
   cardHtml: request => requestCardHtml(request, item => {
     const label = REQUEST_KINDS[item.kind]?.next?.[item.status];
     return label ? { label, to: nextStatus(item.status) } : null;

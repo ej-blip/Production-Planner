@@ -108,6 +108,90 @@ export function requestCardHtml(request, actionFor = () => null) {
 }
 
 // ---------------------------------------------------------------------
+// Windows pop-ups. Each computer picks which kinds pop up for it (kept in
+// that browser only). Chrome and Edge show them as Windows notifications,
+// also while the window is minimised or behind other apps. One per
+// request: a page open twice on a computer replaces its own pop-up.
+// ---------------------------------------------------------------------
+const DESK_KEY = "plannerDeskAlerts";
+const DESK_KINDS = [["help", "Help"], ["stock", "Stock"], ["faulty", "Faulty"]];
+const DESK_TITLE = { help: "Need help", stock: "Stock request", faulty: "Faulty unit" };
+const BELL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+
+export const deskAlertsSupported = () => typeof window !== "undefined" && "Notification" in window;
+
+function deskChoice() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DESK_KEY) || "{}");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+export function deskAlertOn(kind) {
+  return deskAlertsSupported() && Notification.permission === "granted" && Boolean(deskChoice()[kind]);
+}
+
+export const anyDeskAlertOn = () => DESK_KINDS.some(([kind]) => deskAlertOn(kind));
+
+// Turns one kind on or off for this computer. Turning one on asks the
+// browser for permission the first time.
+export async function toggleDeskAlert(kind) {
+  if (!deskAlertsSupported() || !DESK_KINDS.some(([key]) => key === kind)) return;
+  const turnOn = !deskAlertOn(kind);
+  if (turnOn && Notification.permission !== "granted") {
+    const answer = await Notification.requestPermission().catch(() => "denied");
+    if (answer !== "granted") return;
+  }
+  const choice = { ...deskChoice(), [kind]: turnOn };
+  try { localStorage.setItem(DESK_KEY, JSON.stringify(choice)); } catch { /* this browser keeps nothing */ }
+}
+
+// The switches: Pop-ups · Help · Stock · Faulty. Clicks come back through
+// [data-desk-kind] for the page to pass to toggleDeskAlert.
+export function deskAlertsHtml() {
+  if (!deskAlertsSupported()) return "";
+  const blocked = Notification.permission === "denied";
+  return `
+    <div class="desk-alerts" role="group" aria-label="Pop-ups on this computer">
+      <span class="desk-alerts-label">${BELL}Pop-ups</span>
+      ${DESK_KINDS.map(([kind, label]) => {
+        const on = deskAlertOn(kind);
+        return `<button type="button" class="desk-kind desk-${kind}${on ? " on" : ""}" data-desk-kind="${kind}" aria-pressed="${on}"${blocked ? " disabled" : ""}>${label}</button>`;
+      }).join("")}
+      ${blocked ? '<span class="desk-alerts-blocked">Blocked</span>' : ""}
+    </div>`;
+}
+
+export const deskBellIcon = BELL;
+
+// Pops up each request in list that wasn't in before, is still open and
+// is a kind this computer wants. Not while someone is working on the page
+// itself (it shows them there). onOpen(request) runs when one is clicked.
+export function popUpRequests(before, list, onOpen) {
+  if (document.visibilityState === "visible" && document.hasFocus()) return;
+  const known = new Set(before.map(request => request.id));
+  list
+    .filter(request => !known.has(request.id) && request.status === "open" && deskAlertOn(request.kind))
+    .forEach(request => {
+      try {
+        const note = new Notification(`${BENCH_LABELS[request.bench] || request.bench}: ${DESK_TITLE[request.kind] || "Request"}`, {
+          body: requestTitle(request),
+          tag: `planner-request-${request.id}`,
+          icon: "icons/planner.png",
+          requireInteraction: request.kind !== "stock"
+        });
+        note.onclick = () => {
+          window.focus();
+          note.close();
+          if (onOpen) onOpen(request);
+        };
+      } catch { /* this browser can't show it */ }
+    });
+}
+
+// ---------------------------------------------------------------------
 // Dialogs. Each resolves with the request fields, or null if cancelled.
 // ---------------------------------------------------------------------
 function dialog(html) {

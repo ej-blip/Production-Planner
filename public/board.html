@@ -27,6 +27,10 @@
     .card h2 { margin: 0 0 8px; font-size: 20px; }
     .hint { color: var(--muted); line-height: 1.45; margin: 0; }
     .hidden { display: none !important; }
+    .desk-bar { margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); background: var(--raised); }
+    .desk-button { display: inline-flex; align-items: center; gap: 6px; }
+    .desk-button svg { width: 16px; height: 16px; }
+    .desk-button.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
     .strip { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
     .stat { background: var(--inset); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 16px; min-width: 170px; }
@@ -114,6 +118,7 @@
       <input type="date" id="dateInput" aria-label="Plan date" />
       <button type="button" class="secondary" id="nextDay" aria-label="Next day"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
       <button type="button" class="secondary" id="todayButton">Today</button>
+      <button type="button" class="secondary desk-button hidden" id="deskAlertsButton" aria-expanded="false" aria-controls="deskAlertsBar">Pop-ups</button>
       <a class="button secondary" id="summaryLink" href="summary.html">Summary</a>
       <a class="button secondary hidden" id="planningLink" href="index.html#release">Planning</a>
       <button type="button" class="secondary" id="lockButton">Lock</button>
@@ -121,6 +126,8 @@
   </header>
 
   <main>
+    <div class="desk-bar hidden" id="deskAlertsBar"></div>
+
     <section id="emptyState" class="card hidden">
       <h2>No plan</h2>
       <p class="hint" id="emptyMessage">Not released yet.</p>
@@ -163,7 +170,10 @@
       JOB_STAGES, waitingJobsAt, waitingJobHtml, askPlaceJob, placeJobOnPlan
     } from "./js/floor.js";
     import { watchLists } from "./js/lists.js";
-    import { REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml } from "./js/requests.js";
+    import {
+      REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml,
+      deskAlertsSupported, deskAlertsHtml, toggleDeskAlert, anyDeskAlertOn, deskBellIcon, popUpRequests
+    } from "./js/requests.js";
 
     const $ = id => document.getElementById(id);
     const cellDate = value => { const [y, m, d] = String(value).split("-").map(Number); return new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(y, m - 1, d, 12)).replace(/,/g, ""); };
@@ -590,6 +600,55 @@
       });
     }
 
+    /* Windows pop-ups for this computer. Today's requests are watched
+       whichever day the board is showing; clicking a pop-up opens today
+       at the requests. */
+    let deskDate = "";
+    let deskStop = null;
+    let deskList = null;
+
+    function drawDeskAlerts() {
+      $("deskAlertsButton").classList.toggle("hidden", !deskAlertsSupported());
+      $("deskAlertsButton").classList.toggle("on", anyDeskAlertOn());
+      $("deskAlertsButton").innerHTML = `${deskBellIcon}Pop-ups`;
+      $("deskAlertsBar").innerHTML = deskAlertsHtml();
+    }
+
+    function watchDeskAlerts() {
+      const today = toInputDate(new Date());
+      if (today === deskDate) return;
+      if (deskStop) deskStop();
+      deskDate = today;
+      deskList = null;
+      deskStop = watchRequests(today, list => {
+        if (deskList) popUpRequests(deskList, list, openRequestsToday);
+        deskList = list;
+      });
+    }
+
+    function openRequestsToday() {
+      const today = toInputDate(new Date());
+      if (state.date !== today) openDate(today);
+      setTimeout(() => $("requestsSection").scrollIntoView({ behavior: "smooth", block: "start" }), 600);
+    }
+
+    function wireDeskAlerts() {
+      drawDeskAlerts();
+      $("deskAlertsButton").addEventListener("click", () => {
+        const open = $("deskAlertsBar").classList.toggle("hidden") === false;
+        $("deskAlertsButton").setAttribute("aria-expanded", String(open));
+        drawDeskAlerts();
+      });
+      $("deskAlertsBar").addEventListener("click", async event => {
+        const kind = event.target.closest("[data-desk-kind]")?.dataset.deskKind;
+        if (!kind) return;
+        await toggleDeskAlert(kind);
+        drawDeskAlerts();
+      });
+      watchDeskAlerts();
+      setInterval(watchDeskAlerts, 60000);   // picks up the new day after midnight
+    }
+
     async function start() {
       state.role = await ensureAccess({
         title: "Floor board",
@@ -610,6 +669,7 @@
         toast(friendlyError(error), true);
       }
       wire();
+      wireDeskAlerts();
       onSnapshot(query(collection(db, "jobs"), where("stage", "in", JOB_STAGES)), snapshot => {
         state.jobs = snapshot.docs
           .map(entry => ({ id: entry.id, ...entry.data() }))
