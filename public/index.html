@@ -4439,7 +4439,7 @@
       const extra = { key, first: "", name: "", skills: {} };
       const networkTesting = station === "testingVerizon" || station === "testingGlobal";
       const phases = stationBase(station) === "assembly" ? ["start"]
-        : stationProduct(station) && stationBase(station) === "testing" ? ["start", "second"]
+        : stationProduct(station) && stationBase(station) === "testing" ? ["start"]
         : networkTesting ? [workflowPhaseWorkers(model, "start", station).length ? "second" : "start"]
         : station === "finalPackaging" ? ["finish"]
         : ["second"];
@@ -6149,7 +6149,8 @@
        for it) until it can't be: all 6 assembly benches in use, the bench
        can't usefully take more, or nobody who can do it is free.
          Assembly       1st block (up to 6 benches across all units)
-         a unit's Testing  1st block, then the 2nd (the same tester if free)
+         a unit's Testing  1st block, to keep up with Assembly (the 2nd
+                           only if nobody who can test is free in the 1st)
          network Testing   one tester a block (its day limit is the rig)
          Hardware Check, Packaging build-up   2nd block
        A move only stands if it pays off within 3 people: a shared bench
@@ -6166,19 +6167,28 @@
       const workers = usableWorkers.filter(worker => window.PlannerSkills.inProduction(worker));
       const on = (layout, phase, station) => workflowPhaseWorkers(layout, phase, station).length;
       const free = (layout, phase, worker) => !layout.phases[phase].has(worker.key);
+      const assemblers = assemblyBenchesUsed;
+      // In the 1st block, other jobs go to people who can't assemble first
+      // while Assembly benches are open, so nobody who could fill one is
+      // taken off it (more dots still first within each group).
+      const keepsBench = (layout, phases, station, worker) => phases.includes("start")
+        && !["assembly", "subAssembly"].includes(stationBase(station))
+        && assemblers(layout) < PRODUCT_MAX_ASSEMBLY
+        && workflowWorkerEligible(worker, "assembly") ? 1 : 0;
       const best = (layout, phases, station) => workers
         .filter(worker => phases.every(phase => free(layout, phase, worker)) && workflowWorkerEligible(worker, station))
-        .sort((a, b) => workerStationScore(a, station) - workerStationScore(b, station) || compareByRosterThenPriority(a, b))[0] || null;
+        .sort((a, b) => keepsBench(layout, phases, station, a) - keepsBench(layout, phases, station, b)
+          || workerStationScore(a, station) - workerStationScore(b, station)
+          || compareByRosterThenPriority(a, b))[0] || null;
       const put = (layout, phases, station, worker) => phases.forEach(phase => setWorkflowAssignment(layout, phase, worker, station));
-      const assemblers = assemblyBenchesUsed;
 
       // The blocks to try for one more person on a station, in order.
       const blockChoices = (layout, station, outcome) => {
         const base = stationBase(station);
         if (base === "assembly") return assemblers(layout) < PRODUCT_MAX_ASSEMBLY ? [["start"]] : [];
-        if (stationProduct(station) && base === "testing") {
-          return on(layout, "start", station) <= on(layout, "second", station) ? [["start"], ["second"]] : [["second"], ["start"]];
-        }
+        // A unit's Testing keeps up with Assembly in the 1st block; the 2nd
+        // block only when nobody who can test is free in the 1st.
+        if (stationProduct(station) && base === "testing") return [["start"], ["second"]];
         if (station === "testingVerizon" || station === "testingGlobal") {
           return [["start"], ["second"]].filter(([phase]) => !on(layout, phase, station));
         }
