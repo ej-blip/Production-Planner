@@ -700,12 +700,7 @@
                     <td class="num"><input type="checkbox" data-rate="spareToPackaging" ${rates.spareToPackaging ? "checked" : ""} aria-label="Spare Sub Assembly time goes to Packaging build-up" /></td>
                     <td colspan="3"></td>
                   </tr>
-                  ${standalone ? `
-                  <tr>
-                    <td class="row-name">Most per day</td>
-                    <td class="num">${numberInput('data-rate="dailyLimit"', Lists.unitDailyLimit(item.key) ?? "", "Most per day")}</td>
-                    <td colspan="3"></td>
-                  </tr>` : ""}
+
                 </tbody>
               </table>
             </div>

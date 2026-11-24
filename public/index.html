@@ -93,6 +93,16 @@
     .block-nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-bottom: 12px; }
     .block-nav button { margin: 0; white-space: nowrap; }
     .block-nav h3 { margin: 0; padding: 8px 12px; text-align: center; font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); background: var(--raised); }
+    .output-bar { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin-bottom: 16px; }
+    .output-total { display: grid; align-content: center; padding: 10px 16px; border-radius: var(--radius-lg); background: var(--print); color: var(--print-ink); }
+    .output-total span { font-family: var(--font-label); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--print-muted); }
+    .output-total b { font-family: var(--font-label); font-size: 30px; line-height: 1; }
+    .output-steps { flex: 1; display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+    .output-step { display: grid; align-content: center; gap: 2px; min-width: 130px; padding: 8px 12px; border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); background: var(--raised); }
+    .output-step span { font-family: var(--font-label); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+    .output-step b { font-family: var(--font-label); font-size: 24px; line-height: 1.1; color: var(--ink); }
+    .output-step.limit { border: 2px solid var(--red); background: var(--red-soft); }
+    .output-step.limit small { max-width: 190px; font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--red); }
     .crew-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--rule); font-family: var(--font-label); font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
     .crew-foot span { display: flex; align-items: baseline; gap: 6px; }
     .crew-foot b { font-size: 20px; color: var(--ink); }
@@ -3191,10 +3201,11 @@
             && (workBatches.some(batch => batch.orderId === order.id) || (orderLeftBefore(order) ?? order.quantity) > 0))
         : [];
 
+      const planned = plannedToday();
       const orderCards = orders.map(order => {
         const batch = workBatches.find(item => item.orderId === order.id);
-        const wanted = wantedToday(batch || order);
-        return jobPickHtml(order, { key: `order:${order.id}`, on: Boolean(batch), qty: `Build ${wanted}` });
+        const building = batch ? planned.get(batch.id) || 0 : 0;
+        return jobPickHtml(order, { key: `order:${order.id}`, on: Boolean(batch), qty: building ? `Build ${building}` : `${leftToday(order)} left` });
       });
       const waitingCards = waiting.map(job => {
         const on = placed.has(job.id);
@@ -4127,24 +4138,25 @@
 
     const zoneStage = zone => ZONE_STAGE[zone] || ZONE_STAGE[stationBase(zone)] || null;
 
-    // What a new build from an order asks for today: what the order has
-    // left, up to a day's testing.
-    function wantedToday(batch) {
+    // What an order has left to build before today: all a day could take on.
+    // There's no daily limit; the benches' bottleneck sets the day.
+    function leftToday(batch) {
       // Takes a day's batch or an order.
       const order = workOrders.find(item => item.id === (batch.orderId || batch.id)) || null;
       const left = order ? orderLeftBefore(order) : null;
-      const standaloneLimit = isStandalone(batch) ? listsApi().unitDailyLimit(batch.unitKey || batch.unitType) : null;
-      const limit = isStandalone(batch)
-        ? standaloneLimit ?? (left ?? (Number(batch.quantity) || 0))
-        : Math.floor(dailyTestingLimit(batch.commsKey || batch.commsType));
-      const asked = left ?? (workDayMode === "single" ? limit : Number(batch.quantity) || 0);
-      return Math.max(0, Math.min(asked, limit));
+      return Math.max(0, left ?? (Number(batch.quantity) || 0));
     }
 
-    function todaysWork() {
-      const builds = workBatches
-        .filter(batch => batch.orderId || keepManualBuild)
-        .map(batch => ({ ...batch, quantity: wantedToday(batch), route: ["assembly", "testing"] }));
+    // Units the plan builds today, by batch.
+    function plannedToday() {
+      return new Map(todaysNewJobs().map(job => [job.batchId, job.quantity]));
+    }
+
+    // Today's work: new builds at what the plan will build, and the earlier
+    // cards picked for today.
+    function todaysWork(outputs = plannedToday()) {
+      const builds = dayBuilds()
+        .map(batch => ({ ...batch, quantity: outputs.get(batch.id) || 0, route: ["assembly", "testing"] }));
       const placed = dayJobs.map(liveDayJob).map(job => ({ ...job, quantity: Number(job.quantity) || 0, route: job.route || [] }));
       return [...builds, ...placed].filter(job => job.quantity > 0);
     }
@@ -4154,16 +4166,12 @@
        many as today builds, or what each order has left after today if
        that's less. Today's assembly uses yesterday's parts, so it isn't
        held back by this; but the work still needs people. */
-    function subAssemblyLoad(usePlanned = true) {
+    function subAssemblyLoad(outputs = plannedToday()) {
       const lists = listsApi();
-      const planned = usePlanned ? new Map(todaysNewJobs().map(job => [job.batchId, job.quantity])) : new Map();
       const items = dayBuilds().map(batch => {
-        const wanted = wantedToday(batch);
-        const today = planned.get(batch.id) ?? wanted;
-        const order = batch.orderId ? workOrders.find(item => item.id === batch.orderId) : null;
-        const left = order ? orderLeftBefore(order) : null;
-        const afterToday = left === null ? today : Math.max(0, left - today);
-        return { unitKey: batch.unitKey || batch.unitType, sets: Math.min(wanted, afterToday) };
+        const today = outputs.get(batch.id) || 0;
+        const afterToday = Math.max(0, leftToday(batch) - today);
+        return { unitKey: batch.unitKey || batch.unitType, sets: Math.min(today, afterToday) };
       }).filter(item => item.sets > 0);
       const sets = items.reduce((sum, item) => sum + item.sets, 0);
       // Person-blocks the sets take, so mixed parts average out.
@@ -4191,19 +4199,31 @@
       return perPerson > 0 ? { key, minutesPerUnit: BLOCK_MINUTES / perPerson } : null;
     }
 
-    function subAssemblyMinutesNeeded(usePlanned = true) {
+    function subAssemblyMinutesNeeded(outputs) {
       const lists = listsApi();
-      return subAssemblyLoad(usePlanned).items.reduce((sum, item) => {
+      return subAssemblyLoad(outputs).items.reduce((sum, item) => {
         const rate = lists ? lists.subAssemblyRate(item.unitKey) : 13;
         return sum + (rate > 0 ? item.sets * BLOCK_MINUTES / rate : 0);
       }, 0);
     }
 
+    // What the Gen4 / Tap planner will build today, by batch.
+    function engineOutputs(result, mixed) {
+      if (workDayMode === "mixed") {
+        return new Map((mixed?.batches || [])
+          .map(batch => [workBatches[batch.originalIndex]?.id, batch.achievable])
+          .filter(([id]) => id));
+      }
+      const first = workBatches[0];
+      if (!first || !(first.orderId || keepManualBuild)) return new Map();
+      return new Map([[first.id, capToOrder(result?.possible ? result.finalOutput || 0 : 0) || 0]]);
+    }
+
     // Packaging build-up units Sub Assembly's spare time gives in a block.
-    function sparePackagingUnits(phase, model = lastWorkflowModel, usePlanned = true) {
+    function sparePackagingUnits(phase, model = lastWorkflowModel, outputs = plannedToday()) {
       const unit = spareUnit();
       if (!unit || !model) return 0;
-      let left = subAssemblyMinutesNeeded(usePlanned);
+      let left = subAssemblyMinutesNeeded(outputs);
       for (const block of WORKFLOW_PHASES) {
         const available = workflowPhaseWorkers(model, block, "subAssembly").length * BLOCK_MINUTES;
         const used = Math.min(available, left);
@@ -4216,8 +4236,8 @@
     // Auto assign: enough people on Sub Assembly for tomorrow's sets. The
     // person already on it carries on in later blocks where they're free
     // (or on Packing); then the best free people.
-    function staffSubAssembly(model) {
-      const load = subAssemblyLoad(false);
+    function staffSubAssembly(model, outputs) {
+      const load = subAssemblyLoad(outputs);
       const onIt = phase => workflowPhaseWorkers(model, phase, "subAssembly");
       let missing = Math.ceil(load.blocks - 1e-9) - WORKFLOW_PHASES.reduce((sum, phase) => sum + onIt(phase).length, 0);
       if (missing <= 0) return;
@@ -4260,9 +4280,9 @@
       return { unitKey: best.unitKey || best.unitType || "gen4", commsKey: best.commsKey || best.commsType || "verizon" };
     }
 
-    function stationActual(zone, phase, work) {
-      if (!lastWorkflowModel) return 0;
-      const on = station => workflowPhaseWorkers(lastWorkflowModel, phase, station).length;
+    function stationActual(zone, phase, work, model = lastWorkflowModel) {
+      if (!model) return 0;
+      const on = station => workflowPhaseWorkers(model, phase, station).length;
       const count = on(zone);
       const job = zoneJob(zone, work);
       if (zone === "subAssembly") return count * subAssemblyLoad().rate;
@@ -4271,7 +4291,7 @@
       if (zone === "testing") return singleTestingCapacityPerPhase(count, job.commsKey);
       if (zone === "testingVerizon" || zone === "testingGlobal") return count > 0 ? dailyTestingLimit(job.commsKey) / 2 : 0;
       if (zone === "hardware") return hardwareCapacity(count, job.unitKey, job.commsKey);
-      if (zone === "packing") return packingCapacity(count, job.unitKey) + sparePackagingUnits(phase);
+      if (zone === "packing") return packingCapacity(count, job.unitKey) + sparePackagingUnits(phase, model);
       if (zone === "finalPackaging") return listsApi()?.packingRate(count, rateUnitKey(job.unitKey)) ?? null;
       return null;
     }
@@ -4284,7 +4304,7 @@
       // units: the cards picked for today, or with none picked, as many as
       // today builds (yesterday built about the same), as Auto assign plans.
       const laterStages = ["hardware", "packing"];
-      const asToday = dayBuilds().reduce((sum, batch) => sum + wantedToday(batch), 0);
+      const asToday = [...plannedToday().values()].reduce((sum, value) => sum + value, 0);
       return Object.fromEntries(zones.map(zone => {
         const picked = work.filter(job => zoneTakes(zone, job)).reduce((sum, job) => sum + job.quantity, 0);
         const need = zone === "subAssembly" ? subAssemblyLoad().sets
@@ -4349,6 +4369,7 @@
       const index = WORKFLOW_PHASES.indexOf(benchBoardPhase);
 
       root.innerHTML = `
+        ${flowBarHtml()}
         <div class="crew-layout">
           <section class="crew-panel">
             <div class="crew-panel-head">
@@ -4374,6 +4395,81 @@
           </section>
         </div>`;
       highlightBenchFit(selectedKey);
+    }
+
+    /* The day's flow: each station's total for the day, the day's output,
+       and the bottleneck (the station holding output back), with what one
+       more person there would add. */
+    function dayFlow() {
+      const mixed = lastResult?.mixedCapacity;
+      const output = currentPlanTarget() ?? 0;
+      if (mixed?.generic) {
+        return {
+          output,
+          totals: Object.entries(mixed.stationTotals || {}),
+          bottleneck: mixed.bottleneckStation || null,
+          partner: mixed.bottleneckPartner || null,
+          people: mixed.bottleneckPeople || 1,
+          gain: mixed.bottleneckGain || 0
+        };
+      }
+      const work = todaysWork();
+      const order = ["assembly", "testing", "hardware", "packing"];
+      const totals = workflowStationOptions().map(([zone]) => zone)
+        .filter(zone => zone !== "subAssembly" && zoneStage(zone))
+        .map(zone => {
+          const values = WORKFLOW_PHASES.map(phase => stationActual(zone, phase, work));
+          return values.every(value => value === null) ? null : [zone, values.reduce((total, value) => total + (value || 0), 0)];
+        })
+        .filter(Boolean);
+      const lowest = totals.filter(([zone]) => order.includes(zoneStage(zone)))
+        .reduce((low, item) => (!low || item[1] < low[1] ? item : low), null);
+      return { output, totals, bottleneck: lowest?.[0] || null, partner: null, people: 1, gain: 0 };
+    }
+
+    const assemblyBenchesUsed = model => [...(model?.phases.start.values() || [])]
+      .filter(item => item.station !== "subAssembly" && zoneStage(item.station) === "assembly").length;
+
+    // A layout with one more person on a station (products days), or null
+    // when it can't take one (all assembly benches in use).
+    function withOneMore(model, station, key = "__one-more") {
+      if (!model || !station) return null;
+      if (stationBase(station) === "assembly" && assemblyBenchesUsed(model) >= PRODUCT_MAX_ASSEMBLY) return null;
+      const clone = cloneWorkflowModel(model);
+      const extra = { key, first: "", name: "", skills: {} };
+      const networkTesting = station === "testingVerizon" || station === "testingGlobal";
+      const phases = stationBase(station) === "assembly" ? ["start"]
+        : stationProduct(station) && stationBase(station) === "testing" ? ["start", "second"]
+        : networkTesting ? [workflowPhaseWorkers(model, "start", station).length ? "second" : "start"]
+        : station === "finalPackaging" ? ["finish"]
+        : ["second"];
+      phases.forEach(phase => clone.phases[phase].set(extra.key, { worker: extra, station, customJobName: "", manual: false }));
+      return clone;
+    }
+
+    function flowBarHtml() {
+      if (!dayBuilds().length && !dayJobs.length) return "";
+      const flow = dayFlow();
+      if (!flow.totals.length) return "";
+      const benchesFull = flow.bottleneck && stationBase(flow.bottleneck) === "assembly"
+        && assemblyBenchesUsed(lastWorkflowModel) >= PRODUCT_MAX_ASSEMBLY;
+      const note = benchesFull ? `All ${PRODUCT_MAX_ASSEMBLY} benches in use`
+        : !flow.gain ? ""
+        : flow.partner ? `+${flow.gain} with 1 more person on each`
+        : `+${flow.gain} with ${flow.people > 1 ? `${flow.people} more people` : "1 more person"}`;
+      const limit = zone => zone === flow.bottleneck || zone === flow.partner;
+      return `
+        <div class="output-bar">
+          <div class="output-total"><span>Day output</span><b>${flow.output}</b></div>
+          <div class="output-steps">
+            ${flow.totals.map(([zone, total]) => `
+              <div class="output-step ${limit(zone) ? "limit" : ""}">
+                <span>${escapeHtml(benchZoneLabel(zone))}</span>
+                <b>${Math.floor(total)}</b>
+                ${limit(zone) ? `<small>Bottleneck${note ? ` · ${escapeHtml(note)}` : ""}</small>` : ""}
+              </div>`).join("")}
+          </div>
+        </div>`;
     }
 
     const CREW_SKILL_KIND = { subAssembly: "assembly", assembly: "assembly", testing: "testing", hardware: "hardware", packing: "packing" };
@@ -5886,84 +5982,154 @@
       ];
     }
 
-    // What the day can build of each order: what its unit's Assembly and
-    // Testing can do (shared by orders of the same unit or network, in
-    // proportion to what each wants), up to each unit's daily limit.
-    function productsCapacity(model) {
+    /* What a products day can make with a layout, and what holds it back.
+       Each order offers everything it has left. Its units go through its
+       unit's Assembly and Testing (shared by orders of the same unit or
+       network, by what each has left, after any earlier cards picked for
+       those benches). Hardware Check, Packaging build-up (with Sub
+       Assembly's spare time) and Packing, once it has a speed, are shared
+       and cap the whole day, as on Gen4 days: the line can't run faster
+       than its slowest bench. The limits list says what to relieve first. */
+    const SHARED_STATIONS = ["hardware", "packing", "finalPackaging"];
+
+    // fillFinish: count everyone not placed in the 3rd block as on Packing,
+    // where Auto assign puts them at the end.
+    function productsOutcome(model, fillFinish = false) {
       const lists = listsApi();
-      const on = (phase, station) => workflowPhaseWorkers(model, phase, station).length;
-      const requested = dayBuilds()
-        .map(batch => ({ ...batch, originalIndex: workBatches.indexOf(batch), quantity: wantedToday(batch) }))
-        .filter(batch => batch.quantity > 0);
-      const totalRequested = requested.reduce((sum, batch) => sum + batch.quantity, 0);
+      const unplacedAtFinish = () => model.usableWorkers
+        .filter(worker => window.PlannerSkills.inProduction(worker) && !model.phases.finish.has(worker.key)).length;
+      const on = (phase, station) => workflowPhaseWorkers(model, phase, station).length
+        + (fillFinish && phase === "finish" && station === "finalPackaging" ? unplacedAtFinish() : 0);
+      const sum = station => WORKFLOW_PHASES.reduce((total, phase) => total + on(phase, station), 0);
       const keyOf = batch => batch.unitKey || batch.unitType;
-      const share = (pool, members) => {
-        const wanted = members.reduce((sum, batch) => sum + batch.quantity, 0);
-        return new Map(members.map(batch => [batch, wanted ? pool * batch.quantity / wanted : 0]));
+      const picked = dayJobs.map(liveDayJob);
+      const pickedAt = (stage, match) => picked
+        .filter(job => (job.route || []).includes(stage) && match(job))
+        .reduce((total, job) => total + (Number(job.quantity) || 0), 0);
+      const orders = dayBuilds()
+        .map(batch => ({ batch, key: keyOf(batch), left: leftToday(batch), assembly: 0, testing: Infinity }))
+        .filter(order => order.left > 0);
+      const totals = new Map();
+      const share = (pool, members, field, station) => {
+        const all = members.reduce((total, order) => total + order.left, 0);
+        members.forEach(order => {
+          order[field] = all ? Math.max(0, pool) * order.left / all : 0;
+          order[`${field}Station`] = station;
+        });
       };
 
-      const assemblyCap = new Map();
-      const testingCap = new Map();
-      const assemblyAt = {};
-      const testingAt = {};
       productsOfDay().forEach(product => {
-        const members = requested.filter(batch => keyOf(batch) === product.key);
-        const built = WORKFLOW_PHASES.reduce((sum, phase) =>
-          sum + (on(phase, "subAssembly") > 0 ? on(phase, `assembly:${product.key}`) * assemblyPerBench(product.key) : 0), 0);
-        assemblyAt[product.key] = built;
-        share(built, members).forEach((value, batch) => assemblyCap.set(batch, value));
+        const members = orders.filter(order => order.key === product.key);
+        const assemblyStation = `assembly:${product.key}`;
+        const built = WORKFLOW_PHASES.reduce((total, phase) =>
+          total + (on(phase, "subAssembly") > 0 ? on(phase, assemblyStation) * assemblyPerBench(product.key) : 0), 0);
+        totals.set(assemblyStation, built);
+        share(built - pickedAt("assembly", job => keyOf(job) === product.key), members, "assembly", assemblyStation);
         if (product.standalone) {
-          const tested = WORKFLOW_PHASES.reduce((sum, phase) => sum + on(phase, `testing:${product.key}`) * lists.testingRate(product.key), 0);
-          const limit = lists.unitDailyLimit(product.key);
-          const capped = limit === null ? tested : Math.min(tested, limit);
-          testingAt[`testing:${product.key}`] = capped;
-          share(capped, members).forEach((value, batch) => testingCap.set(batch, value));
+          const testingStation = `testing:${product.key}`;
+          const tested = sum(testingStation) * lists.testingRate(product.key);
+          totals.set(testingStation, tested);
+          share(tested - pickedAt("testing", job => keyOf(job) === product.key), members, "testing", testingStation);
         }
       });
-      ["testingVerizon", "testingGlobal"].forEach(station => {
-        const members = requested.filter(batch => !isStandalone(batch) && (batch.commsType === "global") === (station === "testingGlobal"));
-        if (!members.length) return;
-        const limit = dailyTestingLimit(members[0].commsKey || members[0].commsType);
-        const tested = Math.min(limit, WORKFLOW_PHASES.reduce((sum, phase) => sum + (on(phase, station) > 0 ? limit / 2 : 0), 0));
-        testingAt[station] = tested;
-        share(tested, members).forEach((value, batch) => testingCap.set(batch, value));
+      productsTestingStations().filter(station => !stationProduct(station)).forEach(station => {
+        const global = station === "testingGlobal";
+        const onNetwork = job => !isStandalone(job) && (job.commsType === "global") === global;
+        const members = orders.filter(order => onNetwork(order.batch));
+        const first = members[0]?.batch || picked.find(onNetwork) || {};
+        const limit = dailyTestingLimit(first.commsKey || first.commsType || (global ? "global" : "verizon"));
+        const tested = Math.min(limit, WORKFLOW_PHASES.reduce((total, phase) => total + (on(phase, station) > 0 ? limit / 2 : 0), 0));
+        totals.set(station, tested);
+        share(tested - pickedAt("testing", onNetwork), members, "testing", station);
       });
+      orders.forEach(order => { order.made = Math.max(0, Math.min(order.left, order.assembly, order.testing)); });
+      const made = orders.reduce((total, order) => total + order.made, 0);
 
-      let bottleneck = null;
-      const batches = requested.map(batch => {
-        const assembly = assemblyCap.get(batch) || 0;
-        const testing = testingCap.get(batch) || 0;
-        const achievable = Math.max(0, Math.floor(Math.min(batch.quantity, assembly, testing) + 1e-9));
-        const short = batch.quantity - achievable;
-        if (short > 0 && (!bottleneck || short > bottleneck.short)) {
-          const station = assembly <= testing ? `assembly:${keyOf(batch)}`
-            : isStandalone(batch) ? `testing:${keyOf(batch)}`
-            : batch.commsType === "global" ? "testingGlobal" : "testingVerizon";
-          bottleneck = { short, name: workflowStationLabel(station) };
+      // Shared benches work at the speeds of the biggest job.
+      const biggest = [...orders.map(order => ({ job: order.batch, size: order.left })), ...picked.map(job => ({ job, size: Number(job.quantity) || 0 }))]
+        .sort((a, b) => b.size - a.size)[0]?.job || {};
+      const leadUnit = biggest.unitKey || biggest.unitType || "gen4";
+      const leadComms = biggest.commsKey || biggest.commsType || "verizon";
+      const outputs = new Map(orders.map(order => [order.batch.id, Math.floor(order.made)]));
+      const hardware = WORKFLOW_PHASES.reduce((total, phase) => total + hardwareCapacity(on(phase, "hardware"), leadUnit, leadComms), 0);
+      const packaging = WORKFLOW_PHASES.reduce((total, phase) =>
+        total + packingCapacity(on(phase, "packing"), leadUnit) + sparePackagingUnits(phase, model, outputs), 0);
+      const packingRated = lists.packingRate(1, rateUnitKey(leadUnit)) !== null;
+      const packing = packingRated
+        ? WORKFLOW_PHASES.reduce((total, phase) => total + (lists.packingRate(on(phase, "finalPackaging"), rateUnitKey(leadUnit)) || 0), 0)
+        : null;
+      totals.set("hardware", hardware);
+      totals.set("packing", packaging);
+      if (packing !== null) totals.set("finalPackaging", packing);
+      const shared = [["hardware", hardware], ["packing", packaging], ...(packing !== null ? [["finalPackaging", packing]] : [])];
+      const sharedCap = Math.min(...shared.map(([, value]) => value));
+      const output = Math.min(made, sharedCap);
+      const scale = made > 0 ? output / made : 0;
+      orders.forEach(order => { order.achievable = Math.floor(order.made * scale + 1e-9); });
+
+      // What to relieve: a shared bench holding the whole day back, then
+      // each order's own Assembly or Testing, the furthest behind first.
+      const limits = [];
+      if (orders.length && sharedCap < made) shared.filter(([, value]) => value <= sharedCap).forEach(([station]) => limits.push(station));
+      orders.filter(order => order.made < order.left)
+        .sort((a, b) => a.made - b.made)
+        .forEach(order => {
+          const station = order.assembly <= order.testing ? order.assemblyStation : order.testingStation;
+          if (station && !limits.includes(station)) limits.push(station);
+        });
+      return { orders, totals, output: orders.reduce((total, order) => total + order.achievable, 0), limits, bottleneck: limits[0] || null, leadUnit, leadComms };
+    }
+
+    function productsCapacity(model) {
+      const outcome = productsOutcome(model);
+      /* The bottleneck shown is where one more person adds the most. When
+         two benches hold the day back together (Assembly and its Testing,
+         say), it's the pair that adds the most with one more on each. Else
+         it's the first bench holding output back. */
+      const stations = [...outcome.totals.keys()];
+      const gainWith = (...extra) => {
+        let layout = model;
+        for (const [index, station] of extra.entries()) {
+          layout = withOneMore(layout, station, `__one-more-${index}`);
+          if (!layout) return 0;
         }
-        return { ...batch, achievable };
-      });
-      const realisticOutput = batches.reduce((sum, batch) => sum + batch.achievable, 0);
-      const work = todaysWork();
-      const stageTotal = stage => WORKFLOW_PHASES.reduce((sum, phase) => {
-        const zones = workflowStationOptions().map(([value]) => value).filter(zone => zone !== "subAssembly" && zoneStage(zone) === stage);
-        return sum + zones.reduce((inner, zone) => inner + (stationActual(zone, phase, work) || 0), 0);
-      }, 0);
-
+        return Math.max(0, productsOutcome(layout).output - outcome.output);
+      };
+      const top = (best, item) => (item.gain > (best?.gain || 0) ? item : best);
+      let most = stations.map(station => ({ stations: [station], gain: gainWith(station) })).reduce(top, null);
+      if (!most) {
+        most = outcome.limits.flatMap(first => stations
+          .map(station => ({ stations: [first, station], gain: gainWith(first, station) }))).reduce(top, null);
+      }
+      const bottleneck = most?.stations[0] || outcome.bottleneck;
+      const totalRequested = outcome.orders.reduce((total, order) => total + order.left, 0);
+      const stageTotal = stage => [...outcome.totals.entries()]
+        .filter(([station]) => zoneStage(station) === stage && station !== "finalPackaging")
+        .reduce((total, [, value]) => total + value, 0);
       return {
         possible: true,
         generic: true,
         totalRequested,
-        realisticOutput,
-        shortfall: Math.max(0, totalRequested - realisticOutput),
-        bottleneckName: bottleneck?.name || "",
+        realisticOutput: outcome.output,
+        shortfall: Math.max(0, totalRequested - outcome.output),
+        bottleneckStation: bottleneck,
+        bottleneckName: bottleneck ? workflowStationLabel(bottleneck) : "",
+        bottleneckPartner: most?.stations[1] !== bottleneck ? most?.stations[1] || null : null,
+        bottleneckPeople: most?.stations.length || 1,
+        bottleneckGain: most?.gain || 0,
+        stationTotals: Object.fromEntries(outcome.totals),
         reason: "",
-        batches,
+        batches: outcome.orders.map(order => ({
+          ...order.batch,
+          originalIndex: workBatches.indexOf(order.batch),
+          quantity: order.left,
+          achievable: order.achievable
+        })),
         stageCapacityUnits: {
-          assembly: Object.values(assemblyAt).reduce((sum, value) => sum + value, 0),
-          testing: Object.values(testingAt).reduce((sum, value) => sum + value, 0),
-          hardware: Math.floor(stageTotal("hardware")),
-          packing: Math.floor(stageTotal("packing"))
+          assembly: Math.floor(stageTotal("assembly")),
+          testing: Math.floor(stageTotal("testing")),
+          hardware: Math.floor(outcome.totals.get("hardware") || 0),
+          packing: Math.floor(outcome.totals.get("packing") || 0)
         },
         assemblyCapacityByUnit: {},
         phases: [],
@@ -5973,98 +6139,118 @@
       };
     }
 
-    // Auto assign for a products day: testers first (they stay on through
-    // the 2nd block), one on Sub Assembly, then Assembly shared out by what
-    // each unit needs (up to 6 people), Hardware Check and Packaging
-    // build-up in the 2nd block, and everyone else on Packing in the 3rd
-    // block.
+    // Planned output by batch for a layout (products days).
+    function productsOutputs(model) {
+      return new Map(productsOutcome(model).orders.map(order => [order.batch.id, order.achievable]));
+    }
+
+    /* Auto assign for a products day: one person on Sub Assembly, then the
+       bottleneck is relieved one person at a time (the best free person
+       for it) until it can't be: all 6 assembly benches in use, the bench
+       can't usefully take more, or nobody who can do it is free.
+         Assembly       1st block (up to 6 benches across all units)
+         a unit's Testing  1st block, then the 2nd (the same tester if free)
+         network Testing   one tester a block (its day limit is the rig)
+         Hardware Check, Packaging build-up   2nd block
+       A move only stands if it pays off within 3 people: a shared bench
+       must make more, or the orders must make more (so nobody goes on a
+       unit's Assembly unless someone can test it too). Everyone left goes
+       on Packing in the 3rd block. */
+    const cloneWorkflowModel = model => ({
+      ...model,
+      phases: Object.fromEntries(WORKFLOW_PHASES.map(phase => [phase, new Map(model.phases[phase])]))
+    });
+
     function suggestProductsModel(usableWorkers) {
-      const lists = listsApi();
-      const model = makeWorkflowModel(usableWorkers);
+      let model = makeWorkflowModel(usableWorkers);
       const workers = usableWorkers.filter(worker => window.PlannerSkills.inProduction(worker));
-      const free = phase => workers.filter(worker => !model.phases[phase].has(worker.key));
-      const best = (phase, station, count) => free(phase)
-        .filter(worker => workflowWorkerEligible(worker, station))
-        .sort((a, b) => workerStationScore(a, station) - workerStationScore(b, station) || compareByRosterThenPriority(a, b))
-        .slice(0, Math.max(0, count));
-      const place = (phases, station, people) => people.forEach(worker => phases.forEach(phase => {
-        if (!model.phases[phase].has(worker.key)) setWorkflowAssignment(model, phase, worker, station);
-      }));
-      const builds = dayBuilds().map(batch => ({ batch, wanted: wantedToday(batch) })).filter(item => item.wanted > 0);
-      const keyOf = batch => batch.unitKey || batch.unitType;
-      const picked = dayJobs.map(liveDayJob);
-      // Units a unit type needs at a stage today: its new builds, plus any
-      // earlier cards picked for that stage (e.g. "Test 30").
-      const pickedAt = (key, stage) => picked
-        .filter(job => keyOf(job) === key && (job.route || []).includes(stage))
-        .reduce((sum, job) => sum + (Number(job.quantity) || 0), 0);
-      const wantedOf = (key, stage = "assembly") => builds.filter(item => keyOf(item.batch) === key).reduce((sum, item) => sum + item.wanted, 0)
-        + pickedAt(key, stage);
+      const on = (layout, phase, station) => workflowPhaseWorkers(layout, phase, station).length;
+      const free = (layout, phase, worker) => !layout.phases[phase].has(worker.key);
+      const best = (layout, phases, station) => workers
+        .filter(worker => phases.every(phase => free(layout, phase, worker)) && workflowWorkerEligible(worker, station))
+        .sort((a, b) => workerStationScore(a, station) - workerStationScore(b, station) || compareByRosterThenPriority(a, b))[0] || null;
+      const put = (layout, phases, station, worker) => phases.forEach(phase => setWorkflowAssignment(layout, phase, worker, station));
+      const assemblers = assemblyBenchesUsed;
 
-      // Testing, for the 1st and 2nd blocks.
-      productsTestingStations().forEach(station => {
-        const product = stationProduct(station);
-        let people = 1;
-        if (product) {
-          const rate = lists.testingRate(product);
-          people = rate > 0 ? Math.max(1, Math.ceil(wantedOf(product, "testing") / (2 * rate))) : 1;
+      // The blocks to try for one more person on a station, in order.
+      const blockChoices = (layout, station, outcome) => {
+        const base = stationBase(station);
+        if (base === "assembly") return assemblers(layout) < PRODUCT_MAX_ASSEMBLY ? [["start"]] : [];
+        if (stationProduct(station) && base === "testing") {
+          return on(layout, "start", station) <= on(layout, "second", station) ? [["start"], ["second"]] : [["second"], ["start"]];
         }
-        place(["start", "second"], station, best("start", station, people).filter(worker => !model.phases.second.has(worker.key)));
-      });
-
-      // Sub Assembly, then Assembly by need.
-      const assembling = [...new Set([...productsOfDay().map(product => product.key), ...picked.filter(job => (job.route || []).includes("assembly")).map(keyOf)])]
-        .map(key => ({ key }))
-        .filter(product => wantedOf(product.key) > 0);
-      if (assembling.length) place(["start"], "subAssembly", best("start", "subAssembly", 1));
-      let room = PRODUCT_MAX_ASSEMBLY;
-      const needs = assembling.map(product => {
-        const rate = assemblyPerBench(product.key);
-        return { product, need: rate > 0 ? Math.ceil(wantedOf(product.key) / rate) : 1 };
-      });
-      const totalNeed = needs.reduce((sum, item) => sum + item.need, 0);
-      needs.forEach((item, index) => {
-        const fair = totalNeed <= room ? item.need : Math.max(1, Math.round(PRODUCT_MAX_ASSEMBLY * item.need / totalNeed));
-        const count = Math.min(room, fair);
-        const people = best("start", `assembly:${item.product.key}`, count);
-        place(["start"], `assembly:${item.product.key}`, people);
-        room -= people.length;
-        // Not finished in the 1st block: the same people carry on.
-        const rate = assemblyPerBench(item.product.key);
-        if (people.length && people.length * rate < wantedOf(item.product.key)) {
-          place(["second"], `assembly:${item.product.key}`, people.filter(worker => !model.phases.second.has(worker.key)));
-          if (!workflowPhaseWorkers(model, "second", "subAssembly").length) {
-            const helper = workflowPhaseWorkers(model, "start", "subAssembly")[0];
-            if (helper && !model.phases.second.has(helper.key)) setWorkflowAssignment(model, "second", helper, "subAssembly");
+        if (station === "testingVerizon" || station === "testingGlobal") {
+          return [["start"], ["second"]].filter(([phase]) => !on(layout, phase, station));
+        }
+        if (station === "hardware") {
+          return on(layout, "second", "hardware") < usefulHardwareBenches(outcome.leadUnit, outcome.leadComms) ? [["second"]] : [];
+        }
+        if (station === "packing") return on(layout, "second", "packing") < usefulPackingBenches(outcome.leadUnit) ? [["second"]] : [];
+        return [];
+      };
+      const relieve = (layout, station, outcome) => {
+        for (const phases of blockChoices(layout, station, outcome)) {
+          const sameTester = phases[0] === "second" && stationBase(station) === "testing"
+            ? workers.find(worker => layout.phases.start.get(worker.key)?.station === station && free(layout, "second", worker))
+            : null;
+          const worker = sameTester || best(layout, phases, station);
+          if (worker) {
+            put(layout, phases, station, worker);
+            return true;
           }
         }
-      });
-
-      // Hardware Check and Packaging build-up in the 2nd block, always, as
-      // on Gen4 days: sized for the earlier cards picked for today, or, with
-      // none picked, for as many as today builds (yesterday built about
-      // the same). Just enough people, at the speeds of the biggest job.
-      const earlier = todaysWork().filter(job => !String(job.id || "").startsWith("batch-"));
-      const todaysUnits = builds.reduce((sum, item) => sum + item.wanted, 0);
-      const unitsFor = stage => earlier.filter(job => (job.route || []).includes(stage)).reduce((sum, job) => sum + job.quantity, 0) || todaysUnits;
-      const biggest = [...earlier.map(job => ({ job, size: job.quantity })), ...builds.map(item => ({ job: item.batch, size: item.wanted }))]
-        .sort((a, b) => b.size - a.size)[0]?.job || {};
-      const leadUnit = biggest.unitKey || biggest.unitType || "gen4";
-      const leadComms = biggest.commsKey || biggest.commsType || "verizon";
-      const peopleFor = (rateAt, units, most) => {
-        for (let people = 1; people <= most; people++) if (rateAt(people) >= units) return people;
-        return most;
+        return false;
       };
-      const hardwareUnits = unitsFor("hardware");
-      if (hardwareUnits > 0) {
-        const most = usefulHardwareBenches(leadUnit, leadComms);
-        place(["second"], "hardware", best("second", "hardware", peopleFor(people => hardwareCapacity(people, leadUnit, leadComms), hardwareUnits, most)));
-      }
-      // Sub Assembly's spare time in the 1st block already covers some.
-      const packingUnits = Math.max(0, unitsFor("packing") - sparePackagingUnits("start", model, false));
-      if (packingUnits > 0) {
-        const most = usefulPackingBenches(leadUnit);
-        place(["second"], "packing", best("second", "packing", peopleFor(people => packingCapacity(people, leadUnit), packingUnits, most)));
+      // The bench holding back the orders that use a station (lowest made first).
+      const nextFor = (outcome, station) => {
+        const order = outcome.orders
+          .filter(item => item.made < item.left && (item.assemblyStation === station || item.testingStation === station))
+          .sort((a, b) => a.made - b.made)[0];
+        return order ? (order.assembly <= order.testing ? order.assemblyStation : order.testingStation) : null;
+      };
+      const madeOf = outcome => outcome.orders.reduce((total, order) => total + order.made, 0);
+      // A layout with up to 3 more people that pays off, or null.
+      const tryRelief = (station, outcome) => {
+        const shared = SHARED_STATIONS.includes(station);
+        const score = result => (shared ? result.totals.get(station) || 0 : madeOf(result));
+        const before = score(outcome);
+        const trial = cloneWorkflowModel(model);
+        let next = station;
+        let current = outcome;
+        for (let step = 0; step < 3 && next; step++) {
+          if (!relieve(trial, next, current)) return null;
+          current = productsOutcome(trial, true);
+          if (score(current) > before + 1e-9) return trial;
+          next = shared ? station : nextFor(current, station);
+        }
+        return null;
+      };
+
+      if (productsOutcome(model, true).orders.length) {
+        const helper = best(model, ["start"], "subAssembly");
+        if (helper) put(model, ["start"], "subAssembly", helper);
+
+        const blocked = new Set();
+        let held = false;
+        for (let step = 0; step < 150 && !held; step++) {
+          const outcome = productsOutcome(model, true);
+          let moved = false;
+          for (const station of outcome.limits.filter(item => !blocked.has(item))) {
+            const trial = tryRelief(station, outcome);
+            if (trial) {
+              model = trial;
+              moved = true;
+              break;
+            }
+            // A shared bench that can't make more holds the whole day.
+            if (SHARED_STATIONS.includes(station)) {
+              held = true;
+              break;
+            }
+            blocked.add(station);
+          }
+          if (!moved) break;
+        }
       }
 
       usableWorkers.forEach(worker => {
@@ -7072,7 +7258,7 @@
       const workflowModel = !autoAssign ? makeWorkflowModel(usableWorkers)
         : products ? suggestProductsModel(usableWorkers)
         : buildSuggestedWorkflowModel(result, automaticMixed, usableWorkers);
-      if (autoAssign) staffSubAssembly(workflowModel);
+      if (autoAssign) staffSubAssembly(workflowModel, products ? productsOutputs(workflowModel) : engineOutputs(result, automaticMixed));
       applyManualWorkflowAssignments(workflowModel, usableWorkers);
       lastStationIssues = [...workflowModel.warnings];
 
