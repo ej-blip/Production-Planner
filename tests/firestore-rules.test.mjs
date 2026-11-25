@@ -770,6 +770,20 @@ describe("Lists", () => {
     }
   });
 
+  it("management sets the block lengths; benches only read them", async () => {
+    const blocks = fields => ({ start: 120, second: 150, finish: 120, updatedBy: "Management", updatedAt: serverTimestamp(), ...fields });
+    const db = management();
+    await assertSucceeds(setDoc(doc(db, "lists", "blocks"), blocks()));
+    await assertSucceeds(setDoc(doc(db, "lists", "blocks"), blocks({ second: 157.5 })));
+    await assertFails(setDoc(doc(db, "lists", "blocks"), blocks({ second: 5 })));
+    await assertFails(setDoc(doc(db, "lists", "blocks"), blocks({ finish: "two hours" })));
+    await assertFails(setDoc(doc(db, "lists", "blocks"), blocks({ items: [] })));
+    await assertFails(setDoc(doc(db, "lists", "blocks"), { start: 120, second: 150, updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(doc(db, "lists", "blocks")));
+    await assertSucceeds(getDoc(doc(bench(), "lists", "blocks")));
+    await assertFails(setDoc(doc(bench(), "lists", "blocks"), blocks()));
+  });
+
   it("orders and job cards can name a unit and comms from the lists", async () => {
     const db = management();
     const fields = {

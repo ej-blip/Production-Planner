@@ -152,7 +152,7 @@
     }
     .swatch { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(15, 39, 71, 0.3); }
 
-    /* Rates: build speeds per block */
+    /* Rates: block lengths and minutes per unit */
     .rate-group { margin-top: 18px; }
     .rate-group h3 {
       margin: 0 0 6px;
@@ -164,8 +164,9 @@
     table.list.rates th.num,
     table.list.rates td.num { text-align: center; white-space: nowrap; }
     table.list.rates td.row-name { white-space: nowrap; font-weight: 600; }
-    table.list.rates input[type="number"] { width: 84px; min-height: 40px; padding: 8px; text-align: center; }
-    table.list.rates .derived { display: inline-block; width: 84px; color: var(--muted); font-weight: 600; }
+    table.list.rates input[type="number"] { width: 92px; min-height: 40px; padding: 8px; text-align: center; }
+    table.list.rates input[type="number"]::placeholder { color: var(--muted); }
+    table.list.rates .derived { display: inline-block; width: 92px; color: var(--muted); font-weight: 600; }
 
     /* Staff: 0–3 dots per job */
     .dots { display: inline-flex; gap: 5px; }
@@ -638,25 +639,44 @@
     }
 
     // ------------------------------------------------------------------
-    // Rates: build speeds per 2-hour block, testing per day
+    // Rates: block lengths, and minutes per unit for every step
     // ------------------------------------------------------------------
     const PEOPLE_HEADS = ["1 person", "2 people", "3 people", "4+ people"];
-    const numberInput = (attrs, value, label) =>
-      `<input type="number" min="0" max="9999" step="1" inputmode="numeric" ${attrs} value="${esc(value)}" aria-label="${esc(label)}" />`;
+    const BLOCK_HEADS = { start: "1st block", second: "2nd block", finish: "3rd block" };
+    // Up to 2 decimal places, no trailing zeros ("" for none).
+    const showMinutes = value => (value ? String(Math.round(value * 100) / 100) : "");
+    const minutesInput = (attrs, value, label) =>
+      `<input type="number" min="0" max="9999" step="any" inputmode="decimal" ${attrs} value="${esc(showMinutes(value))}" placeholder="–" aria-label="${esc(label)}" />`;
 
     function ratesSheet() {
       const verizon = Lists.labelOf("comms", "verizon");
       const global = Lists.labelOf("comms", "global");
+      const times = Lists.blockTimesNow();
+      const blocks = `
+        <section class="rate-group">
+          <h3>Blocks</h3>
+          <div class="table-scroll">
+            <table class="list rates">
+              <thead><tr><th class="wide">Minutes of work</th>${Lists.BLOCK_KEYS.map(key => `<th class="num">${BLOCK_HEADS[key]}</th>`).join("")}</tr></thead>
+              <tbody>
+                <tr data-blocks>
+                  <td class="row-name">Minutes</td>
+                  ${Lists.BLOCK_KEYS.map(key => `<td class="num"><input type="number" min="15" max="600" step="1" inputmode="numeric" data-block="${key}" value="${esc(times[key])}" aria-label="${esc(BLOCK_HEADS[key])} minutes" /></td>`).join("")}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>`;
       const testing = `
         <section class="rate-group">
           <h3>Testing</h3>
           <div class="table-scroll">
             <table class="list rates">
-              <thead><tr><th class="wide">Comms</th><th class="num">Units per day</th></tr></thead>
+              <thead><tr><th class="wide">Minutes per unit</th><th class="num">Test rig</th></tr></thead>
               <tbody>${Lists.items("comms").map(comms => `
                 <tr data-comms="${esc(comms.key)}">
                   <td class="row-name">${esc(comms.label)}</td>
-                  <td class="num">${numberInput('data-rate="testingPerDay"', Lists.testingPerDay(comms.key), `${comms.label} units per day`)}</td>
+                  <td class="num">${minutesInput('data-rate="testingMinutes"', Lists.testingMinutes(comms.key), `${comms.label} testing, minutes per unit`)}</td>
                 </tr>`).join("")}
               </tbody>
             </table>
@@ -664,18 +684,19 @@
         </section>`;
 
       const unit = item => {
-        const rates = Lists.unitRates(item.key);
+        const minutes = Lists.unitMinutes(item.key);
         const standalone = item.usesComms === false;
-        const perPerson = (field, name, value) => `
+        // One person's minutes; a team of n shares the work.
+        const perPerson = (field, name) => `
           <tr>
             <td class="row-name">${esc(name)}</td>
-            <td class="num">${numberInput(`data-rate="${field}"`, value, `${name}, 1 person`)}</td>
-            ${[2, 3, 4].map(n => `<td class="num"><span class="derived">${value * n}</span></td>`).join("")}
+            <td class="num">${minutesInput(`data-rate="${field}"`, minutes[field], `${name}, minutes per unit, 1 person`)}</td>
+            ${[2, 3, 4].map(n => `<td class="num"><span class="derived">${minutes[field] ? showMinutes(minutes[field] / n) : "–"}</span></td>`).join("")}
           </tr>`;
-        const tableRow = (field, name) => `
+        const tableRow = (field, name, rateName = field) => `
           <tr>
             <td class="row-name">${esc(name)}</td>
-            ${rates[field].map((value, index) => `<td class="num">${numberInput(`data-rate="${field}" data-index="${index}"`, value ?? "", `${name}, ${PEOPLE_HEADS[index]}`)}</td>`).join("")}
+            ${minutes[field].map((value, index) => `<td class="num">${minutesInput(`data-rate="${rateName}" data-index="${index}"`, value, `${name}, minutes per unit, ${PEOPLE_HEADS[index]}`)}</td>`).join("")}
           </tr>`;
         return `
           <section class="rate-group" data-unit="${esc(item.key)}">
@@ -683,68 +704,82 @@
             <div class="table-scroll">
               <table class="list rates">
                 <thead><tr>
-                  <th class="wide">Per 2-hour block</th>
+                  <th class="wide">Minutes per unit</th>
                   ${PEOPLE_HEADS.map(head => `<th class="num">${head}</th>`).join("")}
                 </tr></thead>
                 <tbody>
-                  ${perPerson("subAssembly", "Sub Assembly", rates.subAssembly)}
-                  ${perPerson("assembly", "Assembly", rates.assembly)}
-                  ${standalone ? perPerson("testing", "Testing", Lists.testingRate(item.key)) : ""}
+                  ${perPerson("subAssembly", "Sub Assembly")}
+                  ${perPerson("assembly", "Assembly")}
+                  ${standalone ? perPerson("testing", "Testing") : ""}
                   ${standalone
-                    ? tableRow("hardwareVerizon", "Hardware Check").replace(/data-rate="hardwareVerizon"/g, 'data-rate="hardware"')
+                    ? tableRow("hardwareVerizon", "Hardware Check", "hardware")
                     : `${tableRow("hardwareVerizon", `Hardware Check · ${verizon}`)}${tableRow("hardwareGlobal", `Hardware Check · ${global}`)}`}
                   ${tableRow("packagingBuild", "Packaging build-up")}
                   ${tableRow("packing", "Packing")}
                   <tr>
                     <td class="row-name">Spare Sub Assembly time → Packaging build-up</td>
-                    <td class="num"><input type="checkbox" data-rate="spareToPackaging" ${rates.spareToPackaging ? "checked" : ""} aria-label="Spare Sub Assembly time goes to Packaging build-up" /></td>
+                    <td class="num"><input type="checkbox" data-rate="spareToPackaging" ${minutes.spareToPackaging ? "checked" : ""} aria-label="Spare Sub Assembly time goes to Packaging build-up" /></td>
                     <td colspan="3"></td>
                   </tr>
-
                 </tbody>
               </table>
             </div>
           </section>`;
       };
 
-      return testing + Lists.items("units").map(unit).join("");
+      return blocks + testing + Lists.items("units").map(unit).join("");
     }
 
+    function editBlock(field) {
+      const value = Number(field.value);
+      if (!Number.isFinite(value) || value < 15 || value > 600) return draw();
+      save(() => Lists.saveBlockMinutes({ ...Lists.blockTimesNow(), [field.dataset.block]: value }));
+    }
+
+    // A unit's speeds are saved whole, in minutes: what it plans with now
+    // (its older per-block figures are kept as they are), with the change.
     function editRate(field, value) {
       const unitEl = field.closest("[data-unit]");
       const commsEl = field.closest("[data-comms]");
-      if (field.type === "checkbox" && unitEl) {
-        const items = editable("units");
-        const item = items.find(entry => entry.key === unitEl.dataset.unit);
-        if (!item) return;
-        item.rates = { ...Lists.unitRates(item.key), testing: Lists.testingRate(item.key), dailyLimit: Lists.unitDailyLimit(item.key), [field.dataset.rate]: field.checked };
-        return writeList("units", items);
-      }
-      const number = Math.max(0, Math.min(9999, Math.round(Number(value))));
-      // Packing may be left blank; every other speed needs a number.
-      const blankPacking = value === "" && (field.dataset.rate === "packing" || field.dataset.rate === "dailyLimit");
-      if (!blankPacking && (value === "" || !Number.isFinite(number))) return draw();
+      const name = field.dataset.rate;
+      const blank = String(value).trim() === "";
+      const number = Number(value);
+      if (field.type !== "checkbox" && !blank && (!Number.isFinite(number) || number <= 0 || number > 9999)) return draw();
       if (commsEl) {
+        if (blank) return draw();
         const items = editable("comms");
         const item = items.find(entry => entry.key === commsEl.dataset.comms);
         if (!item) return;
-        item.testingPerDay = number;
+        item.testingMinutes = Lists.roundMinutes(number);
         return writeList("comms", items);
       }
       if (!unitEl) return;
       const items = editable("units");
       const item = items.find(entry => entry.key === unitEl.dataset.unit);
       if (!item) return;
-      const rates = { ...Lists.unitRates(item.key), testing: Lists.testingRate(item.key), dailyLimit: Lists.unitDailyLimit(item.key) };
-      const name = field.dataset.rate;
-      if (name === "spareToPackaging") return;
-      if (name === "assembly" || name === "testing" || name === "subAssembly") rates[name] = number;
-      else if (name === "dailyLimit") rates.dailyLimit = blankPacking ? null : number;
-      else if (name === "hardware") {
-        rates.hardwareVerizon[Number(field.dataset.index)] = number;
-        rates.hardwareGlobal[Number(field.dataset.index)] = number;
-      } else rates[name][Number(field.dataset.index)] = blankPacking ? null : number;
-      item.rates = rates;
+      const now = Lists.unitMinutes(item.key);
+      const { spareToPackaging, ...minutes } = now;
+      Object.keys(minutes).forEach(key => {
+        minutes[key] = Array.isArray(minutes[key])
+          ? minutes[key].map(entry => (entry ? Lists.roundMinutes(entry) : null))
+          : minutes[key] ? Lists.roundMinutes(minutes[key]) : null;
+      });
+      let spare = spareToPackaging;
+      if (name === "spareToPackaging") spare = field.checked;
+      else if (["subAssembly", "assembly", "testing"].includes(name)) {
+        // Sub Assembly and Assembly always need a time; Testing may be blank.
+        if (blank && name !== "testing") return draw();
+        minutes[name] = blank ? null : Lists.roundMinutes(number);
+      } else {
+        const index = Number(field.dataset.index);
+        const entry = blank ? null : Lists.roundMinutes(number);
+        if (name === "hardware") {
+          minutes.hardwareVerizon[index] = entry;
+          minutes.hardwareGlobal[index] = entry;
+        } else if (minutes[name]) minutes[name][index] = entry;
+        else return draw();
+      }
+      item.rates = { ...(item.rates || {}), minutes, spareToPackaging: spare };
       writeList("units", items);
     }
 
@@ -913,6 +948,8 @@
       });
 
       $("sheet").addEventListener("change", event => {
+        const blockField = event.target.closest("[data-block]");
+        if (blockField) return editBlock(blockField);
         const rateField = event.target.closest("[data-rate]");
         if (rateField) return editRate(rateField, rateField.value);
         const field = event.target.closest("[data-field]");

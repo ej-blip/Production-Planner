@@ -29,6 +29,7 @@ rules_version = '2';
 //   devices/{uid}                    role, pin, createdAt
 //   staff/{staffKey}                 Worker Admin settings
 //   configPresets/{key}              configuration colours
+//   lists/blocks                     minutes of work in each block of the day
 //   lists/{name}                     the choices: units, customers, connectors,
 //                                    comms, sims ({ items: [...] })
 //   workOrders/{id}                  customer orders built over several days
@@ -215,6 +216,17 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    // Minutes of work in the 1st, 2nd and 3rd block of the day.
+    function validBlocks() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['start', 'second', 'finish', 'updatedAt'])
+        && d.keys().hasOnly(['start', 'second', 'finish', 'updatedAt', 'updatedBy'])
+        && d.start is number && d.start >= 15 && d.start <= 600
+        && d.second is number && d.second >= 15 && d.second <= 600
+        && d.finish is number && d.finish >= 15 && d.finish <= 600
+        && d.updatedAt == request.time;
+    }
+
     // A customer order: what to build and how many in total. Days take
     // their batches from it until it is used up.
     function validWorkOrder() {
@@ -324,8 +336,8 @@ service cloud.firestore {
     match /lists/{listName} {
       allow read: if isAppUser();
       allow write: if isManagement()
-        && listName in ['units', 'customers', 'connectors', 'comms', 'sims']
-        && validList();
+        && ((listName in ['units', 'customers', 'connectors', 'comms', 'sims'] && validList())
+          || (listName == 'blocks' && validBlocks()));
     }
 
     match /rosters/{date} {

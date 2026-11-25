@@ -8,7 +8,8 @@
 //     customers   customers
 //     connectors  connectors
 //     comms       comms types      + colourHex, planAs "verizon" | "global",
-//                                    testingPerDay
+//                                    testingMinutes (older: testingPerDay)
+//   lists/blocks = { start, second, finish }   minutes of work in each block
 //     sims        SIM types        + comms (the comms key it belongs to)
 //   configPresets/{key}            configuration colours (label, colourHex,
 //                                  sensorCable, sensors, powerCable,
@@ -54,21 +55,34 @@ export const STARTING_LISTS = {
   ]
 };
 
-// Build speeds, edited on the Rates tab. Per 2-hour block:
-//   subAssembly     sets one person makes for the next day's build (PSU +
-//                   DCU for Gen4 / Tap, chargers for Solar)
-//   assembly        units one person assembles (only with Sub Assembly on)
-//   hardwareVerizon units Hardware Check does with 1, 2, 3, 4+ people
-//   hardwareGlobal  the same for Global units
-//   packagingBuild  boxes Packaging build-up makes with 1, 2, 3, 4+ people
-//   packing         units Packing packs with 1, 2, 3, 4+ people (blank until
-//                   set: it doesn't limit the day's target)
-//   spareToPackaging true: time Sub Assembly has left after tomorrow's parts
-//                   goes to Packaging build-up (Solar)
-// and per day, on each comms type: testingPerDay (half each block with
-// 2+ testers). A unit or comms type without its own figures uses the ones
-// of the type it plans as.
+/* Build speeds, edited on the Rates tab, in minutes per unit
+   (rates.minutes on a unit item):
+     subAssembly     one person, one set for the next day's build (PSU +
+                     DCU for Gen4 / Tap, chargers for Solar)
+     assembly        one person, one unit (only with Sub Assembly on)
+     testing         one tester, one unit (standalone units like Solar)
+     hardwareVerizon the team of 1, 2, 3, 4+ people, one unit (null: that
+                     team can't do it alone)
+     hardwareGlobal  the same for Global units
+     packagingBuild  the team of 1, 2, 3, 4+ people, one box
+     packing         the team of 1, 2, 3, 4+ people, one unit (null until
+                     set: it doesn't limit the day's target)
+   spareToPackaging true: time Sub Assembly has left after tomorrow's parts
+   goes to Packaging build-up (Solar). Each comms type has testingMinutes:
+   one unit through its test rig, running through the 1st and 2nd blocks.
+   A unit or comms type without its own figures uses the ones of the type
+   it plans as.
+
+   Older items hold units per 2-hour block instead (subAssembly, assembly,
+   testing, the tables) and testingPerDay; until a unit's speeds are saved
+   in minutes they're read as minutes (120 ÷ the figure, or 270 ÷ the day's
+   testing). What a station does in a block is its people's minutes in
+   that block (lists/blocks) ÷ minutes per unit, rounded down. */
 export const RATE_PEOPLE = 4;
+export const BLOCK_KEYS = ["start", "second", "finish"];
+export const STARTING_BLOCK_MINUTES = { start: 120, second: 150, finish: 120 };
+export const BASE_MINUTES = 120;          // what the older per-block figures were for
+export const TESTING_DAY_MINUTES = 270;   // what the older per-day testing figures were for
 export const STARTING_UNIT_RATES = {
   gen4: { subAssembly: 13, assembly: 6, hardwareVerizon: [0, 24, 30, 36], hardwareGlobal: [0, 24, 30, 36], packagingBuild: [0, 30, 36, 36] },
   tap: { subAssembly: 13, assembly: 8, hardwareVerizon: [0, 36, 42, 50], hardwareGlobal: [0, 30, 36, 42], packagingBuild: [0, 50, 50, 50] }
@@ -80,6 +94,7 @@ const copy = value => JSON.parse(JSON.stringify(value));
 let current = copy(STARTING_LISTS);
 let savedNames = new Set();
 let loaded = false;
+let blockTimes = { ...STARTING_BLOCK_MINUTES };
 
 // ---------------------------------------------------------------------
 // Reading
@@ -121,9 +136,28 @@ export function commsPlanAs(key) {
 }
 
 // ---------------------------------------------------------------------
-// Build speeds
+// Block lengths and build speeds
 // ---------------------------------------------------------------------
 const wholeNumber = value => Math.max(0, Math.min(9999, Math.round(Number(value) || 0)));
+const minutesNumber = value => {
+  const number = Number(value);
+  return value !== null && value !== "" && Number.isFinite(number) && number > 0 ? Math.min(number, 9999) : null;
+};
+const fromPerBlock = (value, base = BASE_MINUTES) => {
+  const number = Number(value);
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(number) && number > 0 ? base / number : null;
+};
+// Whole units done in some minutes (the small allowance keeps 120 ÷ (120 ÷ 13) at 13).
+const unitsIn = (minutes, perUnit) => (perUnit ? Math.floor(minutes / perUnit + 0.001) : 0);
+
+// Minutes of work in a block ("start", "second", "finish"), or a number of
+// minutes passed straight through. Anything else is an old 2-hour block.
+export function blockMinutes(block) {
+  if (typeof block === "number" && block > 0) return block;
+  const value = Number(blockTimes[block]);
+  return value > 0 ? value : BASE_MINUTES;
+}
+export const blockTimesNow = () => ({ ...blockTimes });
 
 function ownRates(unitKey) {
   const item = find("units", unitKey);
@@ -133,55 +167,101 @@ function ownRates(unitKey) {
   return find("units", unitPlanAs(unitKey))?.rates || {};
 }
 
-// The speeds a unit type plans with (its own, or its plan-as type's).
-export function unitRates(unitKey) {
+// Minutes per unit a unit type plans with (its own, or its plan-as type's).
+export function unitMinutes(unitKey) {
   const base = STARTING_UNIT_RATES[unitPlanAs(unitKey)];
   const own = ownRates(unitKey);
-  const table = (value, fallback) => Array.from({ length: RATE_PEOPLE }, (_, index) =>
-    wholeNumber(Array.isArray(value) && value[index] !== undefined && value[index] !== null ? value[index] : fallback[index]));
-  const packingSet = Array.isArray(own.packing) && own.packing.some(value => value !== null && value !== undefined && value !== "");
+  const saved = own.minutes && typeof own.minutes === "object" ? own.minutes : {};
+  const single = (field, fallback) => {
+    if (field in saved) return minutesNumber(saved[field]);
+    if (own[field] !== undefined && own[field] !== null) return fromPerBlock(own[field]);
+    return fromPerBlock(fallback);
+  };
+  const table = (field, fallback) => Array.from({ length: RATE_PEOPLE }, (_, index) => {
+    if (Array.isArray(saved[field])) return minutesNumber(saved[field][index]);
+    const old = Array.isArray(own[field]) ? own[field][index] : undefined;
+    return fromPerBlock(old !== undefined && old !== null && old !== "" ? old : fallback?.[index]);
+  });
   return {
-    subAssembly: own.subAssembly !== undefined && own.subAssembly !== null ? wholeNumber(own.subAssembly) : base.subAssembly,
-    assembly: own.assembly !== undefined && own.assembly !== null ? wholeNumber(own.assembly) : base.assembly,
-    hardwareVerizon: table(own.hardwareVerizon, base.hardwareVerizon),
-    hardwareGlobal: table(own.hardwareGlobal, base.hardwareGlobal),
-    packagingBuild: table(own.packagingBuild, base.packagingBuild),
-    spareToPackaging: own.spareToPackaging === true,
-    packing: packingSet
-      ? Array.from({ length: RATE_PEOPLE }, (_, index) => {
-          const value = own.packing[index];
-          return value === null || value === undefined || value === "" ? null : wholeNumber(value);
-        })
-      : Array(RATE_PEOPLE).fill(null)
+    subAssembly: single("subAssembly", base.subAssembly),
+    assembly: single("assembly", base.assembly),
+    testing: single("testing", null),
+    hardwareVerizon: table("hardwareVerizon", base.hardwareVerizon),
+    hardwareGlobal: table("hardwareGlobal", base.hardwareGlobal),
+    packagingBuild: table("packagingBuild", base.packagingBuild),
+    packing: table("packing", null),
+    spareToPackaging: own.spareToPackaging === true
   };
 }
 
-const fromTable = (table, people) => (people <= 0 ? 0 : table[Math.min(people, table.length) - 1]);
-
-export const assemblyRate = unitKey => unitRates(unitKey).assembly;
-export const subAssemblyRate = unitKey => unitRates(unitKey).subAssembly;
-export const spareToPackaging = unitKey => unitRates(unitKey).spareToPackaging;
-
-export function hardwareRate(people, unitKey, commsKey) {
-  const rates = unitRates(unitKey);
-  return fromTable(commsPlanAs(commsKey) === "global" ? rates.hardwareGlobal : rates.hardwareVerizon, people);
+// What a unit type does in a block (default: a 2-hour block): per person
+// for subAssembly / assembly, per team of 1, 2, 3, 4+ for the tables.
+export function unitRates(unitKey, block) {
+  const minutes = unitMinutes(unitKey);
+  const length = blockMinutes(block);
+  const table = list => list.map(value => unitsIn(length, value));
+  return {
+    subAssembly: unitsIn(length, minutes.subAssembly),
+    assembly: unitsIn(length, minutes.assembly),
+    hardwareVerizon: table(minutes.hardwareVerizon),
+    hardwareGlobal: table(minutes.hardwareGlobal),
+    packagingBuild: table(minutes.packagingBuild),
+    spareToPackaging: minutes.spareToPackaging,
+    packing: minutes.packing.some(Boolean) ? minutes.packing.map(value => (value ? unitsIn(length, value) : null)) : Array(RATE_PEOPLE).fill(null)
+  };
 }
 
-export const packagingBuildRate = (people, unitKey) => fromTable(unitRates(unitKey).packagingBuild, people);
+const teamMinutes = (table, people) => (people <= 0 ? null : table[Math.min(people, table.length) - 1]);
 
-// Units Packing can pack, or null while no Packing speed is set.
-export function packingRate(people, unitKey) {
-  const table = unitRates(unitKey).packing;
-  if (people <= 0) return table.some(value => value !== null) ? 0 : null;
-  const value = table[Math.min(people, table.length) - 1];
-  return value === null ? null : value;
+export const assemblyRate = (unitKey, block) => unitsIn(blockMinutes(block), unitMinutes(unitKey).assembly);
+export const subAssemblyRate = (unitKey, block) => unitsIn(blockMinutes(block), unitMinutes(unitKey).subAssembly);
+export const spareToPackaging = unitKey => unitMinutes(unitKey).spareToPackaging;
+
+export function hardwareRate(people, unitKey, commsKey, block) {
+  const minutes = unitMinutes(unitKey);
+  return unitsIn(blockMinutes(block), teamMinutes(commsPlanAs(commsKey) === "global" ? minutes.hardwareGlobal : minutes.hardwareVerizon, people));
 }
 
-// Units Testing can do in a day (never 0, so shares can be worked out).
+export const packagingBuildRate = (people, unitKey, block) =>
+  unitsIn(blockMinutes(block), teamMinutes(unitMinutes(unitKey).packagingBuild, people));
+
+// Units Packing can pack in a block, or null while no Packing speed is set.
+export function packingRate(people, unitKey, block) {
+  const table = unitMinutes(unitKey).packing;
+  if (people <= 0) return table.some(Boolean) ? 0 : null;
+  const value = teamMinutes(table, people);
+  return value ? unitsIn(blockMinutes(block), value) : null;
+}
+
+// Minutes for one unit through a comms type's test rig.
+export function testingMinutes(commsKey) {
+  const fromItem = item => {
+    if (!item) return null;
+    const own = minutesNumber(item.testingMinutes);
+    if (own) return own;
+    return fromPerBlock(item.testingPerDay, TESTING_DAY_MINUTES);
+  };
+  return fromItem(find("comms", commsKey))
+    ?? fromItem(find("comms", commsPlanAs(commsKey)))
+    ?? TESTING_DAY_MINUTES / STARTING_TESTING_PER_DAY[commsPlanAs(commsKey)];
+}
+
+// Units a comms type's Testing does in a block. The rig runs on from the
+// 1st block into the 2nd, so the 2nd gets what the two blocks together
+// make beyond the 1st.
+export function testingInBlock(commsKey, block) {
+  const perUnit = testingMinutes(commsKey);
+  if (block === "second") {
+    const first = blockMinutes("start");
+    return unitsIn(first + blockMinutes("second"), perUnit) - unitsIn(first, perUnit);
+  }
+  return unitsIn(blockMinutes(block), perUnit);
+}
+
+// Units Testing can do in a day: the 1st and 2nd blocks (never 0, so
+// shares can be worked out).
 export function testingPerDay(commsKey) {
-  const own = find("comms", commsKey)?.testingPerDay ?? find("comms", commsPlanAs(commsKey))?.testingPerDay;
-  const value = own !== undefined && own !== null ? wholeNumber(own) : STARTING_TESTING_PER_DAY[commsPlanAs(commsKey)];
-  return Math.max(1, value);
+  return Math.max(1, unitsIn(blockMinutes("start") + blockMinutes("second"), testingMinutes(commsKey)));
 }
 
 // The fewest people that reach a table's best figure; more add nothing.
@@ -204,10 +284,7 @@ export function unitUses(unitKey, field) {
 export const usesComms = thing => unitUses(unitKeyOf(thing), "usesComms");
 
 // Units one tester tests in a block (standalone units only).
-export function testingRate(unitKey) {
-  const value = ownRates(unitKey).testing;
-  return value === undefined || value === null ? 0 : wholeNumber(value);
-}
+export const testingRate = (unitKey, block) => unitsIn(blockMinutes(block), unitMinutes(unitKey).testing);
 
 // Most a standalone unit can be built in a day (null: no limit set).
 export function unitDailyLimit(unitKey) {
@@ -266,7 +343,15 @@ export function watchLists(onChange) {
     stopWatching = onSnapshot(collection(db, "lists"), snapshot => {
       const next = copy(STARTING_LISTS);
       const names = new Set();
+      const times = { ...STARTING_BLOCK_MINUTES };
       snapshot.docs.forEach(entry => {
+        if (entry.id === "blocks") {
+          BLOCK_KEYS.forEach(key => {
+            const value = minutesNumber(entry.data()[key]);
+            if (value) times[key] = value;
+          });
+          return;
+        }
         const list = entry.data().items;
         if (!LIST_NAMES.includes(entry.id) || !Array.isArray(list)) return;
         next[entry.id] = list.filter(item => item && typeof item.key === "string" && item.key);
@@ -274,6 +359,7 @@ export function watchLists(onChange) {
       });
       current = next;
       savedNames = names;
+      blockTimes = times;
       loaded = true;
       listeners.forEach(listener => listener(current));
     }, () => {
@@ -306,11 +392,25 @@ const clean = item => {
   if (item.comms) out.comms = item.comms;
   if (item.rates) out.rates = item.rates;
   if (item.testingPerDay !== undefined && item.testingPerDay !== null) out.testingPerDay = wholeNumber(item.testingPerDay);
+  if (minutesNumber(item.testingMinutes)) out.testingMinutes = roundMinutes(item.testingMinutes);
   ["usesComms", "usesConnector", "usesConfig"].forEach(field => {
     if (item[field] === false) out[field] = false;
   });
   return out;
 };
+
+// Minutes kept to 6 decimal places (enough for 120 ÷ 13 to stay 13).
+export const roundMinutes = value => Math.round(Number(value) * 1e6) / 1e6;
+
+// Saves the block lengths (minutes of work in the 1st, 2nd and 3rd block).
+export async function saveBlockMinutes(times, actor = "Management") {
+  const next = { ...blockTimes };
+  BLOCK_KEYS.forEach(key => {
+    const value = minutesNumber(times?.[key]);
+    if (value) next[key] = Math.min(600, Math.max(15, Math.round(value)));
+  });
+  await setDoc(doc(db, "lists", "blocks"), { ...next, updatedAt: serverTimestamp(), updatedBy: actor });
+}
 
 export async function saveList(name, list, actor = "Management") {
   if (!LIST_NAMES.includes(name)) throw new Error(`Unknown list: ${name}`);

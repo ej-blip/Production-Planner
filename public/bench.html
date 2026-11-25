@@ -397,7 +397,7 @@
     import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
     import {
       watchLists, unitLabel, simLabel, labelOf, unitKeyOf, commsKeyOf, usesComms,
-      testingPerDay, assemblyRate, hardwareRate, packagingBuildRate
+      testingPerDay, testingInBlock, assemblyRate, hardwareRate, packagingBuildRate
     } from "./js/lists.js";
 
     // Jobs on the bench screens. Who can do each one comes from their
@@ -650,10 +650,11 @@
     // on its jobs now; the day target is the lowest of the planned target
     // and every bench's limit.
     // ------------------------------------------------------------------
+    // Each block has its own length (Rates tab), so each takes the block.
     const dailyLimit = commsKey => testingPerDay(commsKey);
-    const assemblyPerBench = unitKey => assemblyRate(unitKey);
-    const hardwareCapacity = (benches, unitKey, commsKey) => hardwareRate(benches, unitKey, commsKey);
-    const packingCapacity = (benches, unitKey) => packagingBuildRate(benches, unitKey);
+    const assemblyPerBench = (unitKey, block = "start") => assemblyRate(unitKey, block);
+    const hardwareCapacity = (benches, unitKey, commsKey, block = "second") => hardwareRate(benches, unitKey, commsKey, block);
+    const packingCapacity = (benches, unitKey, block = "second") => packagingBuildRate(benches, unitKey, block);
 
     function capacityInteger(value) {
       const safe = Math.max(0, Number(value) || 0);
@@ -661,8 +662,8 @@
       return Math.abs(safe - nearest) < 0.02 ? nearest : Math.floor(safe);
     }
 
-    // Single build: 36 a day for Verizon, 30 for Global; a phase counts
-    // (half the daily limit) when it has at least 2 testers.
+    // Single build: 36 a day for Verizon, 30 for Global (the rig through
+    // the 1st and 2nd blocks); a block counts when it has at least 2 testers.
     // Mixed day: each network needs its testing time; one tester on a
     // network for a phase gives one phase of time, up to two phases.
     function testingCapacity(plan, assignments) {
@@ -674,7 +675,7 @@
 
       if (plan.workMode !== "mixed") {
         const max = dailyLimit(commsKeyOf(batches[0]));
-        const total = PHASE_KEYS.reduce((sum, phase) => sum + (onStation(phase, "testing") >= 2 ? max / 2 : 0), 0);
+        const total = PHASE_KEYS.reduce((sum, phase) => sum + (onStation(phase, "testing") >= 2 ? testingInBlock(commsKeyOf(batches[0]), phase) : 0), 0);
         return Math.min(max, total);
       }
 
@@ -727,9 +728,9 @@
         const commsKey = commsKeyOf(batches[0]);
         return PHASE_KEYS.reduce((sum, phase) => {
           const benches = count(phase, stations);
-          if (key === "assembly") return sum + (count(phase, ["subAssembly"]) > 0 ? benches * assemblyPerBench(unitKey) : 0);
-          if (key === "hardware") return sum + hardwareCapacity(benches, unitKey, commsKey);
-          return sum + packingCapacity(benches, unitKey);
+          if (key === "assembly") return sum + (count(phase, ["subAssembly"]) > 0 ? benches * assemblyPerBench(unitKey, phase) : 0);
+          if (key === "hardware") return sum + hardwareCapacity(benches, unitKey, commsKey, phase);
+          return sum + packingCapacity(benches, unitKey, phase);
         }, 0);
       }
 
@@ -1315,10 +1316,10 @@
       const batch = activeBatches()[0];
       if (!batch) return null;
       const inPhase = list => state.assignments.filter(item => item.phase === state.phase && list.includes(item.station)).length;
-      if (station === "assembly") return inPhase(["subAssembly"]) > 0 ? count * assemblyPerBench(unitKeyOf(batch)) : 0;
-      if (station === "testing") return count >= 2 ? dailyLimit(commsKeyOf(batch)) / 2 : 0;
-      if (station === "hardware") return hardwareCapacity(count, unitKeyOf(batch), commsKeyOf(batch));
-      if (station === "packing") return packingCapacity(count, unitKeyOf(batch));
+      if (station === "assembly") return inPhase(["subAssembly"]) > 0 ? count * assemblyPerBench(unitKeyOf(batch), state.phase) : 0;
+      if (station === "testing") return count >= 2 ? testingInBlock(commsKeyOf(batch), state.phase) : 0;
+      if (station === "hardware") return hardwareCapacity(count, unitKeyOf(batch), commsKeyOf(batch), state.phase);
+      if (station === "packing") return packingCapacity(count, unitKeyOf(batch), state.phase);
       return null;
     }
 
