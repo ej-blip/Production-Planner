@@ -8,7 +8,8 @@
 //     customers   customers
 //     connectors  connectors
 //     comms       comms types      + colourHex, planAs "verizon" | "global",
-//                                    testingMinutes (older: testingPerDay)
+//                                    testingMinutes, testingAtOnce,
+//                                    testingBenches (older: testingPerDay)
 //   lists/blocks = { start, second, finish }   minutes of work in each block
 //     sims        SIM types        + comms (the comms key it belongs to)
 //   configPresets/{key}            configuration colours (label, colourHex,
@@ -68,16 +69,18 @@ export const STARTING_LISTS = {
      packing         one unit (null until set: it doesn't limit the target)
    spareToPackaging true: time Sub Assembly has left after tomorrow's parts
    goes to Packaging build-up (Solar). Each comms type has testingMinutes:
-   one unit through its test rig, running through the 1st and 2nd blocks.
-   A unit or comms type without its own figures uses the ones of the type
-   it plans as.
+   one test; each tester has a test bench of their own that tests
+   testingAtOnce units at a time (2), and there are testingBenches of them
+   (3). A unit or comms type without its own figures uses the ones of the
+   type it plans as.
 
    Older items hold units per 2-hour block instead, for one person or, for
    Hardware Check, Packaging build-up and Packing, for teams of 1, 2, 3, 4+
    (or a team's minutes per unit); and testingPerDay. Until a unit is saved
    with one value per task these are read as one person's minutes: 120 ÷
-   the figure, the 2-person team's figure where there is one (2 × 120 ÷ it),
-   and 270 ÷ the day's testing. */
+   the figure, and the 2-person team's figure where there is one (2 × 120
+   ÷ it). An older day's testing (every bench through the 1st and 2nd
+   blocks) is read as the minutes that give the same day. */
 export const RATE_PEOPLE = 4;
 export const BLOCK_KEYS = ["start", "second", "finish"];
 export const STARTING_BLOCK_MINUTES = { start: 120, second: 150, finish: 120 };
@@ -88,6 +91,8 @@ export const STARTING_UNIT_RATES = {
   tap: { subAssembly: 13, assembly: 8, hardwareVerizon: [0, 36, 42, 50], hardwareGlobal: [0, 30, 36, 42], packagingBuild: [0, 50, 50, 50] }
 };
 export const STARTING_TESTING_PER_DAY = { verizon: 36, global: 30 };
+export const STARTING_TESTING_AT_ONCE = 2;
+export const STARTING_TESTING_BENCHES = 3;
 
 const copy = value => JSON.parse(JSON.stringify(value));
 
@@ -245,35 +250,42 @@ export function packingRate(people, unitKey, block) {
   return perUnit ? benchUnits(people, block, perUnit) : null;
 }
 
-// Minutes for one unit through a comms type's test rig.
+// A comms type's own testing figure, or its plan-as type's.
+function commsTesting(commsKey, read) {
+  return read(find("comms", commsKey)) ?? read(find("comms", commsPlanAs(commsKey)));
+}
+
+const countNumber = (value, most) => {
+  const number = Math.round(Number(value));
+  return value !== null && value !== undefined && value !== "" && number >= 1 ? Math.min(number, most) : null;
+};
+
+// Units one test bench tests at a time, and how many benches there are.
+export const testingAtOnce = commsKey =>
+  commsTesting(commsKey, item => countNumber(item?.testingAtOnce, 20)) ?? STARTING_TESTING_AT_ONCE;
+export const testingBenches = commsKey =>
+  commsTesting(commsKey, item => countNumber(item?.testingBenches, 20)) ?? STARTING_TESTING_BENCHES;
+
+// Minutes for one test of a comms type's units.
 export function testingMinutes(commsKey) {
-  const fromItem = item => {
-    if (!item) return null;
-    const own = minutesNumber(item.testingMinutes);
-    if (own) return own;
-    return fromPerBlock(item.testingPerDay, TESTING_DAY_MINUTES);
-  };
-  return fromItem(find("comms", commsKey))
-    ?? fromItem(find("comms", commsPlanAs(commsKey)))
-    ?? TESTING_DAY_MINUTES / STARTING_TESTING_PER_DAY[commsPlanAs(commsKey)];
+  const own = commsTesting(commsKey, item => minutesNumber(item?.testingMinutes));
+  if (own) return own;
+  // An older day's figure: every bench through the 1st and 2nd blocks.
+  const perDay = commsTesting(commsKey, item => minutesNumber(item?.testingPerDay)) ?? STARTING_TESTING_PER_DAY[commsPlanAs(commsKey)];
+  return testingBenches(commsKey) * testingAtOnce(commsKey) * TESTING_DAY_MINUTES / perDay;
 }
 
-// Units a comms type's Testing does in a block. The rig runs on from the
-// 1st block into the 2nd, so the 2nd gets what the two blocks together
-// make beyond the 1st.
-export function testingInBlock(commsKey, block) {
-  const perUnit = testingMinutes(commsKey);
-  if (block === "second") {
-    const first = blockMinutes("start");
-    return unitsIn(first + blockMinutes("second"), perUnit) - unitsIn(first, perUnit);
-  }
-  return unitsIn(blockMinutes(block), perUnit);
+// Units testers test in a block: each on a bench of their own (up to the
+// number of benches), each bench testing its units at once.
+export function testingInBlock(commsKey, block, testers = 1) {
+  const people = Math.min(Math.max(0, testers), testingBenches(commsKey));
+  return benchUnits(people * testingAtOnce(commsKey), block, testingMinutes(commsKey));
 }
 
-// Units Testing can do in a day: the 1st and 2nd blocks (never 0, so
-// shares can be worked out).
+// Most Testing can do in a day: every bench through the 1st and 2nd
+// blocks (never 0, so shares can be worked out).
 export function testingPerDay(commsKey) {
-  return Math.max(1, unitsIn(blockMinutes("start") + blockMinutes("second"), testingMinutes(commsKey)));
+  return Math.max(1, testingInBlock(commsKey, "start", testingBenches(commsKey)) + testingInBlock(commsKey, "second", testingBenches(commsKey)));
 }
 
 // The fewest people that reach a table's best figure; more add nothing.
@@ -405,6 +417,8 @@ const clean = item => {
   if (item.rates) out.rates = item.rates;
   if (item.testingPerDay !== undefined && item.testingPerDay !== null) out.testingPerDay = wholeNumber(item.testingPerDay);
   if (minutesNumber(item.testingMinutes)) out.testingMinutes = roundMinutes(item.testingMinutes);
+  if (countNumber(item.testingAtOnce, 20)) out.testingAtOnce = countNumber(item.testingAtOnce, 20);
+  if (countNumber(item.testingBenches, 20)) out.testingBenches = countNumber(item.testingBenches, 20);
   ["usesComms", "usesConnector", "usesConfig"].forEach(field => {
     if (item[field] === false) out[field] = false;
   });

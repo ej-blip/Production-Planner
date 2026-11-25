@@ -667,16 +667,20 @@
             </table>
           </div>
         </section>`;
+      const countInput = (attrs, value, label) =>
+        `<input type="number" min="1" max="20" step="1" inputmode="numeric" ${attrs} value="${esc(value)}" aria-label="${esc(label)}" />`;
       const testing = `
         <section class="rate-group">
           <h3>Testing</h3>
           <div class="table-scroll">
             <table class="list rates">
-              <thead><tr><th class="wide">Minutes per unit</th><th class="num">Test rig</th></tr></thead>
+              <thead><tr><th class="wide">Comms</th><th class="num">Minutes per test</th><th class="num">Units at once</th><th class="num">Benches</th></tr></thead>
               <tbody>${Lists.items("comms").map(comms => `
                 <tr data-comms="${esc(comms.key)}">
                   <td class="row-name">${esc(comms.label)}</td>
-                  <td class="num">${minutesInput('data-rate="testingMinutes"', Lists.testingMinutes(comms.key), `${comms.label} testing, minutes per unit`)}</td>
+                  <td class="num">${minutesInput('data-rate="testingMinutes"', Lists.testingMinutes(comms.key), `${comms.label} testing, minutes per test`)}</td>
+                  <td class="num">${countInput('data-rate="testingAtOnce"', Lists.testingAtOnce(comms.key), `${comms.label} testing, units at once`)}</td>
+                  <td class="num">${countInput('data-rate="testingBenches"', Lists.testingBenches(comms.key), `${comms.label} testing, benches`)}</td>
                 </tr>`).join("")}
               </tbody>
             </table>
@@ -740,7 +744,15 @@
         const items = editable("comms");
         const item = items.find(entry => entry.key === commsEl.dataset.comms);
         if (!item) return;
-        item.testingMinutes = Lists.roundMinutes(number);
+        // Saved whole, so a change to one figure keeps the other two.
+        item.testingMinutes = Lists.roundMinutes(Lists.testingMinutes(item.key));
+        item.testingAtOnce = Lists.testingAtOnce(item.key);
+        item.testingBenches = Lists.testingBenches(item.key);
+        if (name === "testingMinutes") item.testingMinutes = Lists.roundMinutes(number);
+        else if (name === "testingAtOnce" || name === "testingBenches") {
+          if (number < 1 || number > 20) return draw();
+          item[name] = Math.round(number);
+        } else return draw();
         return writeList("comms", items);
       }
       if (!unitEl) return;

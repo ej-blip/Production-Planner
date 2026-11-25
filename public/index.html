@@ -1853,7 +1853,7 @@
     function planningJson(lists) {
       const pick = (name, fields) => lists.items(name, { withRetired: true })
         .map(item => [item.key, ...fields.map(field => item[field] ?? null)]);
-      return JSON.stringify([pick("units", ["planAs", "rates"]), pick("comms", ["planAs", "testingPerDay", "testingMinutes"]), lists.blockTimesNow?.()]);
+      return JSON.stringify([pick("units", ["planAs", "rates"]), pick("comms", ["planAs", "testingPerDay", "testingMinutes", "testingAtOnce", "testingBenches"]), lists.blockTimesNow?.()]);
     }
 
     function refreshNames() {
@@ -4318,6 +4318,39 @@
       return { unitKey: best.unitKey || best.unitType || "gen4", commsKey: best.commsKey || best.commsType || "verizon" };
     }
 
+    // One person's minutes for one of a job's units at a shared bench
+    // (Hardware Check, Packaging build-up, Packing), or null when not set.
+    function sharedMinutesPerUnit(zone, job) {
+      const lists = listsApi();
+      if (!lists || !job) return null;
+      const minutes = lists.unitMinutes(job.unitKey || job.unitType || "gen4");
+      if (zone === "hardware") return lists.commsPlanAs(job.commsKey || job.commsType || "verizon") === "global" ? minutes.hardwareGlobal : minutes.hardwareVerizon;
+      if (zone === "packing") return minutes.packagingBuild;
+      if (zone === "finalPackaging") return minutes.packing;
+      return null;
+    }
+
+    // A shared bench's minutes per unit for the mix of jobs there (each
+    // weighted by its units): the cards picked for it, or with none, today's
+    // builds (as the plan counts it); else the biggest job's.
+    function zoneMinutesPerUnit(zone, work) {
+      const mix = jobs => {
+        let units = 0;
+        let minutes = 0;
+        jobs.forEach(({ job, quantity }) => {
+          const perUnit = sharedMinutesPerUnit(zone, job);
+          if (!perUnit || !(quantity > 0)) return;
+          units += quantity;
+          minutes += quantity * perUnit;
+        });
+        return units > 0 ? minutes / units : null;
+      };
+      const planned = plannedToday();
+      return mix(work.filter(job => zoneTakes(zone, job)).map(job => ({ job, quantity: job.quantity })))
+        ?? mix(dayBuilds().map(batch => ({ job: batch, quantity: planned.get(batch.id) || 0 })))
+        ?? sharedMinutesPerUnit(zone, zoneJob(zone, work));
+    }
+
     function stationActual(zone, phase, work, model = lastWorkflowModel) {
       if (!model) return 0;
       const on = station => workflowPhaseWorkers(model, phase, station).length;
@@ -4327,10 +4360,16 @@
       if (zoneStage(zone) === "assembly") return on("subAssembly") > 0 ? count * assemblyPerBench(job.unitKey, phase) : 0;
       if (stationProduct(zone) && stationBase(zone) === "testing") return count * listsApi().testingRate(stationProduct(zone), phase);
       if (zone === "testing") return singleTestingCapacityPerPhase(count, job.commsKey, phase);
-      if (zone === "testingVerizon" || zone === "testingGlobal") return count > 0 ? networkTestingInBlock(job.commsKey, phase) : 0;
+      if (zone === "testingVerizon" || zone === "testingGlobal") return networkTestingInBlock(job.commsKey, phase, count);
+      if (["hardware", "packing", "finalPackaging"].includes(zone) && listsApi()) {
+        const perUnit = zoneMinutesPerUnit(zone, work);
+        if (zone === "finalPackaging" && !perUnit) return null;
+        const units = perUnit ? Math.floor(count * blockLength(phase) / perUnit + 0.001) : 0;
+        return zone === "packing" ? units + sparePackagingUnits(phase, model) : units;
+      }
       if (zone === "hardware") return hardwareCapacity(count, job.unitKey, job.commsKey, phase);
       if (zone === "packing") return packingCapacity(count, job.unitKey, phase) + sparePackagingUnits(phase, model);
-      if (zone === "finalPackaging") return listsApi()?.packingRate(count, rateUnitKey(job.unitKey), phase) ?? null;
+      if (zone === "finalPackaging") return null;
       return null;
     }
 
@@ -4478,7 +4517,7 @@
       const networkTesting = station === "testingVerizon" || station === "testingGlobal";
       const phases = stationBase(station) === "assembly" ? ["start"]
         : stationProduct(station) && stationBase(station) === "testing" ? ["start"]
-        : networkTesting ? [workflowPhaseWorkers(model, "start", station).length ? "second" : "start"]
+        : networkTesting ? [workflowPhaseWorkers(model, "start", ["testingVerizon", "testingGlobal"]).length < testBenchCount(station === "testingGlobal" ? "global" : "verizon") ? "start" : "second"]
         : station === "finalPackaging" ? ["finish"]
         : ["second"];
       phases.forEach(phase => clone.phases[phase].set(extra.key, { worker: extra, station, customJobName: "", manual: false }));
@@ -4512,7 +4551,7 @@
 
     const CREW_SKILL_KIND = { subAssembly: "assembly", assembly: "assembly", testing: "testing", hardware: "hardware", packing: "packing" };
     const CREW_ICONS = { subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE", testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PB", finalPackaging: "PK" };
-    const CREW_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 2, testingVerizon: 1, testingGlobal: 1, hardware: 2, packing: 2 };
+    const CREW_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 1, testingVerizon: 1, testingGlobal: 1, hardware: 1, packing: 1 };
 
     function crewInitials(name) {
       return String(name || "?").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
@@ -4789,19 +4828,24 @@
       return 0;
     }
 
-    /* Daily Testing / output limit (starting figures: Verizon 36, Global 30):
-       the test rig through the 1st and 2nd blocks. */
+    /* Most Testing can do in a day: every test bench (3) through the 1st
+       and 2nd blocks. */
     function dailyTestingLimit(commsType) {
       const lists = listsApi();
       if (lists) return lists.testingPerDay(rateCommsKey(commsType));
       return isVerizonComms(commsType) ? 36 : 30;
     }
 
-    // What the rig tests in one block.
-    function networkTestingInBlock(commsType, block) {
+    // What testers test in a block: each on a bench of their own, each
+    // bench testing 2 units at a time (Rates tab).
+    function networkTestingInBlock(commsType, block, testers = 1) {
       const lists = listsApi();
-      if (lists) return lists.testingInBlock(rateCommsKey(commsType), block);
-      return dailyTestingLimit(commsType) / 2;
+      if (lists) return lists.testingInBlock(rateCommsKey(commsType), block, testers);
+      return testers > 0 ? dailyTestingLimit(commsType) / 2 : 0;
+    }
+
+    function testBenchCount(commsType) {
+      return listsApi()?.testingBenches(rateCommsKey(commsType)) ?? 3;
     }
 
     function getBottleneck(result) {
@@ -5996,8 +6040,11 @@
       return workBatches.filter(batch => batch.orderId || keepManualBuild);
     }
 
+    // Days with a standalone unit (Solar), or more than one build, plan by
+    // products; a single Gen4 / Tap build uses the single-build planner.
     function productsDay() {
-      return dayBuilds().some(isStandalone);
+      const builds = dayBuilds();
+      return builds.some(isStandalone) || builds.length > 1;
     }
 
     // The day's unit types in batch order, with what needs testing where.
@@ -6090,39 +6137,46 @@
         const members = orders.filter(order => onNetwork(order.batch));
         const first = members[0]?.batch || picked.find(onNetwork) || {};
         const commsKey = first.commsKey || first.commsType || (global ? "global" : "verizon");
-        const tested = WORKFLOW_PHASES.reduce((total, phase) => total + (on(phase, station) > 0 ? networkTestingInBlock(commsKey, phase) : 0), 0);
+        const tested = WORKFLOW_PHASES.reduce((total, phase) => total + networkTestingInBlock(commsKey, phase, on(phase, station)), 0);
         totals.set(station, tested);
         share(tested - pickedAt("testing", onNetwork), members, "testing", station);
       });
       orders.forEach(order => { order.made = Math.max(0, Math.min(order.left, order.assembly, order.testing)); });
       const made = orders.reduce((total, order) => total + order.made, 0);
 
-      // Shared benches work at the speeds of the biggest job.
+      /* Shared benches (Hardware Check, Packaging build-up, Packing once
+         it has a time) take each unit's own minutes: what the orders make
+         needs their people's minutes in its blocks, and if it needs more
+         than they have, every order makes that much less. With nothing
+         made yet, a bench is counted at the biggest job's minutes. */
       const biggest = [...orders.map(order => ({ job: order.batch, size: order.left })), ...picked.map(job => ({ job, size: Number(job.quantity) || 0 }))]
         .sort((a, b) => b.size - a.size)[0]?.job || {};
       const leadUnit = biggest.unitKey || biggest.unitType || "gen4";
       const leadComms = biggest.commsKey || biggest.commsType || "verizon";
       const outputs = new Map(orders.map(order => [order.batch.id, Math.floor(order.made)]));
-      const hardware = WORKFLOW_PHASES.reduce((total, phase) => total + hardwareCapacity(on(phase, "hardware"), leadUnit, leadComms, phase), 0);
-      const packaging = WORKFLOW_PHASES.reduce((total, phase) =>
-        total + packingCapacity(on(phase, "packing"), leadUnit, phase) + sparePackagingUnits(phase, model, outputs), 0);
-      const packingRated = lists.packingRate(1, rateUnitKey(leadUnit)) !== null;
-      const packing = packingRated
-        ? WORKFLOW_PHASES.reduce((total, phase) => total + (lists.packingRate(on(phase, "finalPackaging"), rateUnitKey(leadUnit), phase) || 0), 0)
-        : null;
-      totals.set("hardware", hardware);
-      totals.set("packing", packaging);
-      if (packing !== null) totals.set("finalPackaging", packing);
-      const shared = [["hardware", hardware], ["packing", packaging], ...(packing !== null ? [["finalPackaging", packing]] : [])];
-      const sharedCap = Math.min(...shared.map(([, value]) => value));
-      const output = Math.min(made, sharedCap);
-      const scale = made > 0 ? output / made : 0;
+      const peopleMinutes = station => WORKFLOW_PHASES.reduce((total, phase) => total + on(phase, station) * blockLength(phase), 0);
+      const spare = spareUnit();
+      const spareMinutes = spare ? WORKFLOW_PHASES.reduce((total, phase) => total + sparePackagingUnits(phase, model, outputs), 0) * spare.minutesPerUnit : 0;
+      const sharedBench = (station, available) => {
+        const needed = orders.reduce((total, order) => total + order.made * (sharedMinutesPerUnit(station, order.batch) || 0), 0);
+        const lead = sharedMinutesPerUnit(station, biggest);
+        const units = needed > 0 ? made * available / needed : lead ? available / lead : 0;
+        return { station, units, scale: needed > 0 ? Math.min(1, available / needed) : 1 };
+      };
+      const packingTimed = orders.some(order => sharedMinutesPerUnit("finalPackaging", order.batch)) || Boolean(sharedMinutesPerUnit("finalPackaging", biggest));
+      const shared = [
+        sharedBench("hardware", peopleMinutes("hardware")),
+        sharedBench("packing", peopleMinutes("packing") + spareMinutes),
+        ...(packingTimed ? [sharedBench("finalPackaging", peopleMinutes("finalPackaging"))] : [])
+      ];
+      shared.forEach(bench => totals.set(bench.station, bench.units));
+      const scale = Math.min(...shared.map(bench => bench.scale));
       orders.forEach(order => { order.achievable = Math.floor(order.made * scale + 1e-9); });
 
       // What to relieve: a shared bench holding the whole day back, then
       // each order's own Assembly or Testing, the furthest behind first.
       const limits = [];
-      if (orders.length && sharedCap < made) shared.filter(([, value]) => value <= sharedCap).forEach(([station]) => limits.push(station));
+      if (orders.length && made > 0 && scale < 1) shared.filter(bench => bench.scale <= scale).forEach(bench => limits.push(bench.station));
       // Level, the order whose Assembly makes more per person goes first.
       orders.filter(order => order.made < order.left)
         .sort((a, b) => a.made - b.made || assemblyPerBench(b.key, "start") - assemblyPerBench(a.key, "start"))
@@ -6204,7 +6258,7 @@
          Assembly       1st block (up to 6 benches across all units)
          a unit's Testing  1st block, to keep up with Assembly (the 2nd
                            only if nobody who can test is free in the 1st)
-         network Testing   one tester a block (its day limit is the rig)
+         network Testing   one tester a test bench (3), 1st block first
          Hardware Check, Packaging build-up   2nd block
        A move only stands if it pays off within 3 people: a shared bench
        must make more, or the orders must make more (so nobody goes on a
@@ -6242,8 +6296,10 @@
         // A unit's Testing keeps up with Assembly in the 1st block; the 2nd
         // block only when nobody who can test is free in the 1st.
         if (stationProduct(station) && base === "testing") return [["start"], ["second"]];
+        // Network testing: one tester a test bench, 1st block first.
         if (station === "testingVerizon" || station === "testingGlobal") {
-          return [["start"], ["second"]].filter(([phase]) => !on(layout, phase, station));
+          const benches = testBenchCount(station === "testingGlobal" ? "global" : "verizon");
+          return [["start"], ["second"]].filter(([phase]) => on(layout, phase, "testingVerizon") + on(layout, phase, "testingGlobal") < benches);
         }
         if (station === "hardware") {
           return on(layout, "second", "hardware") < usefulHardwareBenches(outcome.leadUnit, outcome.leadComms) ? [["second"]] : [];
@@ -6343,12 +6399,12 @@
       const testers = workers
         .filter(worker => canWorkerDoStation(worker, "testing"))
         .sort((a, b) => workerStationScore(a, "testing") - workerStationScore(b, "testing") || compareByRosterThenPriority(a, b));
-      if (testers.length < 2) {
-        return { possible: false, reason: "At least 2 people who can test are needed." };
+      if (!testers.length) {
+        return { possible: false, reason: "Nobody who can test is in." };
       }
 
       let best = null;
-      testerGroups(testers).forEach(testingWorkers => {
+      testerGroups(testers, testBenchCount(commsType)).forEach(testingWorkers => {
         const testingKeys = new Set(testingWorkers.map(worker => worker.key));
         const others = workers.filter(worker => !testingKeys.has(worker.key));
 
@@ -6399,13 +6455,14 @@
       return best;
     }
 
-    // Every pair and trio of testers.
-    function testerGroups(testers) {
+    // Every group of 1, 2 or 3 testers (no more than there are test benches).
+    function testerGroups(testers, most = 3) {
       const groups = [];
       for (let a = 0; a < testers.length; a++) {
-        for (let b = a + 1; b < testers.length; b++) {
+        if (most >= 1) groups.push([testers[a]]);
+        for (let b = a + 1; b < testers.length && most >= 2; b++) {
           groups.push([testers[a], testers[b]]);
-          for (let c = b + 1; c < testers.length; c++) groups.push([testers[a], testers[b], testers[c]]);
+          for (let c = b + 1; c < testers.length && most >= 3; c++) groups.push([testers[a], testers[b], testers[c]]);
         }
       }
       return groups;
@@ -6593,14 +6650,16 @@
       result.assembledUnits = result.assemblyBenches * assemblyPerBench(unitType);
       result.checkedUnits = hardwareCapacity(result.hardwareBenches, unitType, commsType);
       result.packedUnits = packingCapacity(result.packingBenches, unitType);
-      result.testingCapacity = result.testingBenches >= 2 ? dailyTestingLimit(commsType) : 0;
+      // Testers test through the 1st and 2nd blocks, each on their own bench.
+      result.testingCapacity = singleTestingCapacityPerPhase(result.testingBenches, commsType, "start")
+        + singleTestingCapacityPerPhase(result.testingBenches, commsType, "second");
 
-      const canRun = result.subA >= 1 && result.testingBenches >= 2;
+      const canRun = result.subA >= 1 && result.testingBenches >= 1;
       result.processLimitedOutput = canRun
         ? Math.min(result.assembledUnits, result.testingCapacity, result.checkedUnits, result.packedUnits)
         : 0;
 
-      result.outputLimit = dailyTestingLimit(commsType);
+      result.outputLimit = result.testingCapacity;
       result.finalOutput = Math.min(result.processLimitedOutput, result.outputLimit);
       result.uncompletedUnits = Math.max(0, result.assembledUnits - result.finalOutput);
       result.bottleneck = getBottleneck(result);
@@ -7121,8 +7180,8 @@
     }
 
     function singleTestingCapacityPerPhase(testingBenches, commsType, phase = "start") {
-      if (testingBenches < 2) return 0;
-      return networkTestingInBlock(commsType, phase);
+      if (testingBenches < 1) return 0;
+      return networkTestingInBlock(commsType, phase, testingBenches);
     }
 
     function calculateSingleWorkflowCapacity(model, result, commsType, unitType) {

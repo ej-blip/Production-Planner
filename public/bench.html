@@ -662,8 +662,8 @@
       return Math.abs(safe - nearest) < 0.02 ? nearest : Math.floor(safe);
     }
 
-    // Single build: 36 a day for Verizon, 30 for Global (the rig through
-    // the 1st and 2nd blocks); a block counts when it has at least 2 testers.
+    // Single build: each tester tests on a bench of their own (up to the
+    // number of benches), each bench testing 2 units at a time (Rates tab).
     // Mixed day: each network needs its testing time; one tester on a
     // network for a phase gives one phase of time, up to two phases.
     function testingCapacity(plan, assignments) {
@@ -675,7 +675,7 @@
 
       if (plan.workMode !== "mixed") {
         const max = dailyLimit(commsKeyOf(batches[0]));
-        const total = PHASE_KEYS.reduce((sum, phase) => sum + (onStation(phase, "testing") >= 2 ? testingInBlock(commsKeyOf(batches[0]), phase) : 0), 0);
+        const total = PHASE_KEYS.reduce((sum, phase) => sum + testingInBlock(commsKeyOf(batches[0]), phase, onStation(phase, "testing")), 0);
         return Math.min(max, total);
       }
 
@@ -1266,7 +1266,7 @@
       subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE",
       testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PB", finalPackaging: "PK"
     };
-    const STATION_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 2, testingVerizon: 1, testingGlobal: 1, hardware: 2, packing: 2 };
+    const STATION_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 1, testingVerizon: 1, testingGlobal: 1, hardware: 1, packing: 1 };
     const KIND_COLOUR = { assembly: "var(--k-assembly)", testing: "var(--k-testing)", hardware: "var(--k-hardware)", packing: "var(--k-packing)", final: "var(--k-cage)" };
 
     const personName = key => state.staff.get(key)?.name || staffName(key);
@@ -1317,7 +1317,7 @@
       if (!batch) return null;
       const inPhase = list => state.assignments.filter(item => item.phase === state.phase && list.includes(item.station)).length;
       if (station === "assembly") return inPhase(["subAssembly"]) > 0 ? count * assemblyPerBench(unitKeyOf(batch), state.phase) : 0;
-      if (station === "testing") return count >= 2 ? testingInBlock(commsKeyOf(batch), state.phase) : 0;
+      if (station === "testing") return testingInBlock(commsKeyOf(batch), state.phase, count);
       if (station === "hardware") return hardwareCapacity(count, unitKeyOf(batch), commsKeyOf(batch), state.phase);
       if (station === "packing") return packingCapacity(count, unitKeyOf(batch), state.phase);
       return null;
