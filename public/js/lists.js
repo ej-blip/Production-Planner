@@ -64,7 +64,9 @@ export const STARTING_LISTS = {
                      Tap, chargers for Solar)
      assembly        one unit (only with Sub Assembly on)
      testing         one unit (standalone units like Solar)
-     hardwareVerizon one unit through Hardware Check
+     hardwareVerizon one check of a unit at Hardware Check; every unit gets
+                     hardwareChecks checks (3), each by a different person,
+                     so the bench needs at least that many people
      hardwareGlobal  the same for Global units
      packagingBuild  one box
      packing         one unit (null until set: it doesn't limit the target)
@@ -83,6 +85,7 @@ export const STARTING_LISTS = {
    ÷ it). An older day's testing (every bench through the 1st and 2nd
    blocks) is read as the minutes that give the same day. */
 export const RATE_PEOPLE = 4;
+export const STARTING_HARDWARE_CHECKS = 3;
 export const BLOCK_KEYS = ["start", "second", "finish"];
 export const STARTING_BLOCK_MINUTES = { start: 120, second: 150, finish: 120 };
 export const STARTING_BLOCK_CLOCK = { start: "08:15-10:15", second: "10:50-13:10", finish: "14:00-16:00" };
@@ -219,6 +222,19 @@ function personMinutesFromTable(table, perBlock) {
   return null;
 }
 
+// One check's minutes from an older Hardware Check table (units per block,
+// or the team's minutes per unit, for teams of 1, 2, 3, 4+): the 3-person
+// figure first (a check each), then 4, 2, 1.
+function checkMinutesFromTable(table, perBlock, checks) {
+  if (!Array.isArray(table)) return null;
+  for (const index of [2, 3, 1, 0]) {
+    const people = index + 1;
+    const value = perBlock ? fromPerBlock(table[index], BASE_MINUTES * people) : minutesNumber(table[index]);
+    if (value) return (perBlock ? value : value * people) / checks;
+  }
+  return null;
+}
+
 // Minutes one person takes for one unit of each task, for a unit type
 // (its own figures, or its plan-as type's). null: not set.
 export function unitMinutes(unitKey) {
@@ -235,12 +251,21 @@ export function unitMinutes(unitKey) {
     const old = Array.isArray(own[field]) && own[field].some(value => value !== null && value !== undefined && value !== "") ? own[field] : null;
     return personMinutesFromTable(old || fallback, true);
   };
+  const checksValue = Math.round(Number(saved.hardwareChecks ?? own.hardwareChecks));
+  const checks = checksValue >= 1 && checksValue <= 10 ? checksValue : STARTING_HARDWARE_CHECKS;
+  // Hardware Check: one check's minutes (older figures were a whole unit's).
+  const perCheck = (field, fallback) => {
+    if (field in saved) return Array.isArray(saved[field]) ? checkMinutesFromTable(saved[field], false, checks) : minutesNumber(saved[field]);
+    const old = Array.isArray(own[field]) && own[field].some(value => value !== null && value !== undefined && value !== "") ? own[field] : null;
+    return checkMinutesFromTable(old || fallback, true, checks);
+  };
   return {
     subAssembly: single("subAssembly", base.subAssembly),
     assembly: single("assembly", base.assembly),
     testing: single("testing", null),
-    hardwareVerizon: team("hardwareVerizon", base.hardwareVerizon),
-    hardwareGlobal: team("hardwareGlobal", base.hardwareGlobal),
+    hardwareVerizon: perCheck("hardwareVerizon", base.hardwareVerizon),
+    hardwareGlobal: perCheck("hardwareGlobal", base.hardwareGlobal),
+    hardwareChecks: checks,
     packagingBuild: team("packagingBuild", base.packagingBuild),
     packing: team("packing", null),
     spareToPackaging: own.spareToPackaging === true
@@ -253,11 +278,12 @@ export function unitRates(unitKey, block) {
   const minutes = unitMinutes(unitKey);
   const length = blockMinutes(block);
   const table = perUnit => Array.from({ length: RATE_PEOPLE }, (_, index) => unitsIn((index + 1) * length, perUnit));
+  const checked = perCheck => Array.from({ length: RATE_PEOPLE }, (_, index) => checkedUnits(index + 1, length, perCheck, minutes.hardwareChecks));
   return {
     subAssembly: unitsIn(length, minutes.subAssembly),
     assembly: unitsIn(length, minutes.assembly),
-    hardwareVerizon: table(minutes.hardwareVerizon),
-    hardwareGlobal: table(minutes.hardwareGlobal),
+    hardwareVerizon: checked(minutes.hardwareVerizon),
+    hardwareGlobal: checked(minutes.hardwareGlobal),
     packagingBuild: table(minutes.packagingBuild),
     spareToPackaging: minutes.spareToPackaging,
     packing: minutes.packing ? table(minutes.packing) : Array(RATE_PEOPLE).fill(null)
@@ -271,10 +297,20 @@ export const assemblyRate = (unitKey, block) => benchUnits(1, block, unitMinutes
 export const subAssemblyRate = (unitKey, block) => benchUnits(1, block, unitMinutes(unitKey).subAssembly);
 export const spareToPackaging = unitKey => unitMinutes(unitKey).spareToPackaging;
 
+// Units Hardware Check finishes: each unit gets its checks from different
+// people, so fewer people than checks can't finish any.
+function checkedUnits(people, minutes, perCheck, checks) {
+  if (!perCheck || people < checks) return 0;
+  return unitsIn(people * minutes, perCheck * checks);
+}
+
 export function hardwareRate(people, unitKey, commsKey, block) {
   const minutes = unitMinutes(unitKey);
-  return benchUnits(people, block, commsPlanAs(commsKey) === "global" ? minutes.hardwareGlobal : minutes.hardwareVerizon);
+  const perCheck = commsPlanAs(commsKey) === "global" ? minutes.hardwareGlobal : minutes.hardwareVerizon;
+  return checkedUnits(people, blockMinutes(block), perCheck, minutes.hardwareChecks);
 }
+
+export const hardwareChecks = unitKey => unitMinutes(unitKey).hardwareChecks;
 
 export const packagingBuildRate = (people, unitKey, block) => benchUnits(people, block, unitMinutes(unitKey).packagingBuild);
 

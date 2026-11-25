@@ -1531,7 +1531,7 @@
       subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE",
       testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PB", finalPackaging: "PK"
     };
-    const STATION_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 1, testingVerizon: 1, testingGlobal: 1, hardware: 1, packing: 1 };
+    const STATION_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 1, testingVerizon: 1, testingGlobal: 1, hardware: 3, packing: 1 };
     const KIND_COLOUR = { assembly: "var(--k-assembly)", testing: "var(--k-testing)", hardware: "var(--k-hardware)", packing: "var(--k-packing)", final: "var(--k-cage)" };
 
     const personName = key => state.staff.get(key)?.name || staffName(key);

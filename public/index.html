@@ -4370,7 +4370,11 @@
       const lists = listsApi();
       if (!lists || !job) return null;
       const minutes = lists.unitMinutes(job.unitKey || job.unitType || "gen4");
-      if (zone === "hardware") return lists.commsPlanAs(job.commsKey || job.commsType || "verizon") === "global" ? minutes.hardwareGlobal : minutes.hardwareVerizon;
+      if (zone === "hardware") {
+        // A unit's checks together (one person's minutes per check × checks).
+        const perCheck = lists.commsPlanAs(job.commsKey || job.commsType || "verizon") === "global" ? minutes.hardwareGlobal : minutes.hardwareVerizon;
+        return perCheck ? perCheck * minutes.hardwareChecks : null;
+      }
       if (zone === "packing") return minutes.packagingBuild;
       if (zone === "finalPackaging") return minutes.packing;
       return null;
@@ -4397,6 +4401,14 @@
         ?? sharedMinutesPerUnit(zone, zoneJob(zone, work));
     }
 
+    // How many checks each unit gets at Hardware Check (each by a different
+    // person, so the bench needs at least that many): the most of the day's.
+    function hardwareChecksNeeded(jobs = dayBuilds()) {
+      const lists = listsApi();
+      if (!lists) return 3;
+      return Math.max(1, ...jobs.map(job => lists.hardwareChecks(job.unitKey || job.unitType || "gen4")));
+    }
+
     function stationActual(zone, phase, work, model = lastWorkflowModel) {
       if (!model) return 0;
       const on = station => workflowPhaseWorkers(model, phase, station).length;
@@ -4410,6 +4422,7 @@
       if (["hardware", "packing", "finalPackaging"].includes(zone) && listsApi()) {
         const perUnit = zoneMinutesPerUnit(zone, work);
         if (zone === "finalPackaging" && !perUnit) return null;
+        if (zone === "hardware" && count < hardwareChecksNeeded([...dayBuilds(), ...work])) return 0;
         const units = perUnit ? Math.floor(count * blockLength(phase) / perUnit + 0.001) : 0;
         return zone === "packing" ? units + sparePackagingUnits(phase, model) : units;
       }
@@ -4597,7 +4610,7 @@
 
     const CREW_SKILL_KIND = { subAssembly: "assembly", assembly: "assembly", testing: "testing", hardware: "hardware", packing: "packing" };
     const CREW_ICONS = { subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE", testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PB", finalPackaging: "PK" };
-    const CREW_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 1, testingVerizon: 1, testingGlobal: 1, hardware: 1, packing: 1 };
+    const CREW_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 1, testingVerizon: 1, testingGlobal: 1, hardware: 3, packing: 1 };
 
     function crewInitials(name) {
       return String(name || "?").split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
@@ -6201,6 +6214,12 @@
       const leadComms = biggest.commsKey || biggest.commsType || "verizon";
       const outputs = new Map(orders.map(order => [order.batch.id, Math.floor(order.made)]));
       const peopleMinutes = station => WORKFLOW_PHASES.reduce((total, phase) => total + on(phase, station) * blockLength(phase), 0);
+      // Hardware Check only counts in blocks with enough people for a unit's checks.
+      const checks = hardwareChecksNeeded([...orders.map(order => order.batch), biggest]);
+      const checkMinutes = WORKFLOW_PHASES.reduce((total, phase) => {
+        const people = on(phase, "hardware");
+        return total + (people >= checks ? people * blockLength(phase) : 0);
+      }, 0);
       const spare = spareUnit();
       const spareMinutes = spare ? WORKFLOW_PHASES.reduce((total, phase) => total + sparePackagingUnits(phase, model, outputs), 0) * spare.minutesPerUnit : 0;
       const sharedBench = (station, available) => {
@@ -6211,7 +6230,7 @@
       };
       const packingTimed = orders.some(order => sharedMinutesPerUnit("finalPackaging", order.batch)) || Boolean(sharedMinutesPerUnit("finalPackaging", biggest));
       const shared = [
-        sharedBench("hardware", peopleMinutes("hardware")),
+        sharedBench("hardware", checkMinutes),
         sharedBench("packing", peopleMinutes("packing") + spareMinutes),
         ...(packingTimed ? [sharedBench("finalPackaging", peopleMinutes("finalPackaging"))] : [])
       ];

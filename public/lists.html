@@ -713,8 +713,12 @@
                   ${row("assembly", "Assembly")}
                   ${standalone ? row("testing", "Testing") : ""}
                   ${standalone
-                    ? row("hardwareVerizon", "Hardware Check", "hardware")
-                    : `${row("hardwareVerizon", `Hardware Check · ${verizon}`)}${row("hardwareGlobal", `Hardware Check · ${global}`)}`}
+                    ? row("hardwareVerizon", "Hardware Check · per check", "hardware")
+                    : `${row("hardwareVerizon", `Hardware Check · ${verizon} · per check`)}${row("hardwareGlobal", `Hardware Check · ${global} · per check`)}`}
+                  <tr>
+                    <td class="row-name">Hardware Check · checks per unit</td>
+                    <td class="num"><input type="number" min="1" max="10" step="1" inputmode="numeric" data-rate="hardwareChecks" value="${esc(minutes.hardwareChecks)}" aria-label="Hardware Check, checks per unit" /></td>
+                  </tr>
                   ${row("packagingBuild", "Packaging build-up")}
                   ${row("packing", "Packing")}
                   <tr>
@@ -781,7 +785,10 @@
       Object.keys(minutes).forEach(key => { minutes[key] = minutes[key] ? Lists.roundMinutes(minutes[key]) : null; });
       let spare = spareToPackaging;
       if (name === "spareToPackaging") spare = field.checked;
-      else {
+      else if (name === "hardwareChecks") {
+        if (blank || number < 1 || number > 10) return draw();
+        minutes.hardwareChecks = Math.round(number);
+      } else {
         // Testing and Packing may be left blank; every other task needs a time.
         if (blank && name !== "testing" && name !== "packing") return draw();
         const entry = blank ? null : Lists.roundMinutes(number);
