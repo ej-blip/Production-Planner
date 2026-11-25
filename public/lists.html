@@ -643,8 +643,9 @@
     // ------------------------------------------------------------------
     const PEOPLE_HEADS = ["1 person", "2 people", "3 people", "4+ people"];
     const BLOCK_HEADS = { start: "1st block", second: "2nd block", finish: "3rd block" };
-    // Up to 2 decimal places, no trailing zeros ("" for none).
-    const showMinutes = value => (value ? String(Math.round(value * 100) / 100) : "");
+    // Shown to the nearest whole minute ("" for none). What's saved keeps
+    // its exact value until a new one is typed in.
+    const showMinutes = value => (value ? String(Math.max(1, Math.round(value))) : "");
     const minutesInput = (attrs, value, label) =>
       `<input type="number" min="0" max="9999" step="any" inputmode="decimal" ${attrs} value="${esc(showMinutes(value))}" placeholder="–" aria-label="${esc(label)}" />`;
 

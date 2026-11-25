@@ -1213,6 +1213,14 @@
     }
     .swim-box small { font-size: 14px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-2); }
     .swim-cell.span .swim-box { height: 100%; }
+    /* A job that fills half its block or less: half a box, and the other
+       half left open as time not filled. */
+    .swim-boxes { width: 100%; max-width: 260px; display: grid; gap: 8px; }
+    .swim-boxes.half { grid-template-columns: 1fr 1fr; }
+    .swim-boxes.half .swim-box { padding: 8px 6px; font-size: 13px; overflow-wrap: anywhere; }
+    .swim-boxes.half .swim-box small { font-size: 12px; }
+    .swim-cell.span .swim-boxes { height: 100%; }
+    .swim-box.unfilled { --k: #9aa5b4; --k-fill: #ffffff; border-style: dashed; color: #6b7685; }
     .swim-box.k-assembly { --k: #c2453b; --k-fill: #f6dedb; }
     .swim-box.k-sub { --k: #7a5bb5; --k-fill: #ebe5f6; }
     .swim-box.k-testing { --k: #3f7fbf; --k-fill: #dfeaf5; }
@@ -2539,11 +2547,20 @@
         .filter(order => order.status !== "closed" && (workOrderUsage.get(order.id)?.packed || 0) >= order.quantity)
         .forEach(order => window.plannerData.orders.setStatus(order.id, "closed").catch(() => {}));
 
-      // Today's batches and target may now be capped by what each order has left.
+      // Today's batches and target may now be capped by what each order has
+      // left, and the plan (Auto assign, Targets, the plan picture) works
+      // from it: plan again. Arriving counts don't make the plan unsaved.
       syncLinkedBatches();
-      renderOrders();
-      renderJobsBoard();
-      renderBenchBoard();
+      if (lastResult) {
+        const wasDirty = planDirty;
+        calculateFromRoster();
+        planDirty = wasDirty;
+        renderPlanStatus();
+      } else {
+        renderOrders();
+        renderJobsBoard();
+        renderBenchBoard();
+      }
       renderFlow();
     }
 
@@ -8155,15 +8172,31 @@
       return { blocks, rows, place, finishTask, span, after };
     }
 
-    function renderPlanBox(task, style, extra = "", work = []) {
+    /* How much of its block a job fills, from its target and what its
+       people can do there: "half" (half the block or less; the rest is
+       time not filled), "full" (more than half: rounded up, so nothing
+       else is squeezed in), or null for a job without a timing (one-off
+       jobs, Packing). */
+    function planBlockFill(task, figures) {
+      if (task.isCustom || task.station === "finalPackaging") return null;
+      const figure = figures?.[task.phase]?.[task.station];
+      if (!figure || !figure.actual) return null;
+      const done = Math.min(Math.max(0, figure.target), figure.actual);
+      return done / figure.actual <= 0.5 ? "half" : "full";
+    }
+
+    function renderPlanBox(task, style, extra = "", work = [], fill = null) {
       const kind = task.isCustom ? "custom" : PLAN_KINDS[task.station] || PLAN_KINDS[stationBase(task.station)] || "custom";
       const names = (task.workers || []).map(worker => worker.first).join(", ");
       const text = task.detail || planWorkText(task.station, work);
       return `
         <div class="swim-cell ${extra}" style="${style}" data-task-id="${safeAttr(task.id)}">
-          <div class="swim-box k-${kind}">
-            <span>${escapeHtml(task.title)}</span>
-            ${text ? `<small>${escapeHtml(text)}</small>` : ""}
+          <div class="swim-boxes ${fill === "half" ? "half" : ""}">
+            <div class="swim-box k-${kind}">
+              <span>${escapeHtml(task.title)}</span>
+              ${text ? `<small>${escapeHtml(text)}</small>` : ""}
+            </div>
+            ${fill === "half" ? '<div class="swim-box unfilled"><span>Time not filled</span></div>' : ""}
           </div>
           <div class="swim-names">${escapeHtml(names)}</div>
         </div>`;
@@ -8189,6 +8222,7 @@
       const rowOf = task => rows.indexOf(place.get(task)) + 2;
       const lastRow = rows.length + 1;
 
+      const figures = Object.fromEntries(WORKFLOW_PHASES.map(phase => [phase, stationFigures(phase)]));
       const cells = [];
       blocks.forEach((tasks, blockIndex) => tasks.forEach(task => {
         if (task === finishTask) {
@@ -8201,7 +8235,7 @@
           const inSpan = span && row - 2 >= span.start && row - 2 <= span.end;
           column = inSpan ? "6" : "5 / span 2";
         }
-        cells.push(renderPlanBox(task, `grid-column:${column};grid-row:${row}`, "", work));
+        cells.push(renderPlanBox(task, `grid-column:${column};grid-row:${row}`, "", work, planBlockFill(task, figures)));
       }));
 
       // Arrows: along a row, and on to the station that takes the units next.
@@ -8262,7 +8296,8 @@
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svg.setAttribute("width", String(width));
       svg.setAttribute("height", String(height));
-      const box = id => body.querySelector(`.swim-cell[data-task-id="${CSS.escape(id)}"] .swim-box`)?.getBoundingClientRect();
+      // The whole of a cell's boxes, so arrows leave after time not filled.
+      const box = id => body.querySelector(`.swim-cell[data-task-id="${CSS.escape(id)}"] .swim-boxes`)?.getBoundingClientRect();
       const paths = planFlows.map(([from, to]) => {
         const a = box(from);
         const b = box(to);
