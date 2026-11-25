@@ -8209,16 +8209,12 @@
        Columns are the three blocks. Each row is one stream of work that
        keeps its row from block to block: the build (Assembly, then
        Hardware Check), Packaging build-up, each testing setup, Sub
-       Assembly, and each one-off job. Arrows follow the work, not the
-       people, so they run along a row. Packing spans the rows that feed
-       it; one-off jobs that start in the 3rd block come out of Packing.
+       Assembly, and each one-off job; a team that carries on into the next
+       block keeps its row. Arrows follow the people, from each job to the
+       next jobs its people go on to. Packing spans the rows that feed it;
+       one-off jobs that start in the 3rd block come out of Packing.
        ============================================================ */
     const PLAN_LANE_ORDER = ["build", "build-tap", "pack", "test", "test-vz", "test-gl", "sub"];
-    // What a station hands its units on to in the next block.
-    const PLAN_FLOW_NEXT = {
-      assembly: ["hardware"], assemblyGen4: ["hardware"], assemblyTap: ["hardware"],
-      hardware: ["finalPackaging"], packing: ["finalPackaging"]
-    };
     const PLAN_KINDS = {
       subAssembly: "sub", assembly: "assembly", assemblyGen4: "assembly", assemblyTap: "assembly",
       testing: "testing", testingVerizon: "testing", testingGlobal: "testing",
@@ -8293,9 +8289,38 @@
       return [...groups.entries()];
     }
 
+    // How many people two jobs have in common.
+    function planSharedPeople(a, b) {
+      const keys = new Set((b.workers || []).map(worker => worker.key));
+      return (a.workers || []).filter(worker => keys.has(worker.key)).length;
+    }
+
     function planLayout(model, mixed) {
       const blocks = WORKFLOW_PHASES.map(phase => buildWorkflowTasksForPhase(model, mixed, phase));
       blocks.flat().forEach(task => { task.lane = planLaneOf(task); });
+
+      // Teams keep their row: a job takes the row of the job before it that
+      // shares the most of its people, unless another job got there first.
+      for (let index = 1; index < blocks.length; index++) {
+        const pairs = [];
+        blocks[index].forEach(task => {
+          if (task.lane === "finish") return;
+          blocks[index - 1].forEach(before => {
+            if (before.lane === "finish") return;
+            const people = planSharedPeople(before, task);
+            if (people) pairs.push({ task, before, people });
+          });
+        });
+        pairs.sort((a, b) => b.people - a.people);
+        const taken = new Set();
+        pairs.forEach(({ task, before }) => {
+          if (task.inherited || taken.has(before.lane)) return;
+          task.lane = before.lane;
+          task.inherited = true;
+          taken.add(before.lane);
+        });
+      }
+
       const finishTask = blocks[2].find(task => task.lane === "finish") || null;
       const startedEarlier = new Set([...blocks[0], ...blocks[1]].map(task => task.lane));
       const after = finishTask ? blocks[2].filter(task => task.lane.startsWith("custom:") && !startedEarlier.has(task.lane)) : [];
@@ -8313,7 +8338,8 @@
       const place = new Map();   // task → row key
       blocks.forEach((tasks, blockIndex) => {
         const used = new Set();
-        tasks.forEach(task => {
+        // A team carrying on gets its row first; anything else sharing it moves below.
+        [...tasks].sort((a, b) => Number(Boolean(b.inherited)) - Number(Boolean(a.inherited))).forEach(task => {
           if (task.lane === "finish" || after.includes(task)) return;
           let key = task.lane;
           let n = 2;
@@ -8419,13 +8445,12 @@
         cells.push(renderPlanBox(task, `grid-column:${column};grid-row:${row}`, "", work, planBlockFill(task, figures)));
       }));
 
-      // Arrows: along a row, and on to the station that takes the units next.
+      // Arrows follow the people: from each job to the job in the next block
+      // that any of them go on to (one arrow per pair of jobs).
       planFlows = [];
       for (let index = 0; index < 2; index++) {
         blocks[index].forEach(source => blocks[index + 1].forEach(target => {
-          const sameLane = source.lane === target.lane && target.lane !== "finish";
-          const handsOn = (PLAN_FLOW_NEXT[source.station] || PLAN_FLOW_NEXT[stationBase(source.station)] || []).includes(target.station);
-          if (sameLane || handsOn) planFlows.push([source.id, target.id]);
+          if (planSharedPeople(source, target)) planFlows.push([source.id, target.id]);
         }));
       }
       if (finishTask) after.forEach(task => planFlows.push([finishTask.id, task.id]));
