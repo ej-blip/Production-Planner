@@ -44,6 +44,7 @@ import {
   REQUEST_KINDS, nextStatus, requestTitle, watchRequests, moveRequest, requestCardHtml,
   deskAlertsHtml, toggleDeskAlert, popUpRequests
 } from "./requests.js";
+import { MESSAGE_BENCHES, watchMessages, addMessage, markMessageSeen, messageHtml, askMessage } from "./messages.js";
 import { showPhoto, floorBatches, progressOf, expectedUnits, JOB_STAGES } from "./floor.js";
 import * as lists from "./lists.js";
 
@@ -396,6 +397,16 @@ async function advanceRequest(date, request, to) {
   });
 }
 
+// Notes between the benches and management.
+const messages = {
+  benches: MESSAGE_BENCHES,
+  watch: watchMessages,
+  add: (date, fields) => addMessage(date, fields, "management", ACTOR),
+  seen: (date, id) => markMessageSeen(date, id, ACTOR),
+  html: message => messageHtml(message, "management", { showBench: true }),
+  ask: options => askMessage(options)
+};
+
 const requests = {
   watch: watchRequests,
   advance: advanceRequest,
@@ -436,6 +447,7 @@ window.plannerData = {
   customJobs,
   extraJobs,
   requests,
+  messages,
   showPhoto,
   lockScreen,
   friendlyError

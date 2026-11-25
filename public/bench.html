@@ -304,6 +304,55 @@
       font-size: 20px;
     }
     .chooser-grid a span { display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 4px; }
+
+    /* One-screen bench (sideways iPad) ---------------------------------- */
+    main { padding-top: 12px; }
+    .bench-top { display: flex; align-items: stretch; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .block-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .block-tabs button { margin: 0; display: grid; gap: 1px; padding: 6px 14px; background: var(--raised); color: var(--ink-2); border: 1px solid var(--rule-strong); text-align: left; }
+    .block-tabs button b { font-family: var(--font-label); font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .block-tabs button span { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .block-tabs button.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .block-tabs button.active span { color: var(--on-accent); opacity: 0.85; }
+    .block-tabs button.now::after { content: "Now"; justify-self: start; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .bench-top .action-bar { flex: 1; margin: 0; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+    .bench-top .action { min-height: 52px; padding: 8px 12px; font-size: 17px; gap: 8px; }
+    .bench-top .action svg { width: 22px; height: 22px; }
+    .bench-main { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+    .bench-main.no-team { grid-template-columns: 1fr; }
+    .bench-left { display: grid; gap: 12px; }
+    .bench-card { background: var(--raised); border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); padding: 14px 16px; }
+    .bench-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .bench-card-head h2 { margin: 0; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .bench-card-head button { margin: 0; padding: 6px 12px; }
+    .job-line { display: grid; gap: 2px; padding: 8px 0; border-top: 1px solid var(--rule); }
+    .job-line:first-of-type { border-top: 0; padding-top: 0; }
+    .job-station { font-family: var(--font-label); font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .job-target { font-size: 34px; font-weight: 700; line-height: 1.1; color: var(--ink); }
+    .job-what { font-size: 17px; font-weight: 600; color: var(--ink-2); }
+    .job-then { font-size: 16px; font-weight: 600; color: var(--ink-2); }
+    .job-now { font-size: 15px; font-weight: 700; color: var(--warn); }
+    .job-orders { display: grid; gap: 2px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 16px; font-weight: 600; color: var(--ink-2); }
+    .job-orders b { color: var(--ink); }
+    .job-status { display: grid; gap: 8px; margin-top: 10px; }
+    .job-status-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .job-status-row .job-status-text { flex: 1 1 180px; font-size: 15px; font-weight: 600; color: var(--ink-2); }
+    .job-status-row button { margin: 0; padding: 12px 16px; font-size: 16px; }
+    .bench-notes .msg-list { max-height: 230px; overflow-y: auto; }
+    .bench-requests .req-list { max-height: 200px; overflow-y: auto; }
+    .team-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+    .team-group h3 { margin: 0 0 8px; font-size: 16px; }
+    .team-list { display: grid; gap: 6px; }
+    .team-person { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--sheet); font-size: 17px; font-weight: 600; color: var(--ink); cursor: pointer; }
+    .team-person input { width: 24px; height: 24px; margin: 0; flex: none; accent-color: var(--accent); }
+    .team-person small { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); }
+    .team-person.off { background: var(--inset); color: var(--muted); }
+    .team-empty { font-size: 14px; color: var(--muted); }
+    .more-sheet { position: fixed; inset: 0; z-index: 1200; overflow-y: auto; background: var(--page); padding: 16px 20px 40px; }
+    .more-sheet .more-head { display: flex; align-items: center; justify-content: space-between; max-width: 1400px; margin: 0 auto 14px; }
+    .more-sheet .more-head h2 { margin: 0; }
+    .more-sheet > section, .more-sheet > .card { max-width: 1400px; margin-left: auto; margin-right: auto; }
+    @media (max-width: 860px) { .bench-main { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -319,6 +368,7 @@
       <input type="date" id="dateInput" aria-label="Plan date" />
       <button type="button" class="secondary" id="nextDay" aria-label="Next day"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
       <button type="button" class="secondary" id="todayButton">Today</button>
+      <button type="button" class="secondary" id="moreButton">More</button>
       <button type="button" class="secondary" id="lockButton">Lock</button>
     </div>
   </header>
@@ -336,12 +386,27 @@
     </section>
 
     <div id="planArea" class="hidden">
-      <section class="action-bar" id="actionBar" aria-label="Requests"></section>
+      <div class="bench-top">
+        <div class="block-tabs" id="blockTabs" role="tablist" aria-label="Block"></div>
+        <section class="action-bar" id="actionBar" aria-label="Requests"></section>
+      </div>
+      <div class="bench-main" id="benchMain">
+        <div class="bench-left">
+          <section class="bench-card" id="jobCard"></section>
+          <section class="bench-card bench-requests hidden" id="requestsCard">
+            <div class="bench-card-head"><h2 id="requestsTitle">Requests</h2></div>
+            <div class="req-list" id="requestList"></div>
+          </section>
+          <section class="bench-card bench-notes">
+            <div class="bench-card-head"><h2>Notes</h2><button type="button" class="secondary" id="noteButton">+ Note</button></div>
+            <div class="msg-list" id="messageList"></div>
+          </section>
+        </div>
+        <section class="bench-card bench-team" id="teamPanel"></section>
+      </div>
 
-      <section class="card hidden" id="requestsCard">
-        <h2 id="requestsTitle">Requests</h2>
-        <div class="req-list" id="requestList"></div>
-      </section>
+      <div class="more-sheet hidden" id="moreSheet">
+      <div class="more-head"><h2 id="moreTitle">More</h2><button type="button" class="secondary" id="moreClose">Close</button></div>
 
       <section class="summary figures" id="summary"></section>
 
@@ -378,6 +443,7 @@
         <h2>Changes today</h2>
         <ul class="events" id="events"></ul>
       </section>
+      </div>
     </div>
   </main>
 
@@ -397,8 +463,10 @@
     import { REQUEST_KINDS, requestTitle, watchRequests, makeRequest, moveRequest, requestCardHtml, askHelp, askStock, askFaulty } from "./js/requests.js";
     import {
       watchLists, unitLabel, simLabel, labelOf, unitKeyOf, commsKeyOf, usesComms,
-      testingPerDay, testingInBlock, assemblyRate, hardwareRate, packagingBuildRate
+      testingPerDay, testingInBlock, assemblyRate, hardwareRate, packagingBuildRate,
+      subAssemblyRate, testingRate, packingRate, currentBlock, blockClockLabel
     } from "./js/lists.js";
+    import { watchMessages, addMessage, markMessageSeen, messageHtml, askMessage } from "./js/messages.js";
 
     // Jobs on the bench screens. Who can do each one comes from their
     // skill dots in Worker Admin (js/skills.js).
@@ -433,29 +501,47 @@
 
     // Each bench screen: its jobs, and which batch details it shows.
     const BENCHES = {
+      subassembly: {
+        label: "Sub Assembly",
+        blurb: "Tomorrow's parts, then Packaging build-up",
+        stations: ["subAssembly"],
+        columns: ["customer", "unit", "connector", "config", "setup", "units"],
+        verb: "Make"
+      },
       assembly: {
         label: "Assembly",
-        blurb: "Sub assembly and assembly",
-        stations: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap"],
-        columns: ["customer", "unit", "connector", "config", "setup", "units"]
+        blurb: "Assembly",
+        stations: ["assembly", "assemblyGen4", "assemblyTap"],
+        columns: ["customer", "unit", "connector", "config", "setup", "units"],
+        verb: "Build"
       },
       testing: {
         label: "Testing",
         blurb: "Verizon and Global testing",
         stations: ["testing", "testingVerizon", "testingGlobal"],
-        columns: null   // network setup cards instead of a table
+        columns: null,   // network setup cards instead of a table
+        verb: "Test"
       },
       hardware: {
         label: "Hardware Check",
         blurb: "Hardware check",
         stations: ["hardware"],
-        columns: ["customer", "unit", "network", "config", "units"]
+        columns: ["customer", "unit", "network", "config", "units"],
+        verb: "Check"
+      },
+      buildup: {
+        label: "Packaging build-up",
+        blurb: "Boxes for packing",
+        stations: ["packing"],
+        columns: ["customer", "unit", "connector", "config", "units"],
+        verb: "Build up"
       },
       packing: {
         label: "Packing",
-        blurb: "Packing and final packaging",
-        stations: ["packing", "finalPackaging"],
-        columns: ["customer", "unit", "connector", "config", "setup", "units"]
+        blurb: "Packing",
+        stations: ["finalPackaging"],
+        columns: ["customer", "unit", "connector", "config", "setup", "units"],
+        verb: "Pack"
       },
       cage: {
         label: "Production Cage",
@@ -471,7 +557,7 @@
     const hasBoard = Boolean(bench && bench.stations.length);
     const ACTOR = bench ? `${bench.label} bench` : "Bench";
 
-    const PHASES = [["start", "Start phase"], ["second", "Second phase"], ["finish", "Finish phase"]];
+    const PHASES = [["start", "1st block"], ["second", "2nd block"], ["finish", "3rd block"]];
     const PHASE_KEYS = PHASES.map(([key]) => key);
     const phaseLabel = key => (PHASES.find(([value]) => value === key) || [key, key])[1];
 
@@ -502,6 +588,9 @@
       notes: [],
       requests: [],
       requestsLoaded: false,
+      messages: [],       // notes between this bench and management
+      messagesLoaded: false,
+      followClock: true,  // show the block that's on now (until another is picked)
       waitingJobs: []     // live job cards waiting at this bench, any day
     };
 
@@ -580,7 +669,7 @@
         // on their network's station, standalone units on their own.
         const units = [...new Set(batches.map(unitKeyOf))];
         stations = benchKey === "assembly"
-          ? ["subAssembly", ...units.map(unit => `assembly:${unit}`)]
+          ? units.map(unit => `assembly:${unit}`)
           : [
               ...["verizon", "global"].filter(network => batches.some(batch => usesComms(batch) && networkOf(batch) === network)).map(network => NETWORKS[network].station),
               ...[...new Set(batches.filter(batch => !usesComms(batch)).map(unitKeyOf))].map(unit => `testing:${unit}`)
@@ -590,7 +679,7 @@
           ? ["verizon", "global"].filter(network => batches.some(batch => networkOf(batch) === network)).map(network => NETWORKS[network].station)
           : ["testing"];
       } else if (benchKey === "assembly") {
-        stations = ["subAssembly"];
+        stations = [];
         if (mixed) {
           if (batches.some(batch => batch.unitType !== "tap")) stations.push("assemblyGen4");
           if (batches.some(batch => batch.unitType === "tap")) stations.push("assemblyTap");
@@ -764,7 +853,8 @@
     function openDate(date) {
       stopAll();
       board?.clearSelection();
-      Object.assign(state, { date, plan: null, reachable: true, assignments: [], events: [], roster: null, nextPlan: null, progress: new Map(), notes: [], requests: [], requestsLoaded: false });
+      Object.assign(state, { date, plan: null, reachable: true, assignments: [], events: [], roster: null, nextPlan: null, progress: new Map(), notes: [], requests: [], requestsLoaded: false, messages: [], messagesLoaded: false, followClock: true });
+      state.phase = date === toInputDate(new Date()) ? currentBlock() : "start";
       $("dateInput").value = date;
       render();
 
@@ -841,6 +931,17 @@
         state.requestsLoaded = true;
         render();
       }));
+      detailStops.push(watchMessages(date, list => {
+        if (state.date !== date || !list) return;
+        const known = new Set(state.messages.map(message => message.id));
+        const fresh = state.messagesLoaded
+          ? list.filter(message => !known.has(message.id) && message.role !== state.role && (message.bench === benchKey || message.bench === "all"))
+          : [];
+        state.messages = list;
+        state.messagesLoaded = true;
+        if (fresh.length) toast(`Note from Management: ${fresh[0].text}`);
+        render();
+      }));
       detailStops.push(watchFloor(date, ({ progress, notes }) => {
         if (state.date !== date) return;
         state.progress = progress;
@@ -883,8 +984,12 @@
         return;
       }
 
+      renderBlockTabs();
       renderActions();
       renderRequests();
+      renderJobCard();
+      renderTeam();
+      renderMessages();
       renderSummary();
       renderBatchStatuses();
       renderPinned();
@@ -958,6 +1063,166 @@
         : "";
 
       $("summary").innerHTML = middle + last;
+    }
+
+    // ------------------------------------------------------------------
+    // The one-screen bench: the block, its job, the team and notes
+    // ------------------------------------------------------------------
+    const isToday = () => state.date === toInputDate(new Date());
+
+    function renderBlockTabs() {
+      const now = isToday() ? currentBlock() : null;
+      $("blockTabs").innerHTML = PHASES.map(([phase, label]) => `
+        <button type="button" role="tab" data-block="${phase}" class="${phase === state.phase ? "active" : ""} ${phase === now ? "now" : ""}" aria-selected="${phase === state.phase}">
+          <b>${escapeHtml(label)}</b><span>${escapeHtml(blockClockLabel(phase))}</span>
+        </button>`).join("");
+    }
+
+    // Who the plan put on a job in a block (at release).
+    function plannedOn(phase, station) {
+      return (state.plan?.snapshot?.phases?.[phase] || [])
+        .filter(task => task.station === station)
+        .flatMap(task => task.workers || []);
+    }
+
+    // What some people on a job can do in a block (the bench's rates).
+    function stationCapacity(station, phase, count) {
+      const batches = activeBatches();
+      const product = productOf(station);
+      const lead = batches.find(batch => !product || unitKeyOf(batch) === product) || batches[0];
+      if (!lead || count <= 0) return 0;
+      const unit = product || unitKeyOf(lead);
+      const base = baseOf(station);
+      if (station === "subAssembly") return count * subAssemblyRate(unit, phase);
+      if (base === "assembly" || station === "assemblyGen4" || station === "assemblyTap") return count * assemblyRate(unit, phase);
+      if (product && base === "testing") return count * testingRate(unit, phase);
+      if (station === "testingVerizon" || station === "testingGlobal" || station === "testing") {
+        const network = STATIONS[station]?.network;
+        const batch = network ? batches.find(item => usesComms(item) && networkOf(item) === network) || lead : lead;
+        return testingInBlock(commsKeyOf(batch), phase, count);
+      }
+      if (station === "hardware") return hardwareRate(count, unit, commsKeyOf(lead), phase);
+      if (station === "packing") return packagingBuildRate(count, unit, phase);
+      if (station === "finalPackaging") return packingRate(count, unit, phase);
+      return null;
+    }
+
+    // The job card: each job of this bench in the block on screen, with its
+    // target, then the day's orders and the Hit target / Enter number buttons.
+    function renderJobCard() {
+      const figures = state.plan.snapshot?.figures?.[state.phase] || null;
+      const people = station => benchPeople(state.phase).filter(item => item.station === station).length;
+      const jobs = benchJobs().filter(job => people(job.station) || figures?.[job.station]);
+      const lines = jobs.map(job => {
+        const figure = figures?.[job.station] || null;
+        const onIt = people(job.station);
+        const planned = plannedOn(state.phase, job.station).length;
+        const can = figure && onIt !== planned ? stationCapacity(job.station, state.phase, onIt) : null;
+        const short = can !== null && figure && can < figure.target;
+        return `
+          <div class="job-line">
+            <span class="job-station">${escapeHtml(job.label)}</span>
+            ${figure
+              ? `<span class="job-target">${escapeHtml(bench.verb || "Do")} ${figure.target}</span>`
+              : `<span class="job-target">${onIt} on</span>`}
+            ${figure?.text ? `<span class="job-what">${escapeHtml(figure.text)}</span>` : ""}
+            ${figure?.spare ? `<span class="job-then">Then Packaging build-up: ${figure.spare} boxes</span>` : ""}
+            ${short ? `<span class="job-now">Now ${can} with ${onIt} ${onIt === 1 ? "person" : "people"}</span>` : ""}
+          </div>`;
+      });
+
+      const orders = (state.plan.snapshot?.orders || []).filter(order => order.quantity > 0);
+      const ordersHtml = orders.length && benchKey !== "cage"
+        ? `<div class="job-orders">${orders.map(order => `<div>${escapeHtml(order.customer)} · ${escapeHtml(labelOf("units", order.unitKey))}${order.built !== null ? ` · <b>${order.built} / ${order.quantity}</b> built` : ` · ${order.quantity}`}</div>`).join("")}</div>`
+        : "";
+
+      // Hit target / Enter number for each batch this bench works on.
+      const cage = benchKey === "cage";
+      const batches = floorBatches(state.plan).filter(batch => onRoute(batch, benchKey));
+      const statusHtml = batches.length ? `
+        <div class="job-status">${batches.map(batch => {
+          const item = progressOf(state.progress, benchKey, batch);
+          const expected = expectedUnits(state.progress, benchKey, batch);
+          const buttons = [];
+          if (item.status === "waiting" || item.status === "in_progress") buttons.push(`<button type="button" data-set="hit" data-batch="${escapeHtml(batch.key)}">${cage ? "Released" : "Hit target"}</button>`);
+          buttons.push(`<button type="button" class="secondary" data-set="short" data-batch="${escapeHtml(batch.key)}">${item.status === "short" ? "Change number" : cage ? "Released fewer" : "Enter number"}</button>`);
+          if (item.status !== "waiting") buttons.push(`<button type="button" class="secondary" data-set="waiting" data-batch="${escapeHtml(batch.key)}">Undo</button>`);
+          return `
+            <div class="job-status-row">
+              <span class="job-status-text">${escapeHtml(batchTitle(batch))} · ${escapeHtml(statusText(benchKey, item, expected))}</span>
+              ${buttons.join("")}
+            </div>`;
+        }).join("")}</div>` : "";
+
+      $("jobCard").innerHTML = `
+        <div class="bench-card-head"><h2>${escapeHtml(phaseLabel(state.phase))}</h2></div>
+        ${lines.join("") || (cage ? "" : '<p class="empty">Nothing on this bench this block.</p>')}
+        ${ordersHtml}
+        ${statusHtml}`;
+    }
+
+    // The team this block: everyone on each job, ticked. Untick to take
+    // someone off (with a reason); people the plan put here who are off
+    // show unticked, to tick back on.
+    function renderTeam() {
+      const jobs = benchJobs();
+      $("benchMain").classList.toggle("no-team", !hasBoard);
+      $("teamPanel").classList.toggle("hidden", !hasBoard);
+      if (!hasBoard) return;
+      const sent = sentHomeToday();
+      const groups = jobs.map(job => {
+        const on = benchPeople(state.phase).filter(item => item.station === job.station).map(item => item.staffKey);
+        const off = plannedOn(state.phase, job.station).filter(key => !on.includes(key));
+        if (!on.length && !off.length) return "";
+        const elsewhere = key => {
+          const now = jobFor(key, state.phase);
+          return now ? jobLabel(now.station) : sent.has(key) ? "Sick" : "Off";
+        };
+        return `
+          <div class="team-group">
+            <h3>${escapeHtml(job.label)}</h3>
+            <div class="team-list">
+              ${on.map(key => `<label class="team-person"><input type="checkbox" checked data-team-off="${escapeHtml(key)}" data-station="${escapeHtml(job.station)}" />${escapeHtml(personName(key))}</label>`).join("")}
+              ${off.map(key => {
+                const busyElsewhere = Boolean(jobFor(key, state.phase));
+                return `<label class="team-person off"><input type="checkbox" ${busyElsewhere ? "disabled" : ""} data-team-on="${escapeHtml(key)}" data-station="${escapeHtml(job.station)}" />${escapeHtml(personName(key))}<small>${escapeHtml(elsewhere(key))}</small></label>`;
+              }).join("")}
+            </div>
+          </div>`;
+      }).join("");
+      $("teamPanel").innerHTML = `
+        <div class="bench-card-head"><h2>Team · ${escapeHtml(phaseLabel(state.phase))}</h2></div>
+        ${groups ? `<div class="team-groups">${groups}</div>` : '<p class="team-empty">Nobody on this bench this block.</p>'}`;
+    }
+
+    function renderMessages() {
+      const mine = state.messages.filter(message => message.bench === benchKey || message.bench === "all");
+      const planNote = String(state.plan.notes || "").trim();
+      const fromPlan = planNote ? `
+        <div class="msg from-management">
+          <div class="msg-head"><span class="msg-tag">Plan</span><span class="msg-who">Management</span></div>
+          <div class="msg-text">${escapeHtml(planNote)}</div>
+        </div>` : "";
+      $("messageList").innerHTML = mine.map(message => messageHtml(message, state.role)).join("") + fromPlan
+        || '<p class="empty">No notes.</p>';
+    }
+
+    async function writeMessage() {
+      const note = await askMessage({ title: `Note · ${bench.label}` });
+      if (!note) return;
+      try {
+        await addMessage(state.date, { ...note, bench: benchKey }, state.role, ACTOR);
+      } catch (error) {
+        toast(`That note wasn't saved: ${friendlyError(error)}`, true);
+      }
+    }
+
+    async function seenMessage(id) {
+      try {
+        await markMessageSeen(state.date, id, ACTOR);
+      } catch (error) {
+        toast(`That wasn't saved: ${friendlyError(error)}`, true);
+      }
     }
 
     // ------------------------------------------------------------------
@@ -1440,14 +1705,15 @@
             <h3></h3>
             <p>Management will see this straight away.</p>
             <div class="choices">
-              <button type="button" data-reason="${SICK_REASON}">${SICK_REASON}</button>
+              <button type="button" data-reason="${SICK_REASON}">Sick · rest of the day</button>
+              <button type="button" data-reason="Busy">Busy · this block</button>
               <button type="button" data-reason="Moved to another bench">Moved to another bench</button>
               <input type="text" placeholder="Other reason" maxlength="120" />
               <button type="button" data-reason="other">Use other reason</button>
               <button type="button" class="secondary" data-reason="">Cancel</button>
             </div>
           </div>`;
-        backdrop.querySelector("h3").textContent = `Why is ${name} coming off ${bench.label}?`;
+        backdrop.querySelector("h3").textContent = `Why is ${name} coming off ${bench.label} (${phaseLabel(state.phase)})?`;
         document.body.appendChild(backdrop);
         backdrop.addEventListener("click", event => {
           const button = event.target.closest("button[data-reason]");
@@ -1669,6 +1935,48 @@
         if (remove) return deleteNote(remove.dataset.removeNote);
       });
       $("pinNoteButton").addEventListener("click", pinNote);
+      $("blockTabs").addEventListener("click", event => {
+        const button = event.target.closest("button[data-block]");
+        if (!button) return;
+        state.phase = button.dataset.block;
+        state.followClock = isToday() && state.phase === currentBlock();
+        board?.clearSelection();
+        render();
+      });
+      $("teamPanel").addEventListener("change", event => {
+        const off = event.target.closest("input[data-team-off]");
+        if (off) {
+          off.checked = true;   // stays ticked unless the move goes through
+          return applyMove(off.dataset.teamOff, off.dataset.station, "off");
+        }
+        const on = event.target.closest("input[data-team-on]");
+        if (on) {
+          on.checked = false;
+          return applyMove(on.dataset.teamOn, "off", on.dataset.station);
+        }
+      });
+      $("noteButton").addEventListener("click", writeMessage);
+      $("messageList").addEventListener("click", event => {
+        const button = event.target.closest("[data-message-seen]");
+        if (button) {
+          button.disabled = true;
+          seenMessage(button.dataset.messageSeen);
+        }
+      });
+      $("moreButton").addEventListener("click", () => {
+        $("moreTitle").textContent = `${bench.label} · ${phaseLabel(state.phase)}`;
+        $("moreSheet").classList.remove("hidden");
+      });
+      $("moreClose").addEventListener("click", () => $("moreSheet").classList.add("hidden"));
+      // Move on to the next block when it starts (unless another was picked).
+      setInterval(() => {
+        if (!state.followClock || !isToday() || state.busy || board?.isDragging()) return;
+        const block = currentBlock();
+        if (block !== state.phase) {
+          state.phase = block;
+          render();
+        }
+      }, 60000);
       if (JOB_STAGES.includes(benchKey)) {
         onSnapshot(query(collection(db, "jobs"), where("stage", "==", benchKey)), snapshot => {
           state.waitingJobs = snapshot.docs

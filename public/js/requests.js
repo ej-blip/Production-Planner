@@ -39,7 +39,7 @@ export const REQUEST_KINDS = {
   }
 };
 
-const BENCH_LABELS = { cage: "Cage", assembly: "Assembly", testing: "Testing", hardware: "Hardware", packing: "Packing", management: "Management" };
+const BENCH_LABELS = { cage: "Cage", subassembly: "Sub Assembly", assembly: "Assembly", testing: "Testing", hardware: "Hardware", buildup: "Packaging build-up", packing: "Packing", management: "Management" };
 export const nextStatus = status => (status === "open" ? "accepted" : status === "accepted" ? "done" : null);
 
 export function requestTitle(request) {

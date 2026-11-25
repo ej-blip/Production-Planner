@@ -1055,6 +1055,9 @@
     .alerts-head button { margin: 0 0 0 6px; padding: 6px 10px; }
     .alerts-head svg { width: 18px; height: 18px; vertical-align: -3px; }
     .alerts-desk:not(:empty) { margin-bottom: 10px; }
+    .alerts-notes-head { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 8px; font-size: 17px; }
+    .alerts-notes-head button { margin: 0; padding: 6px 12px; }
+    .alerts-panel .msg-list { max-height: 320px; overflow-y: auto; }
     .alert-toast {
       position: fixed; z-index: 70; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 12px;
       max-width: min(480px, calc(100vw - 32px)); padding: 12px 14px; border-radius: var(--radius); background: var(--sheet);
@@ -1318,6 +1321,8 @@
       </div>
       <div class="alerts-desk" id="deskAlerts"></div>
       <div class="req-list" id="alertsList"></div>
+      <div class="alerts-notes-head"><b>Notes</b><button type="button" class="secondary" id="alertsNoteAdd">+ Note</button></div>
+      <div class="msg-list" id="alertsNotes"></div>
     </div>
     <div class="alert-toast" id="alertToast" role="status" hidden>
       <span id="alertToastText"></span>
@@ -3808,8 +3813,10 @@
        the browser tab shows the count. Kinds this computer has turned
        on under Pop-ups also show as Windows notifications.
        ============================================================ */
-    const ALERT_BENCH = { cage: "Cage", assembly: "Assembly", testing: "Testing", hardware: "Hardware", packing: "Packing", management: "Management" };
+    const ALERT_BENCH = { cage: "Cage", subassembly: "Sub Assembly", assembly: "Assembly", testing: "Testing", hardware: "Hardware", buildup: "Packaging build-up", packing: "Packing", management: "Management" };
     let alertRequests = [];
+    let alertMessages = [];
+    let stopMessages = null;
     let alertsLoaded = false;
     let alertsDate = "";
     let stopAlerts = null;
@@ -3827,6 +3834,21 @@
       alertsDate = today;
       alertsLoaded = false;
       alertRequests = [];
+      if (stopMessages) stopMessages();
+      alertMessages = [];
+      let messagesLoaded = false;
+      stopMessages = window.plannerData.messages.watch(today, list => {
+        if (!list) return;
+        const known = new Set(alertMessages.map(message => message.id));
+        const fresh = messagesLoaded ? list.filter(message => !known.has(message.id) && message.role === "bench") : [];
+        alertMessages = list;
+        messagesLoaded = true;
+        if (fresh.length) {
+          showAlertToast(`${ALERT_BENCH[fresh[0].bench] || fresh[0].bench}: ${fresh[0].text}`);
+          playAlertChime(1);
+        }
+        renderAlerts();
+      });
       stopAlerts = requests.watch(today, list => {
         if (alertsLoaded) {
           announceNewRequests(list);
@@ -3849,7 +3871,8 @@
     }
 
     function renderAlerts() {
-      const open = alertRequests.filter(request => request.status === "open").length;
+      const unseenNotes = alertMessages.filter(message => message.role === "bench" && !message.seenBy).length;
+      const open = alertRequests.filter(request => request.status === "open").length + unseenNotes;
       const active = alertRequests.filter(request => request.status !== "done").reverse();
       const count = document.getElementById("alertsCount");
       count.hidden = open === 0;
@@ -3859,6 +3882,9 @@
       document.getElementById("alertsList").innerHTML = active.length
         ? active.map(request => window.plannerData.requests.cardHtml(request)).join("")
         : '<p class="small">No open requests.</p>';
+      document.getElementById("alertsNotes").innerHTML = alertMessages.length
+        ? alertMessages.map(message => window.plannerData.messages.html(message)).join("")
+        : '<p class="small">No notes today.</p>';
       drawAlertSound();
       drawDeskAlerts();
     }
@@ -3934,6 +3960,26 @@
         try { localStorage.setItem("plannerAlertsMuted", alertsMuted ? "1" : "0"); } catch { /* fine */ }
         drawAlertSound();
         if (!alertsMuted) playAlertChime(1);
+      });
+      document.getElementById("alertsNoteAdd").addEventListener("click", async () => {
+        const note = await window.plannerData.messages.ask({ title: "Note for a bench", bench: "all", benches: window.plannerData.messages.benches });
+        if (!note) return;
+        try {
+          await window.plannerData.messages.add(alertsDate, note);
+        } catch (error) {
+          window.alert(`That wasn't saved: ${window.plannerData.friendlyError(error)}`);
+        }
+      });
+      document.getElementById("alertsNotes").addEventListener("click", async event => {
+        const button = event.target.closest("[data-message-seen]");
+        if (!button) return;
+        button.disabled = true;
+        try {
+          await window.plannerData.messages.seen(alertsDate, button.dataset.messageSeen);
+        } catch (error) {
+          button.disabled = false;
+          window.alert(`That wasn't saved: ${window.plannerData.friendlyError(error)}`);
+        }
       });
       document.getElementById("alertsList").addEventListener("click", async event => {
         const photo = event.target.closest("[data-photo]");
@@ -7653,7 +7699,51 @@
         batchTargets = [{ index: 0, planned: capToOrder(result.workflowCapacity.finalOutput) }];
       }
 
-      return { phases, capacity, batchTargets };
+      // Each block's figures for the bench screens: per job with people on
+      // it, what's wanted there (target), what its people can do (actual)
+      // and what the work is ("24 Solar", "24 Solar for tomorrow"); Sub
+      // Assembly also gives its spare Packaging build-up boxes.
+      const work = planPictureWork();
+      const planned = plannedToday();
+      // Later benches with no cards of their own work on today's build.
+      const todaysText = dayBuilds()
+        .map(batch => [planned.get(batch.id) || 0, `${unitTypeLabel(batch)} ${usesCommsLabel(batch)}`.trim()])
+        .filter(([units]) => units > 0)
+        .map(([units, what]) => `${units} ${what}`)
+        .join(", ");
+      const figures = {};
+      WORKFLOW_PHASES.forEach(phase => {
+        figures[phase] = {};
+        Object.entries(stationFigures(phase)).forEach(([zone, figure]) => {
+          if (!workflowPhaseWorkers(model, phase, zone).length) return;
+          const later = ["hardware", "packing", "finalPackaging"].includes(zone);
+          let text = (planWorkText(zone, work) || "").replace(/\s+/g, " ").trim();
+          if (later && !work.some(job => zoneTakes(zone, job))) {
+            const spare = zone === "packing" ? WORKFLOW_PHASES.reduce((sum, block) => sum + sparePackagingUnits(block, model), 0) : 0;
+            text = [todaysText, spare ? `${spare} from Sub Assembly` : ""].filter(Boolean).join(" · ");
+          }
+          figures[phase][zone] = { target: figure.target, actual: figure.actual ?? null, text };
+        });
+        const spare = sparePackagingUnits(phase, model);
+        if (spare && figures[phase].subAssembly) figures[phase].subAssembly.spare = spare;
+      });
+
+      // Each order on the day: built so far (before today) out of its total.
+      const orders = [...new Set(workBatches.map(batch => batch.orderId).filter(Boolean))]
+        .map(id => workOrders.find(order => order.id === id))
+        .filter(Boolean)
+        .map(order => {
+          const left = orderLeftBefore(order);
+          return {
+            id: order.id,
+            customer: order.customer || "",
+            unitKey: order.unitKey || order.unitType || "",
+            quantity: Number(order.quantity) || 0,
+            built: left === null ? null : Math.max(0, (Number(order.quantity) || 0) - left)
+          };
+        });
+
+      return { phases, capacity, batchTargets, figures, orders };
     }
 
     function buildPlanAssignments() {
@@ -8146,6 +8236,10 @@
       return work.filter(job => zoneTakes(zone, job))
         .map(job => `${job.quantity} ${unitTypeLabel(job)} ${commsShort(job)}`)
         .join(", ");
+    }
+
+    function usesCommsLabel(job) {
+      return isStandalone(job) ? "" : commsShort(job);
     }
 
     function commsShort(job) {

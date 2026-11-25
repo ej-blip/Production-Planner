@@ -165,6 +165,7 @@
     table.list.rates td.num { text-align: center; white-space: nowrap; }
     table.list.rates td.row-name { white-space: nowrap; font-weight: 600; }
     table.list.rates input[type="number"] { width: 92px; min-height: 40px; padding: 8px; text-align: center; }
+    table.list.rates input[type="time"] { width: 120px; min-height: 40px; padding: 6px 8px; text-align: center; }
     table.list.rates input[type="number"]::placeholder { color: var(--muted); }
 
     /* Staff: 0–3 dots per job */
@@ -652,6 +653,7 @@
       const verizon = Lists.labelOf("comms", "verizon");
       const global = Lists.labelOf("comms", "global");
       const times = Lists.blockTimesNow();
+      const clock = Lists.blockClock();
       const blocks = `
         <section class="rate-group">
           <h3>Blocks</h3>
@@ -663,6 +665,11 @@
                   <td class="row-name">Minutes</td>
                   ${Lists.BLOCK_KEYS.map(key => `<td class="num"><input type="number" min="15" max="600" step="1" inputmode="numeric" data-block="${key}" value="${esc(times[key])}" aria-label="${esc(BLOCK_HEADS[key])} minutes" /></td>`).join("")}
                 </tr>
+                ${[["Starts", 0], ["Ends", 1]].map(([name, part]) => `
+                <tr>
+                  <td class="row-name">${name}</td>
+                  ${Lists.BLOCK_KEYS.map(key => `<td class="num"><input type="time" data-clock="${key}" data-part="${part}" value="${esc((clock[key] || "").split("-")[part] || "")}" aria-label="${esc(BLOCK_HEADS[key])} ${name.toLowerCase()}" /></td>`).join("")}
+                </tr>`).join("")}
               </tbody>
             </table>
           </div>
@@ -727,6 +734,17 @@
       const value = Number(field.value);
       if (!Number.isFinite(value) || value < 15 || value > 600) return draw();
       save(() => Lists.saveBlockMinutes({ ...Lists.blockTimesNow(), [field.dataset.block]: value }));
+    }
+
+    // A block's start or end time ("08:15").
+    function editClock(field) {
+      if (!/^\d{2}:\d{2}$/.test(field.value)) return draw();
+      const clock = Lists.blockClock();
+      const parts = String(clock[field.dataset.clock] || "-").split("-");
+      parts[Number(field.dataset.part)] = field.value;
+      if (!parts.every(part => /^\d{2}:\d{2}$/.test(part))) return draw();
+      clock[field.dataset.clock] = parts.join("-");
+      save(() => Lists.saveBlockMinutes(Lists.blockTimesNow(), "Management", clock));
     }
 
     // A unit's speeds are saved whole, one person's minutes per task: what
@@ -944,6 +962,8 @@
       $("sheet").addEventListener("change", event => {
         const blockField = event.target.closest("[data-block]");
         if (blockField) return editBlock(blockField);
+        const clockField = event.target.closest("[data-clock]");
+        if (clockField) return editClock(clockField);
         const rateField = event.target.closest("[data-rate]");
         if (rateField) return editRate(rateField, rateField.value);
         const field = event.target.closest("[data-field]");

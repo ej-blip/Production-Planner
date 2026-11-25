@@ -676,6 +676,68 @@ describe("Requests – help, stock and faulty reports", () => {
 });
 
 // ---------------------------------------------------------------------
+describe("Bench notes – between a bench and management", () => {
+  const message = fields => ({
+    bench: "assembly", tag: "delay", text: "Waited for procurement to release plugs. 20 minute delay.",
+    role: "bench", createdBy: "Assembly bench", createdAt: serverTimestamp(), ...fields
+  });
+  const seen = by => ({ seenBy: by, seenAt: serverTimestamp() });
+
+  it("a bench and management each write notes, tagged", async () => {
+    await assertSucceeds(addDoc(collection(bench(), "plans", RELEASED, "messages"), message()));
+    await assertSucceeds(addDoc(collection(bench(), "plans", RELEASED, "messages"), message({ bench: "subassembly", tag: "stock" })));
+    await assertSucceeds(addDoc(collection(management(), "plans", RELEASED, "messages"), message({ role: "management", createdBy: "Management", tag: "stock", text: "Change to 14 Solar units: low stock." })));
+  });
+
+  it("notes must be well formed, as who wrote them", async () => {
+    const col = collection(bench(), "plans", RELEASED, "messages");
+    await assertFails(addDoc(col, message({ role: "management" })));
+    await assertFails(addDoc(col, message({ tag: "gossip" })));
+    await assertFails(addDoc(col, message({ bench: "office" })));
+    await assertFails(addDoc(col, message({ text: "" })));
+    await assertFails(addDoc(col, message({ text: "x".repeat(1001) })));
+    await assertFails(addDoc(col, message({ seenBy: "Management" })));
+    await assertFails(addDoc(col, message({ urgent: true })));
+    await assertFails(addDoc(collection(bench(), "plans", DRAFT, "messages"), message()));
+  });
+
+  it("only the other side marks a note seen, and nothing else changes", async () => {
+    await env.withSecurityRulesDisabled(async context => {
+      const db = context.firestore();
+      await setDoc(doc(db, "plans", RELEASED, "messages", "from-bench"), message({ createdAt: Timestamp.now() }));
+      await setDoc(doc(db, "plans", RELEASED, "messages", "from-management"), message({ role: "management", createdAt: Timestamp.now() }));
+    });
+    await assertFails(updateDoc(doc(bench(), "plans", RELEASED, "messages", "from-bench"), seen("Assembly bench")));
+    await assertFails(updateDoc(doc(management(), "plans", RELEASED, "messages", "from-bench"), { ...seen("Management"), text: "Edited" }));
+    await assertSucceeds(updateDoc(doc(management(), "plans", RELEASED, "messages", "from-bench"), seen("Management")));
+    await assertSucceeds(updateDoc(doc(bench(), "plans", RELEASED, "messages", "from-management"), seen("Assembly bench")));
+  });
+
+  it("only management deletes a note; screens without a PIN see nothing", async () => {
+    await env.withSecurityRulesDisabled(async context => {
+      await setDoc(doc(context.firestore(), "plans", RELEASED, "messages", "m1"), message({ createdAt: Timestamp.now() }));
+    });
+    await assertFails(deleteDoc(doc(bench(), "plans", RELEASED, "messages", "m1")));
+    await assertSucceeds(deleteDoc(doc(management(), "plans", RELEASED, "messages", "m1")));
+    for (const db of [stranger(), revoked(), nobody()]) {
+      await assertFails(getDocs(collection(db, "plans", RELEASED, "messages")));
+    }
+  });
+
+  it("the Sub Assembly and Packaging build-up benches can call for help and pin notes", async () => {
+    const db = bench();
+    await assertSucceeds(addDoc(collection(db, "plans", RELEASED, "requests"), {
+      kind: "help", bench: "buildup", status: "open", text: "Need boxes", createdBy: "Packaging build-up bench",
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    }));
+    await assertSucceeds(addDoc(collection(db, "plans", RELEASED, "notes"), {
+      bench: "subassembly", text: "Chargers on the left shelf", role: "bench", createdBy: "Sub Assembly bench",
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    }));
+  });
+});
+
+// ---------------------------------------------------------------------
 describe("Work orders", () => {
   // What planner-data.js writes when an order is added or edited.
   const order = fields => ({
@@ -779,6 +841,9 @@ describe("Lists", () => {
     await assertFails(setDoc(doc(db, "lists", "blocks"), blocks({ finish: "two hours" })));
     await assertFails(setDoc(doc(db, "lists", "blocks"), blocks({ items: [] })));
     await assertFails(setDoc(doc(db, "lists", "blocks"), { start: 120, second: 150, updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(db, "lists", "blocks"), blocks({ clock: { start: "08:15-10:15", second: "10:50-13:10", finish: "14:00-16:00" } })));
+    await assertFails(setDoc(doc(db, "lists", "blocks"), blocks({ clock: { start: "8am" } })));
+    await assertFails(setDoc(doc(db, "lists", "blocks"), blocks({ clock: { lunch: "12:00-12:30" } })));
     await assertFails(deleteDoc(doc(db, "lists", "blocks")));
     await assertSucceeds(getDoc(doc(bench(), "lists", "blocks")));
     await assertFails(setDoc(doc(bench(), "lists", "blocks"), blocks()));

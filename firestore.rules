@@ -46,6 +46,7 @@ rules_version = '2';
 //   plans/{date}/progress/{id}       floor board: each bench's status per batch
 //                                    (id = bench_batchId)
 //   plans/{date}/notes/{id}          floor board: pinned notes and photos
+//   plans/{date}/messages/{id}       notes between a bench and management
 //   plans/{date}/requests/{id}       help, stock and faulty reports from
 //                                    the benches
 // =====================================================================
@@ -161,7 +162,7 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasAll(['bench', 'batchId', 'status', 'updatedAt'])
         && d.keys().hasOnly(['bench', 'batchId', 'status', 'done', 'updatedBy', 'updatedAt'])
-        && d.bench in ['cage', 'assembly', 'testing', 'hardware', 'packing']
+        && d.bench in ['cage', 'subassembly', 'assembly', 'testing', 'hardware', 'buildup', 'packing']
         && d.batchId is string && d.batchId.size() > 0 && d.batchId.size() <= 64
         && progressId == d.bench + '_' + d.batchId
         && d.status in ['waiting', 'in_progress', 'hit', 'short']
@@ -174,12 +175,27 @@ service cloud.firestore {
       let d = request.resource.data;
       return d.keys().hasAll(['bench', 'text', 'role', 'createdAt', 'updatedAt'])
         && d.keys().hasOnly(['bench', 'text', 'photo', 'role', 'createdBy', 'createdAt', 'updatedAt'])
-        && d.bench in ['all', 'cage', 'assembly', 'testing', 'hardware', 'packing']
+        && d.bench in ['all', 'cage', 'subassembly', 'assembly', 'testing', 'hardware', 'buildup', 'packing']
         && d.text is string && d.text.size() <= 2000
         && (d.get('photo', null) == null
             || (d.photo is string && d.photo.size() <= 900000 && d.photo.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+')))
         && d.role == role()
         && d.updatedAt == request.time;
+    }
+
+    // A note between a bench and management (delays, stock, quality…),
+    // kept with the day. The other side can mark it seen.
+    function validMessage() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['bench', 'tag', 'text', 'role', 'createdAt'])
+        && d.keys().hasOnly(['bench', 'tag', 'text', 'role', 'createdBy', 'createdAt', 'seenBy', 'seenAt'])
+        && d.bench in ['all', 'cage', 'subassembly', 'assembly', 'testing', 'hardware', 'buildup', 'packing']
+        && d.tag in ['delay', 'stock', 'quality', 'other']
+        && d.text is string && d.text.size() > 0 && d.text.size() <= 1000
+        && d.role == role()
+        && (d.get('createdBy', null) == null || (d.createdBy is string && d.createdBy.size() <= 80))
+        && d.get('seenBy', null) == null
+        && d.get('seenAt', null) == null;
     }
 
     // A request from a bench: help, stock or a faulty report.
@@ -189,7 +205,7 @@ service cloud.firestore {
       return d.keys().hasAll(['kind', 'bench', 'status', 'text', 'createdAt', 'updatedAt'])
         && d.keys().hasOnly(['kind', 'bench', 'status', 'text', 'qty', 'unit', 'batchId', 'photo', 'createdBy', 'createdAt', 'updatedAt', 'updatedBy'])
         && d.kind in ['help', 'stock', 'faulty']
-        && d.bench in ['cage', 'assembly', 'testing', 'hardware', 'packing', 'management']
+        && d.bench in ['cage', 'subassembly', 'assembly', 'testing', 'hardware', 'buildup', 'packing', 'management']
         && d.status in ['open', 'accepted', 'done']
         && d.text is string && d.text.size() <= 500
         && (d.get('qty', null) == null || (d.qty is int && d.qty > 0 && d.qty <= 100000))
@@ -216,11 +232,22 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
 
+    // When each block runs: { start: "08:15-10:15", second: …, finish: … }.
+    function validClock(clock) {
+      let range = '^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$';
+      return clock is map
+        && clock.keys().hasOnly(['start', 'second', 'finish'])
+        && (clock.get('start', null) == null || (clock.start is string && clock.start.matches(range)))
+        && (clock.get('second', null) == null || (clock.second is string && clock.second.matches(range)))
+        && (clock.get('finish', null) == null || (clock.finish is string && clock.finish.matches(range)));
+    }
+
     // Minutes of work in the 1st, 2nd and 3rd block of the day.
     function validBlocks() {
       let d = request.resource.data;
       return d.keys().hasAll(['start', 'second', 'finish', 'updatedAt'])
-        && d.keys().hasOnly(['start', 'second', 'finish', 'updatedAt', 'updatedBy'])
+        && d.keys().hasOnly(['start', 'second', 'finish', 'clock', 'updatedAt', 'updatedBy'])
+        && (d.get('clock', null) == null || validClock(d.clock))
         && d.start is number && d.start >= 15 && d.start <= 600
         && d.second is number && d.second >= 15 && d.second <= 600
         && d.finish is number && d.finish >= 15 && d.finish <= 600
@@ -415,6 +442,20 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'updatedBy'])
           && request.resource.data.status in ['open', 'accepted', 'done']
           && request.resource.data.updatedAt == request.time;
+        allow delete: if isManagement();
+      }
+
+      match /messages/{messageId} {
+        allow read: if isManagement() || (isBench() && planIsReleased(date));
+        allow create: if validMessage()
+          && request.resource.data.createdAt == request.time
+          && (isManagement() || (isBench() && planIsReleased(date)));
+        // Only the other side marks a note seen, and that's all that changes.
+        allow update: if (isManagement() || (isBench() && planIsReleased(date)))
+          && resource.data.role != role()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy', 'seenAt'])
+          && request.resource.data.seenBy is string && request.resource.data.seenBy.size() <= 80
+          && request.resource.data.seenAt == request.time;
         allow delete: if isManagement();
       }
 

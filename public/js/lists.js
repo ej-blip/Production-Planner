@@ -10,7 +10,8 @@
 //     comms       comms types      + colourHex, planAs "verizon" | "global",
 //                                    testingMinutes, testingAtOnce,
 //                                    testingBenches (older: testingPerDay)
-//   lists/blocks = { start, second, finish }   minutes of work in each block
+//   lists/blocks = { start, second, finish }   minutes of work in each block,
+//                  + clock { start: "08:15-10:15", … }   when each block runs
 //     sims        SIM types        + comms (the comms key it belongs to)
 //   configPresets/{key}            configuration colours (label, colourHex,
 //                                  sensorCable, sensors, powerCable,
@@ -84,6 +85,7 @@ export const STARTING_LISTS = {
 export const RATE_PEOPLE = 4;
 export const BLOCK_KEYS = ["start", "second", "finish"];
 export const STARTING_BLOCK_MINUTES = { start: 120, second: 150, finish: 120 };
+export const STARTING_BLOCK_CLOCK = { start: "08:15-10:15", second: "10:50-13:10", finish: "14:00-16:00" };
 export const BASE_MINUTES = 120;          // what the older per-block figures were for
 export const TESTING_DAY_MINUTES = 270;   // what the older per-day testing figures were for
 export const STARTING_UNIT_RATES = {
@@ -100,6 +102,7 @@ let current = copy(STARTING_LISTS);
 let savedNames = new Set();
 let loaded = false;
 let blockTimes = { ...STARTING_BLOCK_MINUTES };
+let blockClockTimes = { ...STARTING_BLOCK_CLOCK };
 
 // ---------------------------------------------------------------------
 // Reading
@@ -163,6 +166,37 @@ export function blockMinutes(block) {
   return value > 0 ? value : BASE_MINUTES;
 }
 export const blockTimesNow = () => ({ ...blockTimes });
+
+// When each block runs: "08:15-10:15" style, from the Rates page.
+const CLOCK_PATTERN = /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
+export const blockClock = () => ({ ...blockClockTimes });
+const minutesOfDay = text => {
+  const [hours, minutes] = String(text).split(":").map(Number);
+  return hours * 60 + minutes;
+};
+
+// "8:15–10:15"
+export function blockClockLabel(block) {
+  const value = blockClockTimes[block];
+  if (!CLOCK_PATTERN.test(value || "")) return "";
+  const short = time => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return `${hours > 12 ? hours - 12 : hours}:${String(minutes).padStart(2, "0")}`;
+  };
+  return value.split("-").map(short).join("–");
+}
+
+// The block on now: the last one that has started (the 1st before the day
+// starts, so a break shows the block just finished until the next begins).
+export function currentBlock(now = new Date()) {
+  const minute = now.getHours() * 60 + now.getMinutes();
+  let block = BLOCK_KEYS[0];
+  BLOCK_KEYS.forEach(key => {
+    const value = blockClockTimes[key];
+    if (CLOCK_PATTERN.test(value || "") && minute >= minutesOfDay(value.split("-")[0])) block = key;
+  });
+  return block;
+}
 
 function ownRates(unitKey) {
   const item = find("units", unitKey);
@@ -368,11 +402,14 @@ export function watchLists(onChange) {
       const next = copy(STARTING_LISTS);
       const names = new Set();
       const times = { ...STARTING_BLOCK_MINUTES };
+      const clock = { ...STARTING_BLOCK_CLOCK };
       snapshot.docs.forEach(entry => {
         if (entry.id === "blocks") {
           BLOCK_KEYS.forEach(key => {
             const value = minutesNumber(entry.data()[key]);
             if (value) times[key] = value;
+            const range = entry.data().clock?.[key];
+            if (CLOCK_PATTERN.test(range || "")) clock[key] = range;
           });
           return;
         }
@@ -384,6 +421,7 @@ export function watchLists(onChange) {
       current = next;
       savedNames = names;
       blockTimes = times;
+      blockClockTimes = clock;
       loaded = true;
       listeners.forEach(listener => listener(current));
     }, () => {
@@ -428,14 +466,19 @@ const clean = item => {
 // Minutes kept to 6 decimal places (enough for 120 ÷ 13 to stay 13).
 export const roundMinutes = value => Math.round(Number(value) * 1e6) / 1e6;
 
-// Saves the block lengths (minutes of work in the 1st, 2nd and 3rd block).
-export async function saveBlockMinutes(times, actor = "Management") {
+// Saves the block lengths (minutes of work in the 1st, 2nd and 3rd block)
+// and when each runs ("08:15-10:15").
+export async function saveBlockMinutes(times, actor = "Management", clock = blockClockTimes) {
   const next = { ...blockTimes };
   BLOCK_KEYS.forEach(key => {
     const value = minutesNumber(times?.[key]);
     if (value) next[key] = Math.min(600, Math.max(15, Math.round(value)));
   });
-  await setDoc(doc(db, "lists", "blocks"), { ...next, updatedAt: serverTimestamp(), updatedBy: actor });
+  const ranges = { ...blockClockTimes };
+  BLOCK_KEYS.forEach(key => {
+    if (CLOCK_PATTERN.test(clock?.[key] || "")) ranges[key] = clock[key];
+  });
+  await setDoc(doc(db, "lists", "blocks"), { ...next, clock: ranges, updatedAt: serverTimestamp(), updatedBy: actor });
 }
 
 export async function saveList(name, list, actor = "Management") {
