@@ -166,6 +166,11 @@
     table.list.rates td.row-name { white-space: nowrap; font-weight: 600; }
     table.list.rates input[type="number"] { width: 92px; min-height: 40px; padding: 8px; text-align: center; }
     table.list.rates input[type="time"] { width: 120px; min-height: 40px; padding: 6px 8px; text-align: center; }
+    table.list.timings td.num { font-weight: 600; min-width: 92px; }
+    table.list.timings tr.timing-stage td { font-weight: 700; background: var(--inset); }
+    table.list.timings tr.timing-task td:first-child { padding-left: 28px; color: var(--ink-2); }
+    table.list.timings tfoot td { border-top: 2px solid var(--rule-strong); }
+    .timing-notes { margin: 8px 0 0; color: var(--ink-2); white-space: pre-line; }
     table.list.rates input[type="number"]::placeholder { color: var(--muted); }
 
     /* Staff: 0–3 dots per job */
@@ -219,6 +224,7 @@
       { id: "sims", title: "SIM types" },
       { id: "configs", title: "Configurations" },
       { id: "rates", title: "Rates" },
+      { id: "timings", title: "Timings" },
       { id: "titles", title: "Job titles" },
       { id: "staff", title: "Staff" }
     ];
@@ -241,6 +247,7 @@
     let presets = [];
     let staff = [];
     let jobTitles = [];     // the Job creator's suggestions (customJobs)
+    let timingSheets = [];  // reference timings (not used to plan)
     let pending = 0;
     let failed = false;
     let alertText = "";
@@ -312,6 +319,7 @@
       if (LIST_COLUMNS[tab]) body = listSheet(tab);
       else if (tab === "configs") body = configSheet();
       else if (tab === "rates") body = ratesSheet();
+      else if (tab === "timings") body = timingsSheet();
       else if (tab === "titles") body = titlesSheet();
       else body = staffSheet();
       $("sheet").innerHTML = `<h2>${esc(title)}</h2>${body}`;
@@ -803,6 +811,48 @@
     }
 
     // ------------------------------------------------------------------
+    // Timings: reference sets of task timings, kept apart from the Rates
+    // the planner uses. Each stage's total and the whole cycle are added up.
+    // ------------------------------------------------------------------
+    const showTiming = value => (value === null || value === undefined || value === "" ? "–" : String(Math.round(Number(value) * 10) / 10));
+
+    function timingsSheet() {
+      if (!timingSheets.length) return '<p class="empty">None</p>';
+      return timingSheets.map(sheet => {
+        const units = Array.isArray(sheet.units) ? sheet.units : [];
+        const stages = Array.isArray(sheet.stages) ? sheet.stages : [];
+        const sum = (tasks, key) => tasks.reduce((total, task) => total + (Number(task.minutes?.[key]) || 0), 0);
+        const cycle = Object.fromEntries(units.map(unit => [unit.key, stages.reduce((total, stage) => total + sum(stage.tasks || [], unit.key), 0)]));
+        const realLife = sheet.cycle?.realLife || {};
+        const cells = values => units.map(unit => `<td class="num">${showTiming(values(unit.key))}</td>`).join("");
+        return `
+          <section class="rate-group">
+            <h3>${esc(sheet.name)}${sheet.source ? `<small>${esc(sheet.source)}</small>` : ""}</h3>
+            <div class="table-scroll">
+              <table class="list rates timings">
+                <thead><tr><th class="wide">Minutes per unit</th>${units.map(unit => `<th class="num">${esc(unit.label || unit.key)}</th>`).join("")}</tr></thead>
+                <tbody>${stages.map(stage => {
+                  const tasks = stage.tasks || [];
+                  const single = tasks.length === 1 && tasks[0].name === stage.name;
+                  return `
+                    <tr class="timing-stage"><td class="row-name">${esc(stage.name)}</td>${cells(key => sum(tasks, key))}</tr>
+                    ${single ? "" : tasks.map(task => `<tr class="timing-task"><td>${esc(task.name)}</td>${cells(key => task.minutes?.[key])}</tr>`).join("")}`;
+                }).join("")}
+                </tbody>
+                <tfoot>
+                  <tr class="timing-stage"><td class="row-name">Complete cycle</td>${cells(key => cycle[key])}</tr>
+                  ${Object.keys(realLife).length ? `
+                  <tr><td class="row-name">Real life</td>${cells(key => realLife[key])}</tr>
+                  <tr><td class="row-name">Difference</td>${cells(key => (realLife[key] === undefined ? null : realLife[key] - cycle[key]))}</tr>` : ""}
+                </tfoot>
+              </table>
+            </div>
+            ${sheet.notes ? `<p class="timing-notes">${esc(sheet.notes)}</p>` : ""}
+          </section>`;
+      }).join("");
+    }
+
+    // ------------------------------------------------------------------
     // Job titles: what the Job creator suggests while typing
     // ------------------------------------------------------------------
     function titlesSheet() {
@@ -1086,6 +1136,12 @@
           .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
         show("presets");
       }, error => warn(friendlyError(error)));
+      onSnapshot(collection(db, "timingSheets"), snapshot => {
+        timingSheets = snapshot.docs
+          .map(entry => ({ id: entry.id, ...entry.data() }))
+          .sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
+        if (tab === "timings") draw();
+      }, () => {});
       onSnapshot(collection(db, "customJobs"), snapshot => {
         jobTitles = snapshot.docs
           .map(entry => ({ id: entry.id, name: String(entry.data().name || "") }))

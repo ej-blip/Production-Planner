@@ -738,6 +738,40 @@ describe("Bench notes – between a bench and management", () => {
 });
 
 // ---------------------------------------------------------------------
+describe("Timing sheets – reference timings", () => {
+  const sheet = fields => ({
+    name: "Production Timing", source: "Production Timing.xlsx",
+    units: [{ key: "gen4", label: "Gen4" }, { key: "tap", label: "Tap" }],
+    stages: [{ name: "Assembly", tasks: [{ name: "Test Mains", minutes: { gen4: 3, tap: 3 } }] }],
+    cycle: { realLife: { gen4: 140, tap: 105 } },
+    updatedBy: "Management", updatedAt: serverTimestamp(), ...fields
+  });
+
+  it("management saves, reads and removes a timing sheet", async () => {
+    const ref = doc(management(), "timingSheets", "production-timing");
+    await assertSucceeds(setDoc(ref, sheet()));
+    await assertSucceeds(getDoc(ref));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it("sheets must be well formed", async () => {
+    const ref = doc(management(), "timingSheets", "bad");
+    await assertFails(setDoc(ref, sheet({ name: "" })));
+    await assertFails(setDoc(ref, sheet({ units: [] })));
+    await assertFails(setDoc(ref, sheet({ stages: "Assembly" })));
+    await assertFails(setDoc(ref, sheet({ extra: true })));
+  });
+
+  it("benches and screens without a PIN can't see or change them", async () => {
+    await assertSucceeds(setDoc(doc(management(), "timingSheets", "s1"), sheet()));
+    for (const db of [bench(), stranger(), revoked(), nobody()]) {
+      await assertFails(getDoc(doc(db, "timingSheets", "s1")));
+      await assertFails(setDoc(doc(db, "timingSheets", "s2"), sheet()));
+    }
+  });
+});
+
+// ---------------------------------------------------------------------
 describe("Work orders", () => {
   // What planner-data.js writes when an order is added or edited.
   const order = fields => ({
