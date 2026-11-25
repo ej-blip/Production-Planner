@@ -328,7 +328,9 @@
     .job-line { display: grid; gap: 2px; padding: 8px 0; border-top: 1px solid var(--rule); }
     .job-line:first-of-type { border-top: 0; padding-top: 0; }
     .job-station { font-family: var(--font-label); font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-    .job-target { font-size: 34px; font-weight: 700; line-height: 1.1; color: var(--ink); }
+    .job-request { font-size: 44px; font-weight: 700; line-height: 1.08; color: var(--ink); }
+    .job-request-label { font-weight: 500; color: var(--ink-2); }
+    .job-each { font-size: 24px; font-weight: 700; color: var(--accent); }
     .job-what { font-size: 17px; font-weight: 600; color: var(--ink-2); }
     .job-then { font-size: 16px; font-weight: 600; color: var(--ink-2); }
     .job-now { font-size: 15px; font-weight: 700; color: var(--warn); }
@@ -348,6 +350,13 @@
     .team-person small { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); }
     .team-person.off { background: var(--inset); color: var(--muted); }
     .team-empty { font-size: 14px; color: var(--muted); }
+    .bench-right { display: grid; gap: 12px; align-content: start; }
+    .guide-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .guide-card { display: grid; gap: 6px; margin: 0; padding: 6px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--sheet); color: var(--ink); text-align: left; cursor: zoom-in; }
+    .guide-card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: var(--inset); }
+    .guide-card span { font-size: 14px; font-weight: 600; line-height: 1.25; }
+    .guide-view { position: fixed; inset: 0; z-index: 1700; display: grid; place-items: center; padding: 16px; background: rgba(15, 39, 71, 0.82); cursor: zoom-out; }
+    .guide-view img { max-width: 100%; max-height: calc(100vh - 32px); border-radius: var(--radius); background: #ffffff; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
     .more-sheet { position: fixed; inset: 0; z-index: 1200; overflow-y: auto; background: var(--page); padding: 16px 20px 40px; }
     .more-sheet .more-head { display: flex; align-items: center; justify-content: space-between; max-width: 1400px; margin: 0 auto 14px; }
     .more-sheet .more-head h2 { margin: 0; }
@@ -402,7 +411,13 @@
             <div class="msg-list" id="messageList"></div>
           </section>
         </div>
-        <section class="bench-card bench-team" id="teamPanel"></section>
+        <div class="bench-right">
+          <section class="bench-card bench-team" id="teamPanel"></section>
+          <section class="bench-card hidden" id="guidesCard">
+            <div class="bench-card-head"><h2>Guides</h2></div>
+            <div class="guide-cards" id="guideCards"></div>
+          </section>
+        </div>
       </div>
 
       <div class="more-sheet hidden" id="moreSheet">
@@ -464,7 +479,7 @@
     import {
       watchLists, unitLabel, simLabel, labelOf, unitKeyOf, commsKeyOf, usesComms,
       testingPerDay, testingInBlock, assemblyRate, hardwareRate, packagingBuildRate,
-      subAssemblyRate, testingRate, packingRate, currentBlock, blockClockLabel
+      subAssemblyRate, testingRate, packingRate, currentBlock, blockClockLabel, hardwareChecks
     } from "./js/lists.js";
     import { watchMessages, addMessage, markMessageSeen, messageHtml, askMessage } from "./js/messages.js";
 
@@ -590,6 +605,7 @@
       requestsLoaded: false,
       messages: [],       // notes between this bench and management
       messagesLoaded: false,
+      guides: [],         // guide pictures for this bench (Lists → Guides)
       followClock: true,  // show the block that's on now (until another is picked)
       waitingJobs: []     // live job cards waiting at this bench, any day
     };
@@ -989,6 +1005,7 @@
       renderRequests();
       renderJobCard();
       renderTeam();
+      renderGuides();
       renderMessages();
       renderSummary();
       renderBatchStatuses();
@@ -1107,6 +1124,67 @@
       return null;
     }
 
+    // The units a job works on ("Solar", "Gen4 & Tap").
+    function stationUnits(station) {
+      const product = productOf(station);
+      if (product) return labelOf("units", product);
+      const network = STATIONS[station]?.network;
+      const batches = activeBatches().filter(batch => !network || (usesComms(batch) && networkOf(batch) === network));
+      return [...new Set(batches.map(unitKeyOf))].map(key => labelOf("units", key)).join(" & ");
+    }
+
+    // "Build 24 Solar units", with the plan's wordings it makes redundant.
+    function requestText(station, target) {
+      const units = stationUnits(station);
+      const base = baseOf(station);
+      const text = station === "subAssembly" ? `Make ${target} ${units} sets for tomorrow`
+        : base === "assembly" || station === "assemblyGen4" || station === "assemblyTap" ? `Build ${target} ${units} units`
+        : base === "testing" || station === "testingVerizon" || station === "testingGlobal" ? `Test ${target} ${units} units`
+        : station === "hardware" ? `Check ${target} ${units} units`
+        : station === "packing" ? `Build up ${target} ${units} boxes`
+        : station === "finalPackaging" ? `Pack ${target} ${units} units`
+        : `${target} ${units}`;
+      return { text: text.replace(/\s+/g, " "), repeats: [`${target} ${units}`, `${target} ${units} for tomorrow`] };
+    }
+
+    // "24 total · 4 each" (or 4–5 each); Hardware Check: every unit gets all its checks.
+    function eachText(station, target, people) {
+      if (station === "hardware") {
+        const unit = activeBatches()[0];
+        return `${target} total · ${unit ? hardwareChecks(unitKeyOf(unit)) : 3} checks per unit`;
+      }
+      if (!people) return `${target} total`;
+      const low = Math.floor(target / people);
+      const high = Math.ceil(target / people);
+      return `${target} total · ${low === high ? low : `${low}–${high}`} each`;
+    }
+
+    // Guide pictures for this bench and today's units, as cards to tap open.
+    function renderGuides() {
+      const units = new Set(activeBatches().map(unitKeyOf));
+      const mine = state.guides
+        .filter(guide => guide.bench === benchKey && (guide.unit === "all" || units.has(guide.unit)))
+        .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || String(a.title).localeCompare(String(b.title)));
+      $("guidesCard").classList.toggle("hidden", !mine.length);
+      $("guideCards").innerHTML = mine.map(guide => `
+        <button type="button" class="guide-card" data-guide="${escapeHtml(guide.id)}" aria-label="Open ${escapeHtml(guide.title)}">
+          <img src="${escapeHtml(guide.image)}" alt="" />
+          <span>${escapeHtml(guide.title)}</span>
+        </button>`).join("");
+    }
+
+    function openGuide(id) {
+      const guide = state.guides.find(item => item.id === id);
+      if (!guide) return;
+      const view = document.createElement("div");
+      view.className = "guide-view";
+      view.setAttribute("role", "dialog");
+      view.setAttribute("aria-label", guide.title);
+      view.innerHTML = `<img src="${escapeHtml(guide.image)}" alt="${escapeHtml(guide.title)}" />`;
+      view.addEventListener("click", () => view.remove());
+      document.body.appendChild(view);
+    }
+
     // The job card: each job of this bench in the block on screen, with its
     // target, then the day's orders and the Hit target / Enter number buttons.
     function renderJobCard() {
@@ -1119,13 +1197,17 @@
         const planned = plannedOn(state.phase, job.station).length;
         const can = figure && onIt !== planned ? stationCapacity(job.station, state.phase, onIt) : null;
         const short = can !== null && figure && can < figure.target;
+        const request = figure ? requestText(job.station, figure.target) : null;
+        // The plan's own wording only when it says more than the request.
+        const what = figure?.text && !request.repeats.includes(figure.text) ? figure.text : "";
         return `
           <div class="job-line">
             <span class="job-station">${escapeHtml(job.label)}</span>
-            ${figure
-              ? `<span class="job-target">${escapeHtml(bench.verb || "Do")} ${figure.target}</span>`
-              : `<span class="job-target">${onIt} on</span>`}
-            ${figure?.text ? `<span class="job-what">${escapeHtml(figure.text)}</span>` : ""}
+            ${request
+              ? `<span class="job-request"><span class="job-request-label">Request:</span> ${escapeHtml(request.text)}</span>
+                 <span class="job-each">${escapeHtml(eachText(job.station, figure.target, onIt))}</span>`
+              : `<span class="job-request">${onIt} on</span>`}
+            ${what ? `<span class="job-what">${escapeHtml(what)}</span>` : ""}
             ${figure?.spare ? `<span class="job-then">Then Packaging build-up: ${figure.spare} boxes</span>` : ""}
             ${short ? `<span class="job-now">Now ${can} with ${onIt} ${onIt === 1 ? "person" : "people"}</span>` : ""}
           </div>`;
@@ -1956,6 +2038,17 @@
         }
       });
       $("noteButton").addEventListener("click", writeMessage);
+      $("guideCards").addEventListener("click", event => {
+        const card = event.target.closest("[data-guide]");
+        if (card) openGuide(card.dataset.guide);
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape") document.querySelector(".guide-view")?.remove();
+      });
+      onSnapshot(collection(db, "guides"), snapshot => {
+        state.guides = snapshot.docs.map(entry => ({ id: entry.id, ...entry.data() }));
+        if (state.plan) renderGuides();
+      }, () => {});
       $("messageList").addEventListener("click", event => {
         const button = event.target.closest("[data-message-seen]");
         if (button) {

@@ -171,6 +171,10 @@
     table.list.timings tr.timing-task td:first-child { padding-left: 28px; color: var(--ink-2); }
     table.list.timings tfoot td { border-top: 2px solid var(--rule-strong); }
     .timing-notes { margin: 8px 0 0; color: var(--ink-2); white-space: pre-line; }
+    table.list.guides img.guide-thumb { display: block; width: 160px; height: 90px; object-fit: cover; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--inset); }
+    table.list.guides select, table.list.guides input[type="number"] { min-height: 40px; }
+    table.list.guides input[type="number"] { width: 80px; text-align: center; }
+    table.list.guides input[type="file"] { max-width: 200px; font-size: 13px; }
     table.list.rates input[type="number"]::placeholder { color: var(--muted); }
 
     /* Staff: 0–3 dots per job */
@@ -210,6 +214,7 @@
       collection, doc, getDocs, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { db, ensureAccess, friendlyError } from "./js/session.js";
+    import { shrinkPhoto } from "./js/floor.js";
     import * as Lists from "./js/lists.js";
 
     const $ = id => document.getElementById(id);
@@ -225,6 +230,7 @@
       { id: "configs", title: "Configurations" },
       { id: "rates", title: "Rates" },
       { id: "timings", title: "Timings" },
+      { id: "guides", title: "Guides" },
       { id: "titles", title: "Job titles" },
       { id: "staff", title: "Staff" }
     ];
@@ -248,6 +254,7 @@
     let staff = [];
     let jobTitles = [];     // the Job creator's suggestions (customJobs)
     let timingSheets = [];  // reference timings (not used to plan)
+    let guides = [];        // guide pictures for the bench screens
     let pending = 0;
     let failed = false;
     let alertText = "";
@@ -320,6 +327,7 @@
       else if (tab === "configs") body = configSheet();
       else if (tab === "rates") body = ratesSheet();
       else if (tab === "timings") body = timingsSheet();
+      else if (tab === "guides") body = guidesSheet();
       else if (tab === "titles") body = titlesSheet();
       else body = staffSheet();
       $("sheet").innerHTML = `<h2>${esc(title)}</h2>${body}`;
@@ -853,6 +861,94 @@
     }
 
     // ------------------------------------------------------------------
+    // Guides: pictures shown as cards on a bench screen (e.g. assembly
+    // reference slides), for one bench and one unit type or all of them.
+    // Kept in the database, so only screens with a PIN can see them.
+    // ------------------------------------------------------------------
+    const GUIDE_BENCHES = [
+      ["subassembly", "Sub Assembly"], ["assembly", "Assembly"], ["testing", "Testing"], ["hardware", "Hardware Check"],
+      ["buildup", "Packaging build-up"], ["packing", "Packing"], ["cage", "Production Cage"]
+    ];
+    const guideSelect = (attrs, options, value, label) =>
+      `<select ${attrs} aria-label="${esc(label)}">${options.map(([key, text]) => `<option value="${esc(key)}"${key === value ? " selected" : ""}>${esc(text)}</option>`).join("")}</select>`;
+
+    function guidesSheet() {
+      const units = [["all", "All units"], ...Lists.items("units").map(item => [item.key, item.label])];
+      const rows = guides.map(guide => `
+        <tr data-guide="${esc(guide.id)}">
+          <td><img class="guide-thumb" src="${esc(guide.image)}" alt="${esc(guide.title)}" /></td>
+          <td><input type="text" data-guide-field="title" value="${esc(guide.title)}" maxlength="120" aria-label="Title" /></td>
+          <td>${guideSelect('data-guide-field="bench"', GUIDE_BENCHES, guide.bench, "Bench")}</td>
+          <td>${guideSelect('data-guide-field="unit"', units, guide.unit, "Unit")}</td>
+          <td><input type="number" data-guide-field="order" value="${esc(guide.order)}" min="0" max="1000" step="1" aria-label="Order" /></td>
+          <td class="actions-cell"><button type="button" class="secondary icon" data-guide-remove="${esc(guide.id)}" aria-label="Remove ${esc(guide.title)}">${icon("remove")}</button></td>
+        </tr>`).join("");
+      return `
+        <div class="table-scroll">
+          <table class="list guides">
+            <thead><tr><th>Picture</th><th class="wide">Title</th><th>Bench</th><th>Unit</th><th>Order</th><th></th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="6">None</td></tr>'}</tbody>
+            <tfoot>
+              <tr data-guide-add>
+                <td><input type="file" accept="image/*" data-guide-new="file" aria-label="Picture" /></td>
+                <td><input type="text" data-guide-new="title" maxlength="120" aria-label="New title" /></td>
+                <td>${guideSelect('data-guide-new="bench"', GUIDE_BENCHES, "assembly", "Bench")}</td>
+                <td>${guideSelect('data-guide-new="unit"', units, "all", "Unit")}</td>
+                <td></td>
+                <td class="actions-cell"><button type="button" data-guide-add-button>Add</button></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>`;
+    }
+
+    const guideFields = guide => ({
+      title: String(guide.title || "").trim().slice(0, 120),
+      bench: guide.bench,
+      unit: guide.unit || "all",
+      image: guide.image,
+      order: Math.max(0, Math.min(1000, Math.round(Number(guide.order) || 0))),
+      updatedBy: "Management",
+      updatedAt: serverTimestamp()
+    });
+
+    function editGuide(field) {
+      const guide = guides.find(item => item.id === field.closest("[data-guide]")?.dataset.guide);
+      if (!guide) return;
+      const next = { ...guide, [field.dataset.guideField]: field.value };
+      if (!String(next.title).trim()) return draw();
+      save(() => setDoc(doc(db, "guides", guide.id), guideFields(next)));
+    }
+
+    async function addGuide() {
+      const row = $("sheet").querySelector("[data-guide-add]");
+      const file = row.querySelector('[data-guide-new="file"]').files?.[0];
+      const title = row.querySelector('[data-guide-new="title"]').value.trim();
+      if (!file) return warn("Choose a picture first.");
+      if (!title) return warn("Give the guide a title.");
+      let image;
+      try {
+        image = await shrinkPhoto(file);
+      } catch (error) {
+        return warn(error.message);
+      }
+      const order = guides.reduce((most, guide) => Math.max(most, Number(guide.order) || 0), 0) + 1;
+      save(() => addDoc(collection(db, "guides"), guideFields({
+        title,
+        bench: row.querySelector('[data-guide-new="bench"]').value,
+        unit: row.querySelector('[data-guide-new="unit"]').value,
+        image,
+        order
+      })));
+    }
+
+    function removeGuide(id) {
+      const guide = guides.find(item => item.id === id);
+      if (!guide || !window.confirm(`Remove the guide "${guide.title}"?`)) return;
+      save(() => deleteDoc(doc(db, "guides", id)));
+    }
+
+    // ------------------------------------------------------------------
     // Job titles: what the Job creator suggests while typing
     // ------------------------------------------------------------------
     function titlesSheet() {
@@ -1017,6 +1113,8 @@
       });
 
       $("sheet").addEventListener("change", event => {
+        const guideField = event.target.closest("[data-guide-field]");
+        if (guideField) return editGuide(guideField);
         const blockField = event.target.closest("[data-block]");
         if (blockField) return editBlock(blockField);
         const clockField = event.target.closest("[data-clock]");
@@ -1053,6 +1151,9 @@
       });
 
       $("sheet").addEventListener("click", event => {
+        const removeGuideButton = event.target.closest("[data-guide-remove]");
+        if (removeGuideButton) return removeGuide(removeGuideButton.dataset.guideRemove);
+        if (event.target.closest("[data-guide-add-button]")) return addGuide();
         const dotButton = event.target.closest(".dot[data-dot]");
         if (dotButton) {
           setSkill(dotButton.closest("tr[data-staff]").dataset.staff, dotButton.closest(".dots").dataset.skill, dotButton);
@@ -1136,6 +1237,12 @@
           .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
         show("presets");
       }, error => warn(friendlyError(error)));
+      onSnapshot(collection(db, "guides"), snapshot => {
+        guides = snapshot.docs
+          .map(entry => ({ id: entry.id, ...entry.data() }))
+          .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || String(a.title).localeCompare(String(b.title)));
+        if (tab === "guides") draw();
+      }, () => {});
       onSnapshot(collection(db, "timingSheets"), snapshot => {
         timingSheets = snapshot.docs
           .map(entry => ({ id: entry.id, ...entry.data() }))

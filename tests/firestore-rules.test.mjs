@@ -738,6 +738,40 @@ describe("Bench notes – between a bench and management", () => {
 });
 
 // ---------------------------------------------------------------------
+describe("Guides – pictures on the bench screens", () => {
+  const guide = fields => ({
+    title: "PV Cable Termination", bench: "assembly", unit: "solar", image: SMALL_JPEG, order: 1,
+    updatedBy: "Management", updatedAt: serverTimestamp(), ...fields
+  });
+
+  it("management adds, changes and removes a guide", async () => {
+    const ref = doc(management(), "guides", "pv-cable");
+    await assertSucceeds(setDoc(ref, guide()));
+    await assertSucceeds(setDoc(ref, guide({ bench: "buildup", order: 2 })));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it("guides must be well formed", async () => {
+    const ref = doc(management(), "guides", "bad");
+    await assertFails(setDoc(ref, guide({ title: "" })));
+    await assertFails(setDoc(ref, guide({ bench: "office" })));
+    await assertFails(setDoc(ref, guide({ image: "data:image/png;base64,AAAA" })));
+    await assertFails(setDoc(ref, guide({ order: "first" })));
+    await assertFails(setDoc(ref, guide({ link: "https://example.com" })));
+  });
+
+  it("benches see guides but can't change them; screens without a PIN see nothing", async () => {
+    await assertSucceeds(setDoc(doc(management(), "guides", "g1"), guide()));
+    await assertSucceeds(getDocs(collection(bench(), "guides")));
+    await assertFails(setDoc(doc(bench(), "guides", "g2"), guide()));
+    await assertFails(deleteDoc(doc(bench(), "guides", "g1")));
+    for (const db of [stranger(), revoked(), nobody()]) {
+      await assertFails(getDocs(collection(db, "guides")));
+    }
+  });
+});
+
+// ---------------------------------------------------------------------
 describe("Timing sheets – reference timings", () => {
   const sheet = fields => ({
     name: "Production Timing", source: "Production Timing.xlsx",
