@@ -1163,15 +1163,6 @@
         && (station !== "assemblyTap" || batch.unitType === "tap"));
     }
 
-    // "2-Pin Metal, Verizon, SCE" for each different build on a job.
-    function stationSpecs(station) {
-      return [...new Set(stationBatches(station).map(batch => [
-        batch.connectorKey ? labelOf("connectors", batch.connectorKey) : "",
-        usesComms(batch) ? labelOf("comms", commsKeyOf(batch)) : "",
-        batch.customer || ""
-      ].filter(Boolean).join(", ")).filter(Boolean))];
-    }
-
     // The units a job works on ("Solar", "Gen4 & Tap").
     function stationUnits(station) {
       const product = productOf(station);
@@ -1179,6 +1170,41 @@
       const network = STATIONS[station]?.network;
       const batches = activeBatches().filter(batch => !network || (usesComms(batch) && networkOf(batch) === network));
       return [...new Set(batches.map(unitKeyOf))].map(key => labelOf("units", key)).join(" & ");
+    }
+
+    /* What a job builds: with one unit, its name for the big line and its
+       specs underneath ("Gen4" / "2-Pin Metal, Verizon, SCE"); with more,
+       no name on the big line and a line per build, with its count when
+       they add up to the job's target ("12 Solar · AEP"). */
+    function stationBuilds(station, target) {
+      const batches = stationBatches(station);
+      const units = [...new Set(batches.map(unitKeyOf))];
+      const spec = batch => [
+        batch.connectorKey ? labelOf("connectors", batch.connectorKey) : "",
+        usesComms(batch) ? labelOf("comms", commsKeyOf(batch)) : "",
+        batch.customer || ""
+      ].filter(Boolean).join(", ");
+      if (units.length <= 1) {
+        return { unit: units.length ? labelOf("units", units[0]) : "", lines: [...new Set(batches.map(spec).filter(Boolean))] };
+      }
+      const counted = batches.reduce((sum, batch) => sum + plannedUnits(batch), 0) === target;
+      return {
+        unit: "",
+        lines: batches.map(batch => [`${counted ? `${plannedUnits(batch)} ` : ""}${labelOf("units", unitKeyOf(batch))}`, spec(batch)].filter(Boolean).join(" · "))
+      };
+    }
+
+    // The big line: "Build 36 Gen4", "Test 36 Gen4", "Make 24 Solar sets".
+    function simpleHeadline(station, target, units = stationUnits(station)) {
+      const base = baseOf(station);
+      const text = station === "subAssembly" ? `Make ${target} ${units} sets`
+        : base === "assembly" || station === "assemblyGen4" || station === "assemblyTap" ? `Build ${target} ${units}`
+        : base === "testing" || station === "testingVerizon" || station === "testingGlobal" ? `Test ${target} ${units}`
+        : station === "hardware" ? `Check ${target} ${units}`
+        : station === "packing" ? `Build up ${target} ${units} boxes`
+        : station === "finalPackaging" ? `Pack ${target} ${units}`
+        : `${target} ${units}`;
+      return text.replace(/\s+/g, " ").trim();
     }
 
     // "Build 24 Solar units", with the plan's wordings it makes redundant.
@@ -1239,7 +1265,7 @@
       const figures = state.plan.snapshot?.figures?.[state.phase] || null;
       const people = station => benchPeople(state.phase).filter(item => item.station === station).length;
       const jobs = benchJobs().filter(job => people(job.station) || figures?.[job.station]);
-      const simple = benchKey === "assembly";
+      const simple = true;   // every bench: the request in big type, specs underneath
       const lines = jobs.map(job => {
         const figure = figures?.[job.station] || null;
         const onIt = people(job.station);
@@ -1250,14 +1276,19 @@
           // Build 36 Gen4 · 6 each, then the specs.
           const low = onIt ? Math.floor(figure.target / onIt) : null;
           const high = onIt ? Math.ceil(figure.target / onIt) : null;
-          const specs = stationSpecs(job.station);
+          const each = job.station === "hardware"
+            ? `${hardwareChecks(unitKeyOf(stationBatches(job.station)[0] || {}))} checks per unit`
+            : onIt ? `${low === high ? low : `${low}–${high}`} each` : "";
+          const builds = stationBuilds(job.station, figure.target);
+          const specs = [job.station === "subAssembly" ? "For tomorrow" : "", ...builds.lines].filter(Boolean);
           return `
             <div class="job-line simple">
               <div class="job-headline">
-                <span class="job-big">Build ${figure.target} ${escapeHtml(stationUnits(job.station))}</span>
-                ${onIt ? `<span class="job-each-inline">${low === high ? low : `${low}–${high}`} each</span>` : ""}
+                <span class="job-big">${escapeHtml(simpleHeadline(job.station, figure.target, builds.unit))}</span>
+                ${each ? `<span class="job-each-inline">${escapeHtml(each)}</span>` : ""}
               </div>
               ${specs.map(line => `<div class="job-specs">${escapeHtml(line)}</div>`).join("")}
+              ${figure.spare ? `<div class="job-specs">Then build up ${figure.spare} boxes</div>` : ""}
               ${short ? `<span class="job-now">Now ${can} with ${onIt} ${onIt === 1 ? "person" : "people"}</span>` : ""}
             </div>`;
         }
