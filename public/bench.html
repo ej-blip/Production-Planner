@@ -362,6 +362,30 @@
     .more-sheet .more-head h2 { margin: 0; }
     .more-sheet > section, .more-sheet > .card { max-width: 1400px; margin-left: auto; margin-right: auto; }
     @media (max-width: 860px) { .bench-main { grid-template-columns: 1fr; } }
+
+    /* Each bench has its colour (as on the plan picture), so screens tell
+       apart at a glance. Jobs on a bench wear their own job's colour. */
+    body { --bench: #8a96a6; }
+    body[data-bench="subassembly"] { --bench: #7a5bb5; }
+    body[data-bench="assembly"] { --bench: #c2453b; }
+    body[data-bench="testing"] { --bench: #3f7fbf; }
+    body[data-bench="hardware"] { --bench: #3f8f4e; }
+    body[data-bench="buildup"] { --bench: #c75b74; }
+    body[data-bench="packing"] { --bench: #d39d12; }
+    #benchTitle { display: inline-block; padding: 6px 16px; border-radius: var(--radius); background: var(--bench); color: #ffffff; font-size: 28px; font-weight: 700; }
+    .block-tabs button.active { background: var(--bench); border-color: var(--bench); color: #ffffff; }
+    .block-tabs button.active span { color: #ffffff; }
+    .bench-card-head h2 { font-size: 17px; font-weight: 700; color: var(--ink); }
+    .team-group h3 { display: inline-block; margin: 0 0 10px; padding: 5px 12px; border-radius: 999px; background: var(--job, var(--bench)); color: #ffffff; font-family: var(--font-label); font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    /* Assembly: the request in big type, specs underneath. */
+    .job-headline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 18px; }
+    .job-big { font-size: 54px; font-weight: 800; line-height: 1.05; color: var(--ink); }
+    .job-each-inline { font-size: 30px; font-weight: 700; color: var(--bench); }
+    .job-specs { margin-top: 2px; font-size: 22px; font-weight: 600; color: var(--ink-2); }
+    .job-line.simple { padding: 10px 0; }
+    .job-line.simple + .job-line.simple { border-top: 1px solid var(--rule); }
+    .job-status-row .job-status-text:empty { display: none; }
   </style>
 </head>
 <body>
@@ -370,7 +394,7 @@
       <h1 id="benchTitle">Bench</h1>
     </div>
     <div class="tb-cell"><span class="tb-label">Date</span><span class="tb-value" id="dateLabel">Loading…</span></div>
-    <div class="tb-cell"><span class="tb-label">Target</span><span class="tb-value" id="tbTarget">–</span></div>
+    <div class="tb-cell hidden"><span class="tb-label">Target</span><span class="tb-value" id="tbTarget">–</span></div>
     <div class="tb-cell"><span class="tb-label">Connection</span><span id="liveBadge" class="live">Live</span></div>
     <div class="top-actions" id="topActions">
       <button type="button" class="secondary" id="prevDay" aria-label="Previous day"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
@@ -1124,6 +1148,30 @@
       return null;
     }
 
+    // A job's colour, as on the plan picture.
+    const JOB_COLOURS = { subAssembly: "#7a5bb5", assembly: "#c2453b", testing: "#3f7fbf", hardware: "#3f8f4e", packing: "#c75b74", finalPackaging: "#d39d12" };
+    const jobColour = station => JOB_COLOURS[station] || JOB_COLOURS[baseOf(station)]
+      || (station === "assemblyGen4" || station === "assemblyTap" ? JOB_COLOURS.assembly : station === "testingVerizon" || station === "testingGlobal" ? JOB_COLOURS.testing : null);
+
+    // The batches a job works on (its unit, or its network for testing).
+    function stationBatches(station) {
+      const product = productOf(station);
+      const network = STATIONS[station]?.network;
+      return activeBatches().filter(batch => (!product || unitKeyOf(batch) === product)
+        && (!network || (usesComms(batch) && networkOf(batch) === network))
+        && (station !== "assemblyGen4" || batch.unitType !== "tap")
+        && (station !== "assemblyTap" || batch.unitType === "tap"));
+    }
+
+    // "2-Pin Metal, Verizon, SCE" for each different build on a job.
+    function stationSpecs(station) {
+      return [...new Set(stationBatches(station).map(batch => [
+        batch.connectorKey ? labelOf("connectors", batch.connectorKey) : "",
+        usesComms(batch) ? labelOf("comms", commsKeyOf(batch)) : "",
+        batch.customer || ""
+      ].filter(Boolean).join(", ")).filter(Boolean))];
+    }
+
     // The units a job works on ("Solar", "Gen4 & Tap").
     function stationUnits(station) {
       const product = productOf(station);
@@ -1191,12 +1239,28 @@
       const figures = state.plan.snapshot?.figures?.[state.phase] || null;
       const people = station => benchPeople(state.phase).filter(item => item.station === station).length;
       const jobs = benchJobs().filter(job => people(job.station) || figures?.[job.station]);
+      const simple = benchKey === "assembly";
       const lines = jobs.map(job => {
         const figure = figures?.[job.station] || null;
         const onIt = people(job.station);
         const planned = plannedOn(state.phase, job.station).length;
         const can = figure && onIt !== planned ? stationCapacity(job.station, state.phase, onIt) : null;
         const short = can !== null && figure && can < figure.target;
+        if (simple && figure) {
+          // Build 36 Gen4 · 6 each, then the specs.
+          const low = onIt ? Math.floor(figure.target / onIt) : null;
+          const high = onIt ? Math.ceil(figure.target / onIt) : null;
+          const specs = stationSpecs(job.station);
+          return `
+            <div class="job-line simple">
+              <div class="job-headline">
+                <span class="job-big">Build ${figure.target} ${escapeHtml(stationUnits(job.station))}</span>
+                ${onIt ? `<span class="job-each-inline">${low === high ? low : `${low}–${high}`} each</span>` : ""}
+              </div>
+              ${specs.map(line => `<div class="job-specs">${escapeHtml(line)}</div>`).join("")}
+              ${short ? `<span class="job-now">Now ${can} with ${onIt} ${onIt === 1 ? "person" : "people"}</span>` : ""}
+            </div>`;
+        }
         const request = figure ? requestText(job.station, figure.target) : null;
         // The plan's own wording only when it says more than the request.
         const what = figure?.text && !request.repeats.includes(figure.text) ? figure.text : "";
@@ -1214,7 +1278,7 @@
       });
 
       const orders = (state.plan.snapshot?.orders || []).filter(order => order.quantity > 0);
-      const ordersHtml = orders.length && benchKey !== "cage"
+      const ordersHtml = orders.length && benchKey !== "cage" && !simple
         ? `<div class="job-orders">${orders.map(order => `<div>${escapeHtml(order.customer)} · ${escapeHtml(labelOf("units", order.unitKey))}${order.built !== null ? ` · <b>${order.built} / ${order.quantity}</b> built` : ` · ${order.quantity}`}</div>`).join("")}</div>`
         : "";
 
@@ -1229,15 +1293,19 @@
           if (item.status === "waiting" || item.status === "in_progress") buttons.push(`<button type="button" data-set="hit" data-batch="${escapeHtml(batch.key)}">${cage ? "Released" : "Hit target"}</button>`);
           buttons.push(`<button type="button" class="secondary" data-set="short" data-batch="${escapeHtml(batch.key)}">${item.status === "short" ? "Change number" : cage ? "Released fewer" : "Enter number"}</button>`);
           if (item.status !== "waiting") buttons.push(`<button type="button" class="secondary" data-set="waiting" data-batch="${escapeHtml(batch.key)}">Undo</button>`);
+          // Simple card: no "Waiting"; the batch is named only when there's more than one.
+          const label = simple
+            ? [batches.length > 1 ? batchTitle(batch) : "", item.status !== "waiting" ? statusText(benchKey, item, expected) : ""].filter(Boolean).join(" · ")
+            : `${batchTitle(batch)} · ${statusText(benchKey, item, expected)}`;
           return `
             <div class="job-status-row">
-              <span class="job-status-text">${escapeHtml(batchTitle(batch))} · ${escapeHtml(statusText(benchKey, item, expected))}</span>
+              <span class="job-status-text">${escapeHtml(label)}</span>
               ${buttons.join("")}
             </div>`;
         }).join("")}</div>` : "";
 
       $("jobCard").innerHTML = `
-        <div class="bench-card-head"><h2>${escapeHtml(phaseLabel(state.phase))}</h2></div>
+        ${simple ? "" : `<div class="bench-card-head"><h2>${escapeHtml(phaseLabel(state.phase))}</h2></div>`}
         ${lines.join("") || (cage ? "" : '<p class="empty">Nothing on this bench this block.</p>')}
         ${ordersHtml}
         ${statusHtml}`;
@@ -1260,9 +1328,10 @@
           const now = jobFor(key, state.phase);
           return now ? jobLabel(now.station) : sent.has(key) ? "Sick" : "Off";
         };
+        const colour = jobColour(job.station);
         return `
           <div class="team-group">
-            <h3>${escapeHtml(job.label)}</h3>
+            <h3${colour ? ` style="--job:${colour}"` : ""}>${escapeHtml(job.label)}</h3>
             <div class="team-list">
               ${on.map(key => `<label class="team-person"><input type="checkbox" checked data-team-off="${escapeHtml(key)}" data-station="${escapeHtml(job.station)}" />${escapeHtml(personName(key))}</label>`).join("")}
               ${off.map(key => {
@@ -1958,6 +2027,7 @@
 
     // iPad home-screen icon and name for this bench.
     function setHomeScreenDetails() {
+      if (benchKey) document.body.dataset.bench = benchKey;
       const name = bench ? bench.label : "Bench screens";
       document.title = bench ? `${bench.label} · Production Planner` : "Bench screens · Production Planner";
       document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", name);
