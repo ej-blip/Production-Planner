@@ -6297,8 +6297,9 @@
       return new Map(productsOutcome(model).orders.map(order => [order.batch.id, order.achievable]));
     }
 
-    /* Auto assign for a products day: one person on Sub Assembly, then the
-       bottleneck is relieved one person at a time (the best free person
+    /* Auto assign for a products day: one person on Sub Assembly (two when
+       its spare time goes to Packaging build-up), then the bottleneck is
+       relieved one person at a time (the best free person
        for it) until it can't be: all 6 assembly benches in use, the bench
        can't usefully take more, or nobody who can do it is free.
          Assembly       1st block (up to 6 benches across all units)
@@ -6392,8 +6393,14 @@
       };
 
       if (productsOutcome(model, true).orders.length) {
-        const helper = best(model, ["start"], "subAssembly");
-        if (helper) put(model, ["start"], "subAssembly", helper);
+        // Sub Assembly in the 1st block: one person, or two on a day whose
+        // spare Sub Assembly time goes to Packaging build-up (Solar), so they
+        // get through tomorrow's parts and on to the boxes.
+        const helpers = spareUnit() ? 2 : 1;
+        for (let count = 0; count < helpers; count++) {
+          const helper = best(model, ["start"], "subAssembly");
+          if (helper) put(model, ["start"], "subAssembly", helper);
+        }
 
         const blocked = new Set();
         let held = false;
