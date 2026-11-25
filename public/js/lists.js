@@ -278,7 +278,8 @@ export function unitRates(unitKey, block) {
   const minutes = unitMinutes(unitKey);
   const length = blockMinutes(block);
   const table = perUnit => Array.from({ length: RATE_PEOPLE }, (_, index) => unitsIn((index + 1) * length, perUnit));
-  const checked = perCheck => Array.from({ length: RATE_PEOPLE }, (_, index) => checkedUnits(index + 1, length, perCheck, minutes.hardwareChecks));
+  // Hardware Check: teams up to one more than the checks a unit needs.
+  const checked = perCheck => Array.from({ length: Math.max(RATE_PEOPLE, minutes.hardwareChecks + 1) }, (_, index) => checkedUnits(index + 1, length, perCheck, minutes.hardwareChecks));
   return {
     subAssembly: unitsIn(length, minutes.subAssembly),
     assembly: unitsIn(length, minutes.assembly),
