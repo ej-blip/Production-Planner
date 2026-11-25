@@ -166,7 +166,6 @@
     table.list.rates td.row-name { white-space: nowrap; font-weight: 600; }
     table.list.rates input[type="number"] { width: 92px; min-height: 40px; padding: 8px; text-align: center; }
     table.list.rates input[type="number"]::placeholder { color: var(--muted); }
-    table.list.rates .derived { display: inline-block; width: 92px; color: var(--muted); font-weight: 600; }
 
     /* Staff: 0–3 dots per job */
     .dots { display: inline-flex; gap: 5px; }
@@ -639,9 +638,9 @@
     }
 
     // ------------------------------------------------------------------
-    // Rates: block lengths, and minutes per unit for every step
+    // Rates: block lengths, and one person's minutes per unit for every
+    // task (a bench's block is worked out from how many are on it)
     // ------------------------------------------------------------------
-    const PEOPLE_HEADS = ["1 person", "2 people", "3 people", "4+ people"];
     const BLOCK_HEADS = { start: "1st block", second: "2nd block", finish: "3rd block" };
     // Shown to the nearest whole minute ("" for none). What's saved keeps
     // its exact value until a new one is typed in.
@@ -687,40 +686,29 @@
       const unit = item => {
         const minutes = Lists.unitMinutes(item.key);
         const standalone = item.usesComms === false;
-        // One person's minutes; a team of n shares the work.
-        const perPerson = (field, name) => `
+        const row = (field, name, rateName = field) => `
           <tr>
             <td class="row-name">${esc(name)}</td>
-            <td class="num">${minutesInput(`data-rate="${field}"`, minutes[field], `${name}, minutes per unit, 1 person`)}</td>
-            ${[2, 3, 4].map(n => `<td class="num"><span class="derived">${minutes[field] ? showMinutes(minutes[field] / n) : "–"}</span></td>`).join("")}
-          </tr>`;
-        const tableRow = (field, name, rateName = field) => `
-          <tr>
-            <td class="row-name">${esc(name)}</td>
-            ${minutes[field].map((value, index) => `<td class="num">${minutesInput(`data-rate="${rateName}" data-index="${index}"`, value, `${name}, minutes per unit, ${PEOPLE_HEADS[index]}`)}</td>`).join("")}
+            <td class="num">${minutesInput(`data-rate="${rateName}"`, minutes[field], `${name}, minutes per unit, 1 person`)}</td>
           </tr>`;
         return `
           <section class="rate-group" data-unit="${esc(item.key)}">
             <h3>${esc(item.label)}${item.rates || Lists.UNIT_PLANS.includes(item.key) || standalone ? "" : `<small>${esc(Lists.labelOf("units", Lists.unitPlanAs(item.key)))}</small>`}</h3>
             <div class="table-scroll">
               <table class="list rates">
-                <thead><tr>
-                  <th class="wide">Minutes per unit</th>
-                  ${PEOPLE_HEADS.map(head => `<th class="num">${head}</th>`).join("")}
-                </tr></thead>
+                <thead><tr><th class="wide">Minutes per unit</th><th class="num">1 person</th></tr></thead>
                 <tbody>
-                  ${perPerson("subAssembly", "Sub Assembly")}
-                  ${perPerson("assembly", "Assembly")}
-                  ${standalone ? perPerson("testing", "Testing") : ""}
+                  ${row("subAssembly", "Sub Assembly")}
+                  ${row("assembly", "Assembly")}
+                  ${standalone ? row("testing", "Testing") : ""}
                   ${standalone
-                    ? tableRow("hardwareVerizon", "Hardware Check", "hardware")
-                    : `${tableRow("hardwareVerizon", `Hardware Check · ${verizon}`)}${tableRow("hardwareGlobal", `Hardware Check · ${global}`)}`}
-                  ${tableRow("packagingBuild", "Packaging build-up")}
-                  ${tableRow("packing", "Packing")}
+                    ? row("hardwareVerizon", "Hardware Check", "hardware")
+                    : `${row("hardwareVerizon", `Hardware Check · ${verizon}`)}${row("hardwareGlobal", `Hardware Check · ${global}`)}`}
+                  ${row("packagingBuild", "Packaging build-up")}
+                  ${row("packing", "Packing")}
                   <tr>
                     <td class="row-name">Spare Sub Assembly time → Packaging build-up</td>
                     <td class="num"><input type="checkbox" data-rate="spareToPackaging" ${minutes.spareToPackaging ? "checked" : ""} aria-label="Spare Sub Assembly time goes to Packaging build-up" /></td>
-                    <td colspan="3"></td>
                   </tr>
                 </tbody>
               </table>
@@ -737,8 +725,9 @@
       save(() => Lists.saveBlockMinutes({ ...Lists.blockTimesNow(), [field.dataset.block]: value }));
     }
 
-    // A unit's speeds are saved whole, in minutes: what it plans with now
-    // (its older per-block figures are kept as they are), with the change.
+    // A unit's speeds are saved whole, one person's minutes per task: what
+    // it plans with now (its older figures are kept as they are), with the
+    // change.
     function editRate(field, value) {
       const unitEl = field.closest("[data-unit]");
       const commsEl = field.closest("[data-comms]");
@@ -758,26 +747,18 @@
       const items = editable("units");
       const item = items.find(entry => entry.key === unitEl.dataset.unit);
       if (!item) return;
-      const now = Lists.unitMinutes(item.key);
-      const { spareToPackaging, ...minutes } = now;
-      Object.keys(minutes).forEach(key => {
-        minutes[key] = Array.isArray(minutes[key])
-          ? minutes[key].map(entry => (entry ? Lists.roundMinutes(entry) : null))
-          : minutes[key] ? Lists.roundMinutes(minutes[key]) : null;
-      });
+      const { spareToPackaging, ...minutes } = Lists.unitMinutes(item.key);
+      Object.keys(minutes).forEach(key => { minutes[key] = minutes[key] ? Lists.roundMinutes(minutes[key]) : null; });
       let spare = spareToPackaging;
       if (name === "spareToPackaging") spare = field.checked;
-      else if (["subAssembly", "assembly", "testing"].includes(name)) {
-        // Sub Assembly and Assembly always need a time; Testing may be blank.
-        if (blank && name !== "testing") return draw();
-        minutes[name] = blank ? null : Lists.roundMinutes(number);
-      } else {
-        const index = Number(field.dataset.index);
+      else {
+        // Testing and Packing may be left blank; every other task needs a time.
+        if (blank && name !== "testing" && name !== "packing") return draw();
         const entry = blank ? null : Lists.roundMinutes(number);
         if (name === "hardware") {
-          minutes.hardwareVerizon[index] = entry;
-          minutes.hardwareGlobal[index] = entry;
-        } else if (minutes[name]) minutes[name][index] = entry;
+          minutes.hardwareVerizon = entry;
+          minutes.hardwareGlobal = entry;
+        } else if (name in minutes) minutes[name] = entry;
         else return draw();
       }
       item.rates = { ...(item.rates || {}), minutes, spareToPackaging: spare };

@@ -4238,7 +4238,7 @@
       const batch = dayBuilds().find(item => lists.spareToPackaging(item.unitKey || item.unitType));
       if (!batch) return null;
       const key = batch.unitKey || batch.unitType;
-      const minutesPerUnit = lists.unitMinutes(key).packagingBuild[0];
+      const minutesPerUnit = lists.unitMinutes(key).packagingBuild;
       return minutesPerUnit ? { key, minutesPerUnit } : null;
     }
 
@@ -4738,7 +4738,9 @@
       return isTapUnit(unitType) ? 8 : 6;
     }
 
-    // People beyond these add nothing at Hardware Check / Packaging build-up.
+    // People beyond these add nothing at Hardware Check / Packaging build-up
+    // (with one person's minutes per task, every extra person adds the same,
+    // up to 4).
     function usefulHardwareBenches(unitType, commsType) {
       const lists = listsApi();
       if (!lists) return 4;

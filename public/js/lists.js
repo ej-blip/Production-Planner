@@ -55,29 +55,29 @@ export const STARTING_LISTS = {
   ]
 };
 
-/* Build speeds, edited on the Rates tab, in minutes per unit
-   (rates.minutes on a unit item):
-     subAssembly     one person, one set for the next day's build (PSU +
-                     DCU for Gen4 / Tap, chargers for Solar)
-     assembly        one person, one unit (only with Sub Assembly on)
-     testing         one tester, one unit (standalone units like Solar)
-     hardwareVerizon the team of 1, 2, 3, 4+ people, one unit (null: that
-                     team can't do it alone)
+/* Build speeds, edited on the Rates tab: minutes one person takes for
+   one unit of each task (rates.minutes on a unit item). A bench does its
+   people × the block's minutes (lists/blocks) ÷ that, rounded down.
+     subAssembly     one set for the next day's build (PSU + DCU for Gen4 /
+                     Tap, chargers for Solar)
+     assembly        one unit (only with Sub Assembly on)
+     testing         one unit (standalone units like Solar)
+     hardwareVerizon one unit through Hardware Check
      hardwareGlobal  the same for Global units
-     packagingBuild  the team of 1, 2, 3, 4+ people, one box
-     packing         the team of 1, 2, 3, 4+ people, one unit (null until
-                     set: it doesn't limit the day's target)
+     packagingBuild  one box
+     packing         one unit (null until set: it doesn't limit the target)
    spareToPackaging true: time Sub Assembly has left after tomorrow's parts
    goes to Packaging build-up (Solar). Each comms type has testingMinutes:
    one unit through its test rig, running through the 1st and 2nd blocks.
    A unit or comms type without its own figures uses the ones of the type
    it plans as.
 
-   Older items hold units per 2-hour block instead (subAssembly, assembly,
-   testing, the tables) and testingPerDay; until a unit's speeds are saved
-   in minutes they're read as minutes (120 ÷ the figure, or 270 ÷ the day's
-   testing). What a station does in a block is its people's minutes in
-   that block (lists/blocks) ÷ minutes per unit, rounded down. */
+   Older items hold units per 2-hour block instead, for one person or, for
+   Hardware Check, Packaging build-up and Packing, for teams of 1, 2, 3, 4+
+   (or a team's minutes per unit); and testingPerDay. Until a unit is saved
+   with one value per task these are read as one person's minutes: 120 ÷
+   the figure, the 2-person team's figure where there is one (2 × 120 ÷ it),
+   and 270 ÷ the day's testing. */
 export const RATE_PEOPLE = 4;
 export const BLOCK_KEYS = ["start", "second", "finish"];
 export const STARTING_BLOCK_MINUTES = { start: 120, second: 150, finish: 120 };
@@ -167,7 +167,21 @@ function ownRates(unitKey) {
   return find("units", unitPlanAs(unitKey))?.rates || {};
 }
 
-// Minutes per unit a unit type plans with (its own, or its plan-as type's).
+// One person's minutes from a team table: units per block (perBlock) or
+// the team's minutes per unit, for teams of 1, 2, 3, 4+. The 2-person
+// figure first (the usual crew), then 1, 3, 4.
+function personMinutesFromTable(table, perBlock) {
+  if (!Array.isArray(table)) return null;
+  for (const index of [1, 0, 2, 3]) {
+    const people = index + 1;
+    const value = perBlock ? fromPerBlock(table[index], BASE_MINUTES * people) : minutesNumber(table[index]);
+    if (value) return perBlock ? value : value * people;
+  }
+  return null;
+}
+
+// Minutes one person takes for one unit of each task, for a unit type
+// (its own figures, or its plan-as type's). null: not set.
 export function unitMinutes(unitKey) {
   const base = STARTING_UNIT_RATES[unitPlanAs(unitKey)];
   const own = ownRates(unitKey);
@@ -177,29 +191,29 @@ export function unitMinutes(unitKey) {
     if (own[field] !== undefined && own[field] !== null) return fromPerBlock(own[field]);
     return fromPerBlock(fallback);
   };
-  const table = (field, fallback) => Array.from({ length: RATE_PEOPLE }, (_, index) => {
-    if (Array.isArray(saved[field])) return minutesNumber(saved[field][index]);
-    const old = Array.isArray(own[field]) ? own[field][index] : undefined;
-    return fromPerBlock(old !== undefined && old !== null && old !== "" ? old : fallback?.[index]);
-  });
+  const team = (field, fallback) => {
+    if (field in saved) return Array.isArray(saved[field]) ? personMinutesFromTable(saved[field], false) : minutesNumber(saved[field]);
+    const old = Array.isArray(own[field]) && own[field].some(value => value !== null && value !== undefined && value !== "") ? own[field] : null;
+    return personMinutesFromTable(old || fallback, true);
+  };
   return {
     subAssembly: single("subAssembly", base.subAssembly),
     assembly: single("assembly", base.assembly),
     testing: single("testing", null),
-    hardwareVerizon: table("hardwareVerizon", base.hardwareVerizon),
-    hardwareGlobal: table("hardwareGlobal", base.hardwareGlobal),
-    packagingBuild: table("packagingBuild", base.packagingBuild),
-    packing: table("packing", null),
+    hardwareVerizon: team("hardwareVerizon", base.hardwareVerizon),
+    hardwareGlobal: team("hardwareGlobal", base.hardwareGlobal),
+    packagingBuild: team("packagingBuild", base.packagingBuild),
+    packing: team("packing", null),
     spareToPackaging: own.spareToPackaging === true
   };
 }
 
-// What a unit type does in a block (default: a 2-hour block): per person
-// for subAssembly / assembly, per team of 1, 2, 3, 4+ for the tables.
+// What a bench does in a block (default: a 2-hour block) with 1, 2, 3, 4
+// people (subAssembly and assembly: one person).
 export function unitRates(unitKey, block) {
   const minutes = unitMinutes(unitKey);
   const length = blockMinutes(block);
-  const table = list => list.map(value => unitsIn(length, value));
+  const table = perUnit => Array.from({ length: RATE_PEOPLE }, (_, index) => unitsIn((index + 1) * length, perUnit));
   return {
     subAssembly: unitsIn(length, minutes.subAssembly),
     assembly: unitsIn(length, minutes.assembly),
@@ -207,30 +221,28 @@ export function unitRates(unitKey, block) {
     hardwareGlobal: table(minutes.hardwareGlobal),
     packagingBuild: table(minutes.packagingBuild),
     spareToPackaging: minutes.spareToPackaging,
-    packing: minutes.packing.some(Boolean) ? minutes.packing.map(value => (value ? unitsIn(length, value) : null)) : Array(RATE_PEOPLE).fill(null)
+    packing: minutes.packing ? table(minutes.packing) : Array(RATE_PEOPLE).fill(null)
   };
 }
 
-const teamMinutes = (table, people) => (people <= 0 ? null : table[Math.min(people, table.length) - 1]);
+// Units some people do in a block at one person's minutes per unit.
+const benchUnits = (people, block, perUnit) => (people > 0 ? unitsIn(people * blockMinutes(block), perUnit) : 0);
 
-export const assemblyRate = (unitKey, block) => unitsIn(blockMinutes(block), unitMinutes(unitKey).assembly);
-export const subAssemblyRate = (unitKey, block) => unitsIn(blockMinutes(block), unitMinutes(unitKey).subAssembly);
+export const assemblyRate = (unitKey, block) => benchUnits(1, block, unitMinutes(unitKey).assembly);
+export const subAssemblyRate = (unitKey, block) => benchUnits(1, block, unitMinutes(unitKey).subAssembly);
 export const spareToPackaging = unitKey => unitMinutes(unitKey).spareToPackaging;
 
 export function hardwareRate(people, unitKey, commsKey, block) {
   const minutes = unitMinutes(unitKey);
-  return unitsIn(blockMinutes(block), teamMinutes(commsPlanAs(commsKey) === "global" ? minutes.hardwareGlobal : minutes.hardwareVerizon, people));
+  return benchUnits(people, block, commsPlanAs(commsKey) === "global" ? minutes.hardwareGlobal : minutes.hardwareVerizon);
 }
 
-export const packagingBuildRate = (people, unitKey, block) =>
-  unitsIn(blockMinutes(block), teamMinutes(unitMinutes(unitKey).packagingBuild, people));
+export const packagingBuildRate = (people, unitKey, block) => benchUnits(people, block, unitMinutes(unitKey).packagingBuild);
 
 // Units Packing can pack in a block, or null while no Packing speed is set.
 export function packingRate(people, unitKey, block) {
-  const table = unitMinutes(unitKey).packing;
-  if (people <= 0) return table.some(Boolean) ? 0 : null;
-  const value = teamMinutes(table, people);
-  return value ? unitsIn(blockMinutes(block), value) : null;
+  const perUnit = unitMinutes(unitKey).packing;
+  return perUnit ? benchUnits(people, block, perUnit) : null;
 }
 
 // Minutes for one unit through a comms type's test rig.
@@ -284,7 +296,7 @@ export function unitUses(unitKey, field) {
 export const usesComms = thing => unitUses(unitKeyOf(thing), "usesComms");
 
 // Units one tester tests in a block (standalone units only).
-export const testingRate = (unitKey, block) => unitsIn(blockMinutes(block), unitMinutes(unitKey).testing);
+export const testingRate = (unitKey, block) => benchUnits(1, block, unitMinutes(unitKey).testing);
 
 // Most a standalone unit can be built in a day (null: no limit set).
 export function unitDailyLimit(unitKey) {
