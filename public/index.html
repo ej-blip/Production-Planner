@@ -7087,6 +7087,29 @@
       return false;
     }
 
+    /* A move made by hand keeps its bench when the day's benches change
+       name: one Gen4 build plans with "Assembly" / "Testing", a products
+       day (Solar, two builds, or set targets) with "Gen4 Assembly",
+       "Solar Assembly", "Verizon Testing"... So Assembly goes to the same
+       unit's Assembly under today's names (a plain "Assembly" was a Gen4 /
+       Tap build), and Testing likewise. Without this the old name shows
+       as an extra bench nobody's build uses. */
+    function stationForToday(station) {
+      const options = workflowStationOptions().map(([value]) => value);
+      if (!station || options.includes(station)) return station;
+      const family = value => /^assembly(Gen4|Tap)?$|^assembly:/.test(value) ? "assembly"
+        : /^testing(Verizon|Global)?$|^testing:/.test(value) ? "testing" : null;
+      const unitOf = value => stationProduct(value) || (/Gen4$/.test(value) ? "gen4" : /Tap$/.test(value) ? "tap" : null);
+      const kind = family(station);
+      const same = options.filter(option => family(option) === kind);
+      if (!kind || !same.length) return station;
+      const unit = unitOf(station);
+      const networkUnit = option => !stationProduct(option) || productsOfDay().some(product => product.key === stationProduct(option) && !product.standalone);
+      return (unit && same.find(option => unitOf(option) === unit))
+        || (!stationProduct(station) && same.find(networkUnit))
+        || same[0];
+    }
+
     function applyManualWorkflowAssignments(model, usableWorkers) {
       const usableKeys = new Set(usableWorkers.map(worker => worker.key));
       const before = stationAdjustments.length;
@@ -7105,7 +7128,8 @@
           return;
         }
 
-        const station = normalizeWorkflowStation(adjustment.station);
+        const station = stationForToday(normalizeWorkflowStation(adjustment.station));
+        adjustment.station = station;
         if (station === "custom" && !String(adjustment.customJobName || "").trim()) {
           model.warnings.push(`${worker.first}: custom job needs a name.`);
           return;
