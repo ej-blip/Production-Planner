@@ -351,6 +351,21 @@
     .team-person.off { background: var(--inset); color: var(--muted); }
     .team-empty { font-size: 14px; color: var(--muted); }
     .bench-right { display: grid; gap: 12px; align-content: start; }
+    /* A bench's own website along the bottom: a live look at its front
+       page (scaled down, not touchable) and its name; the whole strip is
+       the link. */
+    .site-strip { position: relative; display: flex; align-items: center; gap: 18px; margin-top: 12px; padding: 12px 18px 12px 12px; background: var(--raised); border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); }
+    .site-strip:hover { border-color: var(--bench); }
+    .site-shot { flex: none; width: 288px; height: 120px; overflow: hidden; border-radius: var(--radius); background: #103367; }
+    .site-shot iframe { display: block; width: 1152px; height: 480px; border: 0; transform: scale(0.25); transform-origin: 0 0; pointer-events: none; }
+    .site-text { flex: 1; display: grid; gap: 2px; min-width: 0; }
+    .site-name { font-family: var(--font-label); font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .site-text a { color: var(--ink); text-decoration: none; }
+    .site-text a b { font-size: 26px; font-weight: 700; line-height: 1.15; }
+    .site-text a::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-lg); }
+    .site-host { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .site-open { flex: none; width: 30px; height: 30px; color: var(--bench); }
+    @media (max-width: 560px) { .site-shot { width: 192px; height: 80px; } .site-shot iframe { transform: scale(0.1667); } .site-text a b { font-size: 20px; } }
     .guide-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
     .guide-card { display: grid; gap: 6px; margin: 0; padding: 6px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--sheet); color: var(--ink); text-align: left; cursor: zoom-in; }
     .guide-card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: var(--inset); }
@@ -484,6 +499,18 @@
       </section>
       </div>
     </div>
+
+    <!-- A bench's own website (Assembly: IND Instruct videos and guides),
+         with a live look at its front page; the whole strip opens it. -->
+    <section class="site-strip hidden" id="siteStrip">
+      <div class="site-shot" aria-hidden="true"><iframe id="siteFrame" title="" tabindex="-1" loading="lazy" scrolling="no" sandbox="allow-scripts allow-same-origin"></iframe></div>
+      <div class="site-text">
+        <span class="site-name" id="siteName"></span>
+        <a id="siteLink" target="_blank" rel="noopener"><b id="siteTitle"></b></a>
+        <span class="site-host" id="siteHost"></span>
+      </div>
+      <svg class="site-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
+    </section>
   </main>
 
   <script src="js/drag-board.js"></script>
@@ -2055,6 +2082,22 @@
       openDate(toInputDate(date));
     }
 
+    // Each bench's own website, shown along the bottom of its screen.
+    const BENCH_SITES = {
+      assembly: { url: "https://ind-instruct.web.app/", name: "IND Instruct", title: "Videos and guides" }
+    };
+
+    function showBenchSite() {
+      const site = benchKey ? BENCH_SITES[benchKey] : null;
+      if (!site) return;
+      $("siteName").textContent = site.name;
+      $("siteTitle").textContent = site.title;
+      $("siteHost").textContent = new URL(site.url).host;
+      $("siteLink").href = site.url;
+      $("siteFrame").src = site.url;
+      $("siteStrip").classList.remove("hidden");
+    }
+
     // iPad home-screen icon and name for this bench.
     function setHomeScreenDetails() {
       if (benchKey) document.body.dataset.bench = benchKey;
@@ -2076,6 +2119,7 @@
 
     async function start() {
       setHomeScreenDetails();
+      showBenchSite();
       if (!bench) {
         showChooser();
         return;
