@@ -2016,7 +2016,8 @@
         inProduction: window.PlannerSkills.inProduction(worker),
         skills: window.PlannerSkills.skillsOf(worker, key),
         priorityRank: Math.max(1, Number(worker.priorityRank) || 50),
-        rosterIndex: Number.isInteger(worker.rosterIndex) ? worker.rosterIndex : null
+        rosterIndex: Number.isInteger(worker.rosterIndex) ? worker.rosterIndex : null,
+        ...(worker.defaultJob === "stockLabels" ? { defaultJob: "stockLabels" } : {})
       };
     }
 
@@ -2049,7 +2050,8 @@
           preferredBenches: person.preferredBenches,  // older records only
           restrictedBenches: person.restrictedBenches,
           priorityRank: person.priorityRank,
-          rosterIndex: Number.isInteger(person.rosterRow) ? person.rosterRow : null
+          rosterIndex: Number.isInteger(person.rosterRow) ? person.rosterRow : null,
+          defaultJob: person.defaultJob
         }, index))
         .sort(compareByRosterThenPriority);
       cacheWorkerConfig();
@@ -3566,6 +3568,7 @@
       stations.push(["hardware", "Hardware Check"]);
       stations.push(["packing", "Packaging build-up"]);
       stations.push(["finalPackaging", "Packing"]);
+      stations.push(["stockLabels", "Stock and labels"]);
       stations.push(["custom", "Custom / Other Job"]);
       return stations;
     }
@@ -4256,16 +4259,17 @@
     // jobs added to the block and any job someone is already on. Sub
     // Assembly, Testing and Packaging build-up can go in any block;
     // Assembly is the 1st, Hardware Check the 2nd and Packing the 3rd.
-    const ANY_BLOCK = ["subAssembly", "testing", "testingVerizon", "testingGlobal", "packing"];
+    // Stock and labels is a bench of its own all day.
+    const ANY_BLOCK = ["subAssembly", "testing", "testingVerizon", "testingGlobal", "packing", "stockLabels"];
     const BLOCK_STATIONS = {
-      start: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap", "testing", "testingVerizon", "testingGlobal", "packing"],
+      start: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap", "testing", "testingVerizon", "testingGlobal", "packing", "stockLabels"],
       second: ANY_BLOCK.concat("hardware"),
       finish: ANY_BLOCK.concat("finalPackaging")
     };
 
     function benchZoneKind(zone) {
       if (zone === "none") return "none";
-      if (zone.startsWith("custom:")) return "custom";
+      if (zone.startsWith("custom:") || zone === "stockLabels") return "custom";
       if (/^assembly|^subAssembly/.test(zone)) return "assembly";
       if (/^testing/.test(zone)) return "testing";
       return zone;   // hardware, packing, finalPackaging
@@ -4703,7 +4707,7 @@
     }
 
     const CREW_SKILL_KIND = { subAssembly: "assembly", assembly: "assembly", testing: "testing", hardware: "hardware", packing: "packing" };
-    const CREW_ICONS = { subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE", testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PB", finalPackaging: "PK" };
+    const CREW_ICONS = { subAssembly: "SA", assembly: "AS", assemblyGen4: "G4", assemblyTap: "TP", testing: "TE", testingVerizon: "VZ", testingGlobal: "GL", hardware: "HW", packing: "PB", finalPackaging: "PK", stockLabels: "SL" };
     const CREW_MIN = { subAssembly: 1, assembly: 1, assemblyGen4: 1, assemblyTap: 1, testing: 1, testingVerizon: 1, testingGlobal: 1, hardware: 3, packing: 1 };
 
     function crewInitials(name) {
@@ -6238,6 +6242,7 @@
         ["hardware", "Hardware Check"],
         ["packing", "Packaging build-up"],
         ["finalPackaging", "Packing"],
+        ["stockLabels", "Stock and labels"],
         ["custom", "Custom / Other Job"]
       ];
     }
@@ -6438,8 +6443,8 @@
     });
 
     function suggestProductsModel(usableWorkers) {
-      let model = makeWorkflowModel(usableWorkers);
-      const workers = usableWorkers.filter(worker => window.PlannerSkills.inProduction(worker));
+      let model = placeDefaultJobs(makeWorkflowModel(usableWorkers));
+      const workers = usableWorkers.filter(worker => window.PlannerSkills.inProduction(worker) && !hasDefaultJob(worker));
       const on = (layout, phase, station) => workflowPhaseWorkers(layout, phase, station).length;
       const free = (layout, phase, worker) => !layout.phases[phase].has(worker.key);
       const assemblers = assemblyBenchesUsed;
@@ -6692,6 +6697,7 @@
         hardware: "Hardware Check",
         packing: "Packaging build-up",
         finalPackaging: "Packing",
+        stockLabels: "Stock and labels",
         custom: "Custom Job"
       };
       return labels[normalized] || stationLabel(normalized);
@@ -6700,7 +6706,7 @@
     function workflowWorkerEligible(worker, station) {
       const normalized = normalizeWorkflowStation(station);
       if (!worker || !window.PlannerSkills.inProduction(worker)) return false;
-      if (normalized === "custom" || normalized === "finalPackaging") return true;
+      if (normalized === "custom" || normalized === "finalPackaging" || normalized === "stockLabels") return true;
       if (normalized === "subAssembly") return mixedWorkerEligible(worker, "subAssembly");
       if (normalized === "assembly" || normalized === "assemblyGen4" || normalized === "assemblyTap" || stationBase(normalized) === "assembly") {
         return mixedWorkerEligible(worker, "assembly");
@@ -6858,6 +6864,17 @@
     /* ============================================================
        PHASE 4 WORKFLOW MODEL / CAPACITY-LINKED PHASE EDITING
        ============================================================ */
+    /* People with a job of their own every day (Lists → Staff: Stock and
+       labels) start each day on it in all three blocks. Auto assign leaves
+       them out; a move by hand takes them off for that block. */
+    const hasDefaultJob = worker => worker?.defaultJob === "stockLabels";
+
+    function placeDefaultJobs(model) {
+      model.usableWorkers.filter(worker => hasDefaultJob(worker) && window.PlannerSkills.inProduction(worker))
+        .forEach(worker => WORKFLOW_PHASES.forEach(phase => setWorkflowAssignment(model, phase, worker, worker.defaultJob)));
+      return model;
+    }
+
     function makeWorkflowModel(usableWorkers) {
       return {
         phases: {
@@ -7561,7 +7578,9 @@
 
       document.getElementById("plannerToolsCard").classList.remove("hidden");
 
-      const result = findBestAllocation(usableWorkers, commsType, unitType);
+      // Auto assign works with everyone but people on a job of their own.
+      const autoWorkers = usableWorkers.filter(worker => !hasDefaultJob(worker));
+      const result = findBestAllocation(autoWorkers, commsType, unitType);
       if (result.possible) {
         result.usableWorkers = usableWorkers;
         result.unassignedWorkers = getUnassignedWorkers(usableWorkers, result.names);
@@ -7571,13 +7590,14 @@
 
       const products = productsDay();
       const automaticMixed = workDayMode === "mixed" && !products
-        ? calculateMixedPhaseCapacity(usableWorkers, workBatches)
+        ? calculateMixedPhaseCapacity(autoWorkers, workBatches)
         : null;
 
       // Nobody is placed until Auto assign; moves by hand go on top.
       const workflowModel = !autoAssign ? makeWorkflowModel(usableWorkers)
         : products ? suggestProductsModel(usableWorkers)
         : buildSuggestedWorkflowModel(result, automaticMixed, usableWorkers);
+      placeDefaultJobs(workflowModel);
       if (autoAssign) staffSubAssembly(workflowModel, products ? productsOutputs(workflowModel) : engineOutputs(result, automaticMixed));
       applyManualWorkflowAssignments(workflowModel, usableWorkers);
       lastStationIssues = [...workflowModel.warnings];
@@ -8209,6 +8229,7 @@
         testingVerizon: 40, testingGlobal: 42, testing: 40,
         subAssembly: 45, custom: 60, finalPackaging: 70
       };
+      if (normalized === "stockLabels") return 80;
       const order = phase === "second" ? secondOrder : phase === "finish" ? finishOrder : startOrder;
       return order[normalized] ?? order[stationBase(normalized)] ?? 60;
     }
@@ -8358,7 +8379,8 @@
       if (product && stationBase(task.station) === "testing") return `test:${product}`;
       const lanes = {
         subAssembly: "sub", assembly: "build", assemblyGen4: "build", assemblyTap: "build-tap", hardware: "build",
-        packing: "pack", testing: "test", testingVerizon: "test-vz", testingGlobal: "test-gl", finalPackaging: "finish"
+        packing: "pack", testing: "test", testingVerizon: "test-vz", testingGlobal: "test-gl", finalPackaging: "finish",
+        stockLabels: "stock"
       };
       return lanes[task.station] || `other:${task.station}`;
     }
@@ -8460,6 +8482,7 @@
       const laneRank = lane => {
         if (lane.startsWith("build:")) return 0.5;
         if (lane.startsWith("test:")) return 5.5;
+        if (lane === "stock") return 100;   // the bottom row, under one-off jobs
         const index = PLAN_LANE_ORDER.indexOf(lane);
         return index === -1 ? 99 : index;
       };

@@ -1012,6 +1012,7 @@
         <tr data-staff="${esc(person.key)}" class="${Skills.inProduction(person) ? "" : "off"}">
           <td><input type="text" data-field="name" value="${esc(person.name || person.key)}" maxlength="80" aria-label="Name" /></td>
           <td class="center"><input type="checkbox" data-field="inProduction" ${Skills.inProduction(person) ? "checked" : ""} aria-label="In production" /></td>
+          <td class="center"><input type="checkbox" data-field="defaultJob" ${person.defaultJob === "stockLabels" ? "checked" : ""} aria-label="Stock and labels" /></td>
           ${Skills.SKILL_KEYS.map(skill => `<td class="center">${dots(person, skill)}</td>`).join("")}
           <td class="actions-cell"><button type="button" class="secondary icon" data-act="remove" aria-label="Remove ${esc(person.name || person.key)}">${icon("remove")}</button></td>
         </tr>`;
@@ -1021,14 +1022,15 @@
             <thead><tr>
               <th class="wide">Name</th>
               <th class="center">In production</th>
+              <th class="center">Stock and labels</th>
               ${Skills.SKILL_KEYS.map(skill => `<th class="center">${esc(Skills.SKILL_LABELS[skill])}</th>`).join("")}
               <th></th>
             </tr></thead>
-            <tbody>${staff.length ? staff.map(row).join("") : `<tr><td colspan="${Skills.SKILL_KEYS.length + 3}">None</td></tr>`}</tbody>
+            <tbody>${staff.length ? staff.map(row).join("") : `<tr><td colspan="${Skills.SKILL_KEYS.length + 4}">None</td></tr>`}</tbody>
             <tfoot>
               <tr data-add="staff">
                 <td><input type="text" data-new="label" maxlength="80" aria-label="New name" /></td>
-                <td colspan="${Skills.SKILL_KEYS.length + 1}"></td>
+                <td colspan="${Skills.SKILL_KEYS.length + 2}"></td>
                 <td class="actions-cell"><button type="button" data-act="add">Add</button></td>
               </tr>
             </tfoot>
@@ -1132,6 +1134,8 @@
         if (listRow) editListItem(field.closest("table[data-list]").dataset.list, listRow.dataset.key, field.dataset.field, value);
         else if (presetCard) editPreset(presetCard.dataset.preset, field.dataset.field, value);
         else if (staffRow && field.dataset.field === "name") editStaffName(staffRow.dataset.staff, value);
+        // Stock and labels: on that bench all day, every day, unless moved by hand.
+        else if (staffRow && field.dataset.field === "defaultJob") saveStaffFields(staffRow.dataset.staff, { defaultJob: value ? "stockLabels" : null });
         else if (staffRow) {
           staffRow.classList.toggle("off", !value);
           saveStaffFields(staffRow.dataset.staff, { inProduction: value });

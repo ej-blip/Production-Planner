@@ -415,7 +415,9 @@
     // the extra jobs (text-only jobs carried over until finished).
     function renderOtherJobs() {
       const phases = [["start", "1st block"], ["second", "2nd block"], ["finish", "3rd block"]];
-      const custom = state.assignments.filter(item => item.station === "custom");
+      // Stock and labels (a bench of its own all day) shows here too.
+      const custom = state.assignments.filter(item => item.station === "custom" || item.station === "stockLabels")
+        .map(item => item.station === "stockLabels" ? { ...item, jobLabel: item.jobLabel || "Stock and labels" } : item);
       const planned = Object.values(state.plan?.blockJobs || {}).flat().map(String);
       const names = [...new Set([...custom.map(item => item.jobLabel || "Custom job"), ...planned])].sort((a, b) => a.localeCompare(b));
       $("otherJobsSection").classList.toggle("hidden", !names.length);
