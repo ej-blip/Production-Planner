@@ -77,6 +77,18 @@
     .job-pick.on::after { content: "✓"; position: absolute; top: 10px; right: 12px; font-size: 18px; font-weight: 700; color: var(--comms); }
     .job-pick.extra { border-style: dashed; }
     .job-pick.extra b { white-space: normal; }
+    .jobs-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .jobs-head .section-title { margin: 0; }
+    .target-toggle { display: inline-flex; }
+    .target-toggle .work-mode-button { border-radius: 0; }
+    .target-toggle .work-mode-button:first-child { border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
+    .target-toggle .work-mode-button:last-child { border-radius: 0 var(--radius-lg) var(--radius-lg) 0; margin-left: -1px; }
+    .job-pick.targeted { padding-bottom: 58px; }
+    .job-target { position: absolute; left: 20px; right: 12px; bottom: 10px; display: flex; align-items: center; gap: 8px; margin: 0; }
+    .job-target span { font-family: var(--font-label); font-size: 22px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink); }
+    .job-target input { width: 84px; min-height: 38px; margin: 0; padding: 4px 8px; font-family: var(--font-label); font-size: 22px; font-weight: 600; }
+    .job-pick .job-pick-note { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .job-pick .job-pick-note.short { color: var(--red); }
     .job-pick-delete { position: absolute; top: 6px; right: 6px; width: 28px; min-height: 28px; padding: 0; margin: 0; border-radius: 50%; display: grid; place-items: center; }
     .job-pick-delete .ico { width: 14px; height: 14px; }
     .job-creator form { display: grid; gap: 6px; }
@@ -97,6 +109,8 @@
     .output-total { display: grid; align-content: center; padding: 10px 16px; border-radius: var(--radius-lg); background: var(--print); color: var(--print-ink); }
     .output-total span { font-family: var(--font-label); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--print-muted); }
     .output-total b { font-family: var(--font-label); font-size: 30px; line-height: 1; }
+    .output-total small { margin-top: 4px; font-family: var(--font-label); font-size: 14px; font-weight: 600; letter-spacing: 0.04em; color: var(--print-muted); }
+    .output-total small.short { color: #ff9b8f; }
     .output-steps { flex: 1; display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
     .output-step { display: grid; align-content: center; gap: 2px; min-width: 130px; padding: 8px 12px; border: 1px solid var(--rule-strong); border-radius: var(--radius-lg); background: var(--raised); }
     .output-step span { font-family: var(--font-label); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -1544,7 +1558,13 @@
     <div class="card jobs-card" data-step="benches">
       <div class="jobs-top">
         <section>
-          <h2 class="section-title">Jobs</h2>
+          <div class="jobs-head">
+            <h2 class="section-title">Jobs</h2>
+            <div class="target-toggle" id="targetToggle" role="group" aria-label="Day output">
+              <button type="button" class="work-mode-button active" data-targets="max" aria-pressed="true">Max output</button>
+              <button type="button" class="work-mode-button" data-targets="set" aria-pressed="false">Set targets</button>
+            </div>
+          </div>
           <div class="job-picks" id="jobsBoard"></div>
         </section>
         <section class="job-creator">
@@ -2198,7 +2218,9 @@
         configText,
         quantity: Math.max(0, Math.floor(Number(raw.quantity) || 0)),
         ...(raw.orderId ? { orderId: String(raw.orderId) } : {}),
-        ...(raw.connectorKey ? { connectorKey: String(raw.connectorKey) } : {})
+        ...(raw.connectorKey ? { connectorKey: String(raw.connectorKey) } : {}),
+        ...(raw.dayTarget !== undefined && raw.dayTarget !== null && raw.dayTarget !== "" && Number.isFinite(Number(raw.dayTarget))
+          ? { dayTarget: Math.max(0, Math.floor(Number(raw.dayTarget))) } : {})
       };
     }
 
@@ -2617,7 +2639,8 @@
         simType: order.simType,
         configKey: order.configKey,
         configText: order.configText ?? configurationComponentSummary(order.configKey),
-        quantity: existing && left !== null ? Math.min(existing.quantity, left) : existing ? existing.quantity : (left ?? order.quantity)
+        quantity: existing && left !== null ? Math.min(existing.quantity, left) : existing ? existing.quantity : (left ?? order.quantity),
+        dayTarget: existing?.dayTarget
       });
     }
 
@@ -3049,6 +3072,17 @@
 
     function wireJobs() {
       const root = document.getElementById("jobsBoard");
+      document.getElementById("targetToggle").addEventListener("click", event => {
+        const choice = event.target.closest("[data-targets]");
+        if (choice) setManualTargets(choice.dataset.targets === "set");
+      });
+      root.addEventListener("change", event => {
+        const input = event.target.closest("[data-day-target]");
+        if (input) setDayTarget(input.dataset.dayTarget, input.value);
+      });
+      root.addEventListener("keydown", event => {
+        if (event.key === "Enter" && event.target.matches("[data-day-target]")) event.target.blur();
+      });
       root.addEventListener("click", event => {
         const remove = event.target.closest("[data-delete-job]");
         if (remove) return deleteWaitingJob(remove.dataset.deleteJob);
@@ -3158,6 +3192,39 @@
     // Clicking a job card puts it on the day, or takes it off again. An
     // order builds (Assembly, then Testing); a card from an earlier day
     // goes on at the bench it waits for.
+    /* Set targets: each order picked for the day builds the number typed on
+       its card (blank = the most the benches can make), and Auto assign
+       staffs for those numbers. Max output: the benches' bottleneck sets
+       the day. Switching on starts each picked order at what it's planned
+       to build now. */
+    function setManualTargets(on) {
+      if (manualTargets === on) return;
+      if (on) {
+        const planned = plannedToday();
+        dayBuilds().forEach(batch => {
+          if (!Number.isInteger(batch.dayTarget) && planned.get(batch.id) > 0) batch.dayTarget = planned.get(batch.id);
+        });
+      }
+      manualTargets = on;
+      workDayMode = workBatches.length > 1 || productsDay() ? "mixed" : "single";
+      lastStationIssues = [];
+      applyPrimaryBatchToSingleControls();
+      applyWorkDayModeUi();
+      renderWorkMixTable();
+      saveWorkMixState();
+      calculateFromRoster();
+    }
+
+    function setDayTarget(batchId, value) {
+      const batch = workBatches.find(item => item.id === batchId);
+      if (!batch) return;
+      const text = String(value ?? "").trim();
+      if (text === "" || !Number.isFinite(Number(text))) delete batch.dayTarget;
+      else batch.dayTarget = Math.max(0, Math.min(leftToday(batch), Math.floor(Number(text))));
+      saveWorkMixState();
+      calculateFromRoster();
+    }
+
     function pickJob(key) {
       const split = key.indexOf(":");
       const kind = key.slice(0, split);
@@ -3183,15 +3250,25 @@
 
     const STAGE_VERBS = { assembly: "Build", testing: "Test", hardware: "Check", packing: "Pack" };
 
-    function jobPickHtml(job, { key, on, qty, note = "", deletable = false }) {
+    // target: { batchId, value, max, planned } puts a box for the day's
+    // target where the number goes (Set targets on, the order picked).
+    function jobPickHtml(job, { key, on, qty, note = "", deletable = false, target = null }) {
       const colour = listsApi()?.commsColour(job) || "var(--rule-strong)";
+      const short = target && target.value !== "" && target.planned < target.value;
+      const targetNote = !target ? "" : target.value === "" ? `${target.planned} possible` : short ? `${target.planned} possible` : "";
       return `
         <div class="job-pick-wrap">
-          <button type="button" class="job-pick ${on ? "on" : ""}" data-pick="${safeAttr(key)}" aria-pressed="${on}" style="--comms:${safeAttr(colour)}">
+          <button type="button" class="job-pick ${on ? "on" : ""} ${target ? "targeted" : ""}" data-pick="${safeAttr(key)}" aria-pressed="${on}" style="--comms:${safeAttr(colour)}">
             <b>${escapeHtml(unitTypeLabel(job))} ${escapeHtml(job.customer)}</b>
             <span>${escapeHtml(commsAndSim(job))}</span>
-            <span class="job-pick-qty">${escapeHtml(qty)}${note ? ` <small>${escapeHtml(note)}</small>` : ""}</span>
+            ${target ? (targetNote ? `<span class="job-pick-note ${short ? "short" : ""}">${escapeHtml(targetNote)}</span>` : "")
+              : `<span class="job-pick-qty">${escapeHtml(qty)}${note ? ` <small>${escapeHtml(note)}</small>` : ""}</span>`}
           </button>
+          ${target ? `
+            <label class="job-target">
+              <span>Build</span>
+              <input type="number" inputmode="numeric" min="0" max="${target.max}" step="1" value="${escapeHtml(String(target.value))}" placeholder="Max" data-day-target="${safeAttr(target.batchId)}" aria-label="${escapeHtml(`${unitTypeLabel(job)} ${job.customer} target`)}" />
+            </label>` : ""}
           ${deletable ? `<button type="button" class="secondary job-pick-delete" data-delete-job="${safeAttr(job.id)}" aria-label="Delete card"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>` : ""}
         </div>`;
     }
@@ -3216,6 +3293,11 @@
     function renderJobsBoard() {
       const root = document.getElementById("jobsBoard");
       if (!root) return;
+      document.querySelectorAll("#targetToggle [data-targets]").forEach(button => {
+        const active = (button.dataset.targets === "set") === manualTargets;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
       const prefix = planDateValue().replaceAll("-", "");
       const todaysBuilds = new Set(workBatches.map(batch => `${prefix}-${batch.id}`));
       const placed = new Set(dayJobs.map(job => job.id));
@@ -3229,7 +3311,10 @@
       const orderCards = orders.map(order => {
         const batch = workBatches.find(item => item.orderId === order.id);
         const building = batch ? planned.get(batch.id) || 0 : 0;
-        return jobPickHtml(order, { key: `order:${order.id}`, on: Boolean(batch), qty: building ? `Build ${building}` : `${leftToday(order)} left` });
+        const target = manualTargets && batch
+          ? { batchId: batch.id, value: Number.isInteger(batch.dayTarget) ? batch.dayTarget : "", max: leftToday(order), planned: building }
+          : null;
+        return jobPickHtml(order, { key: `order:${order.id}`, on: Boolean(batch), qty: building ? `Build ${building}` : `${leftToday(order)} left`, target });
       });
       const waitingCards = waiting.map(job => {
         const on = placed.has(job.id);
@@ -4156,6 +4241,7 @@
     let benchBoard = null;
     let benchBoardPhase = "start";
     let autoAssign = false;       // the computer's best layout is in use
+    let manualTargets = false;    // each order builds its own day target, not the most the benches can make
     let blockJobs = { start: [], second: [], finish: [] };   // one-off jobs per block
     let benchBoardRenderPending = false;
     let benchBoardMessage = "";
@@ -4594,9 +4680,14 @@
         : flow.partner ? `+${flow.gain} with 1 more person on each`
         : `+${flow.gain} with ${flow.people > 1 ? `${flow.people} more people` : "1 more person"}`;
       const limit = zone => zone === flow.bottleneck || zone === flow.partner;
+      // Set targets: the day's target, when every build has one.
+      const builds = dayBuilds();
+      const target = manualTargets && builds.length && builds.every(batch => Number.isInteger(batch.dayTarget))
+        ? builds.reduce((total, batch) => total + dayCap(batch), 0) : null;
       return `
         <div class="output-bar">
-          <div class="output-total"><span>Day output</span><b>${flow.output}</b></div>
+          <div class="output-total"><span>Day output</span><b>${flow.output}</b>${target !== null
+            ? `<small class="${flow.output < target ? "short" : ""}">Target ${target}</small>` : ""}</div>
           <div class="output-steps">
             ${flow.totals.map(([zone, total]) => `
               <div class="output-step ${limit(zone) ? "limit" : ""}">
@@ -6099,11 +6190,19 @@
       return workBatches.filter(batch => batch.orderId || keepManualBuild);
     }
 
-    // Days with a standalone unit (Solar), or more than one build, plan by
-    // products; a single Gen4 / Tap build uses the single-build planner.
+    // Days with a standalone unit (Solar), more than one build, or set
+    // targets plan by products; a single Gen4 / Tap build at the most the
+    // benches can make uses the single-build planner.
     function productsDay() {
       const builds = dayBuilds();
-      return builds.some(isStandalone) || builds.length > 1;
+      return builds.some(isStandalone) || builds.length > 1 || (manualTargets && builds.length > 0);
+    }
+
+    // What a day's build can take on: what its order has left, or its set
+    // target when targets are on (blank = the most the benches can make).
+    function dayCap(batch) {
+      const left = leftToday(batch);
+      return manualTargets && Number.isInteger(batch.dayTarget) ? Math.min(left, batch.dayTarget) : left;
     }
 
     // The day's unit types in batch order, with what needs testing where.
@@ -6165,7 +6264,7 @@
         .filter(job => (job.route || []).includes(stage) && match(job))
         .reduce((total, job) => total + (Number(job.quantity) || 0), 0);
       const orders = dayBuilds()
-        .map(batch => ({ batch, key: keyOf(batch), left: leftToday(batch), assembly: 0, testing: Infinity }))
+        .map(batch => ({ batch, key: keyOf(batch), left: dayCap(batch), assembly: 0, testing: Infinity }))
         .filter(order => order.left > 0);
       const totals = new Map();
       const share = (pool, members, field, station) => {
@@ -7557,6 +7656,7 @@
           // A day with no saved plan starts fresh: no builds (jobs are picked
           // on Benches), and none of another day's bench moves, job cards or
           // notes.
+          manualTargets = false;
           clearDayBuilds();
           stationAdjustments = [];
           dayJobs = [];
@@ -7624,6 +7724,7 @@
     }
 
     function applySavedPlan(plan) {
+      manualTargets = plan.manualTargets === true;
       keepManualBuild = Array.isArray(plan.batches) && plan.batches.some(batch => !batch.orderId && Number(batch.quantity) > 0);
       dayJobs = Array.isArray(plan.jobs) ? plan.jobs.filter(job => !job.isNew).map(job => ({ ...job })) : [];
       seenPlanJobIds = new Set(dayJobs.map(job => job.id));
@@ -7678,6 +7779,7 @@
         })),
         notes: document.getElementById("notesInstructions").value || "",
         autoAssign,
+        manualTargets,
         blockJobs,
         productsDay: productsDay(),
         subAssemblyPacks: Boolean(spareUnit()),
