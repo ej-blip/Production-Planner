@@ -4253,11 +4253,14 @@
     };
 
     // Stations each block shows (as the day mode offers them), then one-off
-    // jobs added to the block and any job someone is already on.
+    // jobs added to the block and any job someone is already on. Sub
+    // Assembly, Testing and Packaging build-up can go in any block;
+    // Assembly is the 1st, Hardware Check the 2nd and Packing the 3rd.
+    const ANY_BLOCK = ["subAssembly", "testing", "testingVerizon", "testingGlobal", "packing"];
     const BLOCK_STATIONS = {
-      start: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap", "testing", "testingVerizon", "testingGlobal"],
-      second: ["testing", "testingVerizon", "testingGlobal", "hardware", "packing"],
-      finish: ["finalPackaging"]
+      start: ["subAssembly", "assembly", "assemblyGen4", "assemblyTap", "testing", "testingVerizon", "testingGlobal", "packing"],
+      second: ANY_BLOCK.concat("hardware"),
+      finish: ANY_BLOCK.concat("finalPackaging")
     };
 
     function benchZoneKind(zone) {
@@ -7393,10 +7396,10 @@
         return { phase, support, assemblyBenches, testingBenches, hardwareBenches, packingBenches, assembly, testing, hardware, packing };
       });
 
-      const testingMax = dailyTestingLimit(commsType);
+      // Each block already counts testers up to the number of test benches.
       const stageCapacityUnits = {
         assembly: phaseRows.reduce((sum, row) => sum + row.assembly, 0),
-        testing: Math.min(testingMax, phaseRows.reduce((sum, row) => sum + row.testing, 0)),
+        testing: phaseRows.reduce((sum, row) => sum + row.testing, 0),
         hardware: phaseRows.reduce((sum, row) => sum + row.hardware, 0),
         packing: phaseRows.reduce((sum, row) => sum + row.packing, 0)
       };

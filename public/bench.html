@@ -802,10 +802,9 @@
 
       if (plan.productsDay) return scaledLimit("testing", ["testing", "testingVerizon", "testingGlobal"], plan, assignments);
 
+      // Testing can run in any block; each counts testers up to the benches.
       if (plan.workMode !== "mixed") {
-        const max = dailyLimit(commsKeyOf(batches[0]));
-        const total = PHASE_KEYS.reduce((sum, phase) => sum + testingInBlock(commsKeyOf(batches[0]), phase, onStation(phase, "testing")), 0);
-        return Math.min(max, total);
+        return PHASE_KEYS.reduce((sum, phase) => sum + testingInBlock(commsKeyOf(batches[0]), phase, onStation(phase, "testing")), 0);
       }
 
       const requested = batches.reduce((sum, batch) => sum + Number(batch.quantity), 0);
